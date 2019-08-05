@@ -1,0 +1,38 @@
+# ignored directories
+build/*
+bin/*
+examples/bin/*
+doc/html/*
+doc/latex/*
+
+# emacs temp file
+*.*~
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Executables
+*.exe
+*.out
+*.app
+
+# html file from markdown preview
+*.html
+
+# list of excluded files
+!./bin/placeholder
+!./build/placeholder
+
+# tag-related files
+tags/*
+TAGS
+GPATH
+GRTAGS
+GTAGS
