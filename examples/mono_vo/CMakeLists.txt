@@ -1,6 +1,11 @@
 # add executable
 add_executable(${TARGET_MONO_VO}
   ${TARGET_MONO_VO}.cpp
+  CamDataLoader.cpp
+  )
+
+target_include_directories(${TARGET_MONO_VO} PRIVATE
+  "${PROJECT_SOURCE_DIR}/src"
   )
 
 target_link_libraries(${TARGET_MONO_VO}

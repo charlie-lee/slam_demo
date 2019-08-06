@@ -7,7 +7,6 @@ if(${CMAKE_VERSION} VERSION_LESS 3.14)
 endif()
 
 
-
 # set up top-level project
 project(slam_demo
   VERSION 0.0.1
