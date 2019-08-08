@@ -22,9 +22,18 @@ class CamDataLoader {
 public:
     /** 
      * @brief Constructor for monocular case. 
-     * @param[in]  strImgPath  Input path of images to be loaded.
-     * @param[in]  strDataFile Input path of the csv data file containing
-     *                         timestamp and image filename info.
+     *
+     * The constructor will read the dataset csv data file and
+     * get timestamp and image filename info.
+     *
+     * The csv file should be in the following format:
+     * - 2 Columns;
+     * - Column name for the 1st row;
+     * - Timestamp info in the 1st column and image filename in the 2nd column.
+     *
+     * @param[in] strImgPath  Input path of images to be loaded.
+     * @param[in] strDataFile Input path of the csv data file containing
+     *                        timestamp and image filename info.
      */
     CamDataLoader(const std::string& strImgPath,
                   const std::string& strDataFile);
@@ -39,11 +48,11 @@ public:
     /** 
      * @brief Load image data (1 view only) for monocular/stereo/RGB-D cases.
      * @param[in] nFrame Frame index starting from 0.
-     * @param[in] view   The image view to be loaded.
+     * @param[in] eView  The image view to be loaded.
      * @return Loaded image data of cv::Mat type.
      */
-    cv::Mat loadImg(int nFrame, View view = View::MONO);
-    /// get number of frames loaded
+    cv::Mat loadImg(int nFrame, View eView = View::MONO);
+    /// Get number of frames loaded.
     int getNFrames() { return mvTimestamps.size(); }
 private:
     std::vector<std::string> mvstrImgs1; // image filenames (mono/left/RGB view)

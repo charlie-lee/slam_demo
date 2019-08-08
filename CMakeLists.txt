@@ -9,14 +9,18 @@ endif()
 
 # set up top-level project
 project(slam_demo
-  VERSION 0.0.1
+  VERSION 0.0.2
   DESCRIPTION "SLAM demo"
   LANGUAGES CXX)
 
 
 # set some variables
 # compile options
-set(DEBUG_OPTIONS "-Wall" "-Wextra" "-Werror" "-pedantic")
+# -Wshadow: warn the user if a variable declaration shadows another
+#   with the same name in the same scope
+# -Wnon-virtual-dtor: warn the user if a class with virtual functions has
+#   a non-virtual destructor. This can lead to hard to track down memory errors.
+set(DEBUG_OPTIONS "-Wall" "-Wextra""-Wshadow" "-pedantic" "-Wnon-virtual-dtor")
 # custom OpenCV version
 #set(OpenCV_VER 3.4.5)
 

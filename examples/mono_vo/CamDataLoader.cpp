@@ -1,19 +1,19 @@
 /**
  * @file   CamDataLoader.cpp
- * @brief  Camera data loader class.
+ * @brief  Implementations of camera data loader class.
  * @author Charlie Li
  * @date   2019.08.05
  */
 
 #include "CamDataLoader.hpp"
 
-#include <opencv2/core.hpp>
-#include <opencv2/imgcodecs.hpp>
-
 #include <fstream>
 #include <sstream>
 #include <vector>
 #include <string>
+
+#include <opencv2/core.hpp>
+#include <opencv2/imgcodecs.hpp>
 
 using namespace std;
 using namespace cv;
@@ -35,21 +35,13 @@ CamDataLoader::CamDataLoader(const string& strImgPath,
     }
 }
 
-Mat CamDataLoader::loadImg(int nFrame, View view)
+Mat CamDataLoader::loadImg(int nFrame, View eView)
 {
     Mat img;
-    switch (view) {
-    case View::MONO:
-    case View::LEFT:
-    case View::RGB:
-        img = imread(mvstrImgs1[nFrame], IMREAD_UNCHANGED);
-        break;
-    case View::RIGHT:
-    case View::DEPTH:
-        img = imread(mvstrImgs2[nFrame], IMREAD_UNCHANGED);
-        break;
-    default:
-        break;
+    if (eView == View::MONO || eView == View::LEFT || eView == View::RGB) {
+        img = imread(mvstrImgs1[nFrame], IMREAD_UNCHANGED); // load to view 1
+    } else if (eView == View::RIGHT || eView == View::DEPTH) {
+        img = imread(mvstrImgs2[nFrame], IMREAD_UNCHANGED); // load to view 2
     }
     return img;
 }
