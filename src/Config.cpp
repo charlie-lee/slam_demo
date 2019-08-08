@@ -57,7 +57,8 @@ void Config::setCamParams(const cv::FileStorage& fs, System::Mode eMode)
 {
     // confirm mode and allocate camera parameters
     if (eMode == System::Mode::MONOCULAR || eMode == System::Mode::RGBD) {
-        mvCamParams.reserve(1);
+        mvCamParams.resize(1);
+        mvK.resize(1);
         // set camera parameters
         CameraParameters camParams;
         fs["Camera.width"] >> camParams.w;
@@ -71,11 +72,22 @@ void Config::setCamParams(const cv::FileStorage& fs, System::Mode eMode)
         fs["Camera.p1"] >> camParams.p1;
         fs["Camera.p2"] >> camParams.p2;
         fs["Camera.fps"] >> camParams.fps;
-        mvCamParams.push_back(camParams);
+        mvCamParams[0] = camParams;
+        setCamIntrinsics(0);
     } else if (eMode == System::Mode::STEREO) {
         mvCamParams.reserve(2);
         // TODO: process multi-view parameters
     }
+}
+
+void Config::setCamIntrinsics(int view)
+{
+    cv::Mat K = cv::Mat::eye(3, 3, CV_64FC1);
+    K.at<double>(0, 0) = Config::fx(view);
+    K.at<double>(1, 1) = Config::fy(view);
+    K.at<double>(0, 2) = Config::cx(view);
+    K.at<double>(1, 2) = Config::cy(view);
+    K.copyTo(mvK[view]);
 }
 
 } // namespace SLAM_demo

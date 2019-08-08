@@ -49,7 +49,7 @@ public:
         return *instance; // dereferencing to get the reference
     }
     
-    // Setters
+    // setters
     /**
      * @brief Set system parameters from a config file.
      *
@@ -69,7 +69,7 @@ public:
      * @brief A group of camera parameter getters.
      * @param[in] i Get the parameter from the \f$i\f$th camera.
      */
-    ///@{ // class member group for doxygen
+    ///@{
     static int width(int i = 0) { return getInstance().mvCamParams[i].w; }
     static int height(int i = 0) { return getInstance().mvCamParams[i].h; }
     static double fx(int i = 0) { return getInstance().mvCamParams[i].fx; }
@@ -81,6 +81,7 @@ public:
     static double p1(int i = 0) { return getInstance().mvCamParams[i].p1; }
     static double p2(int i = 0) { return getInstance().mvCamParams[i].p2; }
     static double fps(int i = 0) { return getInstance().mvCamParams[i].fps; }
+    static cv::Mat K(int i = 0) { return getInstance().mvK[i]; }
     ///@} // end of groupCamParamGetters
 private:
     /// Constructor that configures all the parsed system parameters.
@@ -91,9 +92,16 @@ private:
     Config& operator=(const Config&) = delete;
     /// Set camera parameters based on loaded cfg file and system mode.
     void setCamParams(const cv::FileStorage& fs, System::Mode eMode);
+    /** 
+     * @brief Set camera intrinsics using configured camera parameters.
+     * @param[in] view Camera index starting from 0.
+     */
+    void setCamIntrinsics(int view);
 private: // private data for this class
     /// Camera parameters for each camera.
-    std::vector<CameraParameters> mvCamParams; 
+    std::vector<CameraParameters> mvCamParams;
+    /// Camera intrinsics
+    std::vector<cv::Mat> mvK;
 };
 
 /// Display configured system parameters.

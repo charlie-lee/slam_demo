@@ -34,7 +34,7 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    // set global parameters for the SLAM system
+    // set and display global parameters for the SLAM system
     SLAM_demo::Config& cfg = SLAM_demo::Config::getInstance();
     if (!cfg.setParameters(argv[1], SLAM_demo::System::Mode::MONOCULAR)) {
         cerr << "SLAM system configuration failed." << endl;
