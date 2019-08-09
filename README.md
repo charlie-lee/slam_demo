@@ -15,14 +15,14 @@ A Simultaneous Localization and Mapping (SLAM) demo application.
 
 ## Build Tags
 1. Create symbolic links to included libraries
-   - `cd /path/to/slam_demo
+   - `cd /path/to/slam_demo`
    - `mkdir tags`
    - `ln -s /usr/include/libX /usr/include/libY ... tags`
 2. Create **ctags** and **gtags**
-   - `cd /path/to/slam_demo
+   - `cd /path/to/slam_demo`
    - `ctags -e -R --c++-kinds=+px --fields=+iaS --extra=+q .`
    - `gtags`
 
 ## Run Examples
 1. mono_vo
-   - `mono_vo path/to/imgPath path/to/camDataFile.csv`
+   - `mono_vo path/to/cfgFile.yaml path/to/imgPath path/to/camDataFile.csv`
