@@ -1,4 +1,7 @@
-# Changelog
+# Changelog & TODO-list
+
+## TODO
+- Add Frame class for feature extraction & matching scheme
 
 ## Latest version
 - Add system initialzation scheme (5%)

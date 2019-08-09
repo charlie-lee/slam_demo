@@ -43,7 +43,7 @@ add_subdirectory(examples)
 if(${DOXYGEN_FOUND})
   # 1) set doxygen-related variables
   #    - general options
-  set(DOXYGEN_FILE_PATTERNS "*.c" "*.cpp" "*.h" "*.hpp")
+  set(DOXYGEN_FILE_PATTERNS "*.c" "*.cpp" "*.h" "*.hpp" "*.md")
   set(DOXYGEN_EXTRACT_ALL YES)
   set(DOXYGEN_EXTRACT_STATIC YES) # documenting static funcs
   set(DOXYGEN_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/doc)
@@ -51,10 +51,12 @@ if(${DOXYGEN_FOUND})
   set(DOXYGEN_USE_MATHJAX YES)
   set(DOXYGEN_MATHJAX_EXTENSIONS "TeX/AMSmath" "TeX/AMSsymbols")
   #set(DOXYGEN_EXTRA_PACKAGES amsmath)
+  #    - README integration
+  set(DOXYGEN_USE_MDFILE_AS_MAINPAGE "${CMAKE_SOURCE_DIR}/README.md")
   # 2) call cmake function to add doc
   doxygen_add_docs(doc
+    ${CMAKE_SOURCE_DIR}/README.md
     ${CMAKE_SOURCE_DIR}/src
-    ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/examples
     )
 endif()
