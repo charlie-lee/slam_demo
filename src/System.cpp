@@ -8,8 +8,10 @@
 #include "System.hpp"
 
 #include <iostream>
+#include <memory>
 
 #include <opencv2/core.hpp>
+#include "Tracker.hpp"
 
 using namespace std;
 
@@ -28,6 +30,10 @@ System::System(Mode eMode):
         strMode = "RGB-D";
     }
     cout << "SLAM demo in " << strMode << " mode." << endl;
+
+    // initialize SLAM modules
+    // tracker module
+    mpTracker = make_shared<Tracker>(Tracker(meMode));
 }
 
 } // namespace SLAM_demo

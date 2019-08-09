@@ -52,6 +52,8 @@ int main(int argc, char** argv)
     cv::Mat img;
     for (int ni = 0; ni < cdl.getNFrames(); ni++) {
         img = cdl.loadImg(ni, CamDataLoader::View::MONO);
+        assert(img.cols == SLAM_demo::Config::width() &&
+               img.rows == SLAM_demo::Config::height());
         cv::imshow("cam0", img);
         cv::waitKey(1);
     }

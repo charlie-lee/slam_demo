@@ -9,8 +9,12 @@
 #define SYSTEM_HPP
 
 #include <string>
+#include <memory>
 
 namespace SLAM_demo {
+
+// forward declarations
+class Tracker;
 
 /**
  * @class System
@@ -26,11 +30,12 @@ public:
     };
     /**
      * @brief Constructor for SLAM system class,
-     * @param[in] eMode System mode.
+     * @param[in] eMode SLAM system mode (see System::Mode for details).
      */
     System(Mode eMode = Mode::MONOCULAR);
 private:
     Mode meMode;
+    std::shared_ptr<Tracker> mpTracker; // pointer to tracker module
 };
 
 } // namespace SLAM_demo

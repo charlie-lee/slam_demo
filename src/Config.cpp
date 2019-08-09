@@ -33,7 +33,7 @@ bool Config::setParameters(const string& strCfgFile, System::Mode eMode)
 
 ostream& operator<<(ostream& os, const Config& cfg)
 {
-    os << "SLAM system parameters:" << endl;
+    os << endl << "SLAM system parameters:" << endl;
     os << "### Camera Parameters ###" << endl;
     const vector<CameraParameters>& vCamParams = cfg.mvCamParams;
     for (int i = 0; i < vCamParams.size(); ++i) {
@@ -73,7 +73,7 @@ void Config::setCamParams(const cv::FileStorage& fs, System::Mode eMode)
         fs["Camera.p2"] >> camParams.p2;
         fs["Camera.fps"] >> camParams.fps;
         mvCamParams[0] = camParams;
-        setCamIntrinsics(0);
+        setCamIntrinsics(0); // set K of view 0
     } else if (eMode == System::Mode::STEREO) {
         mvCamParams.reserve(2);
         // TODO: process multi-view parameters
@@ -82,11 +82,11 @@ void Config::setCamParams(const cv::FileStorage& fs, System::Mode eMode)
 
 void Config::setCamIntrinsics(int view)
 {
-    cv::Mat K = cv::Mat::eye(3, 3, CV_64FC1);
-    K.at<double>(0, 0) = Config::fx(view);
-    K.at<double>(1, 1) = Config::fy(view);
-    K.at<double>(0, 2) = Config::cx(view);
-    K.at<double>(1, 2) = Config::cy(view);
+    cv::Mat K = cv::Mat::eye(3, 3, CV_32F);
+    K.at<float>(0, 0) = Config::fx(view);
+    K.at<float>(1, 1) = Config::fy(view);
+    K.at<float>(0, 2) = Config::cx(view);
+    K.at<float>(1, 2) = Config::cy(view);
     K.copyTo(mvK[view]);
 }
 

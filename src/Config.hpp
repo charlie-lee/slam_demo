@@ -22,15 +22,15 @@ namespace SLAM_demo {
 struct CameraParameters {
     int w;      ///< Width of captured image.
     int h;      ///< Height of captured image.
-    double fx;  ///< Focal length (x-axis).
-    double fy;  ///< Focal length (y-axis).
-    double cx;  ///< Camera center \f$x_c\f$ in pixel.
-    double cy;  ///< Camera center \f$y_c\f$ in pixel.
-    double k1;  ///< Camera distortion coefficient \f$k_1\f$.
-    double k2;  ///< Camera distortion coefficient \f$k_2\f$.
-    double p1;  ///< Camera distortion coefficient \f$p_1\f$.
-    double p2;  ///< Camera distortion coefficient \f$p_2\f$.
-    double fps; ///< Camera framerate.
+    float fx;  ///< Focal length (x-axis).
+    float fy;  ///< Focal length (y-axis).
+    float cx;  ///< Camera center \f$x_c\f$ in pixel.
+    float cy;  ///< Camera center \f$y_c\f$ in pixel.
+    float k1;  ///< Camera distortion coefficient \f$k_1\f$.
+    float k2;  ///< Camera distortion coefficient \f$k_2\f$.
+    float p1;  ///< Camera distortion coefficient \f$p_1\f$.
+    float p2;  ///< Camera distortion coefficient \f$p_2\f$.
+    float fps; ///< Camera framerate.
 };
 
 /**
@@ -40,7 +40,6 @@ struct CameraParameters {
  */
 class Config {
 public:
-    // friends
     friend std::ostream& operator<<(std::ostream& os, const Config& cfg);
     /// Get the only instance of the class.
     static Config& getInstance()
@@ -48,7 +47,6 @@ public:
         static std::unique_ptr<Config> instance(new Config);
         return *instance; // dereferencing to get the reference
     }
-    
     // setters
     /**
      * @brief Set system parameters from a config file.
@@ -57,12 +55,11 @@ public:
      * for parameter parsing on a YAML file.
      *
      * @param[in] strCfgFile Filename of the configuration file.
-     * @param[in] eMode      System mode (enum type).
+     * @param[in] eMode      SLAM system mode (see System::Mode for details).
      * @return A boolean value indicating if the configuration is successful.
      */
     bool setParameters(const std::string& strCfgFile,
                        System::Mode eMode = System::Mode::MONOCULAR);
-    
     // getters
     /** 
      * @name groupCamParamGetters
@@ -72,20 +69,20 @@ public:
     ///@{
     static int width(int i = 0) { return getInstance().mvCamParams[i].w; }
     static int height(int i = 0) { return getInstance().mvCamParams[i].h; }
-    static double fx(int i = 0) { return getInstance().mvCamParams[i].fx; }
-    static double fy(int i = 0) { return getInstance().mvCamParams[i].fy; }
-    static double cx(int i = 0) { return getInstance().mvCamParams[i].cx; }
-    static double cy(int i = 0) { return getInstance().mvCamParams[i].cy; }
-    static double k1(int i = 0) { return getInstance().mvCamParams[i].k1; }
-    static double k2(int i = 0) { return getInstance().mvCamParams[i].k2; }
-    static double p1(int i = 0) { return getInstance().mvCamParams[i].p1; }
-    static double p2(int i = 0) { return getInstance().mvCamParams[i].p2; }
-    static double fps(int i = 0) { return getInstance().mvCamParams[i].fps; }
+    static float fx(int i = 0) { return getInstance().mvCamParams[i].fx; }
+    static float fy(int i = 0) { return getInstance().mvCamParams[i].fy; }
+    static float cx(int i = 0) { return getInstance().mvCamParams[i].cx; }
+    static float cy(int i = 0) { return getInstance().mvCamParams[i].cy; }
+    static float k1(int i = 0) { return getInstance().mvCamParams[i].k1; }
+    static float k2(int i = 0) { return getInstance().mvCamParams[i].k2; }
+    static float p1(int i = 0) { return getInstance().mvCamParams[i].p1; }
+    static float p2(int i = 0) { return getInstance().mvCamParams[i].p2; }
+    static float fps(int i = 0) { return getInstance().mvCamParams[i].fps; }
     static cv::Mat K(int i = 0) { return getInstance().mvK[i]; }
     ///@} // end of groupCamParamGetters
-private:
+private: // private members
     /// Constructor that configures all the parsed system parameters.
-    Config(){}
+    Config() = default;
     /// No copy is allowed.
     Config(const Config&) = delete; 
     /// No copy-assignment is allowed.
@@ -106,7 +103,6 @@ private: // private data for this class
 
 /// Display configured system parameters.
 std::ostream& operator<<(std::ostream& os, const Config& cfg);
-
 
 } // namespace SLAM_demo
 
