@@ -36,4 +36,13 @@ System::System(Mode eMode):
     mpTracker = make_shared<Tracker>(Tracker(meMode));
 }
 
+void System::trackImgs(const vector<cv::Mat>& vImgs, double timestamp)
+{
+    if (meMode == System::Mode::MONOCULAR) {
+        mpTracker->trackImgsMono(vImgs[0], timestamp);
+    } else {
+        assert(0); // TODO: track images in other SLAM modes
+    }
+}
+
 } // namespace SLAM_demo

@@ -1,11 +1,13 @@
 # Changelog & TODO-list
 
 ## TODO
-- Add Frame class for feature extraction & matching scheme
+- Improve performance on feature matching based on implementations on OpenCV.
 
-## Latest version
-- Add system initialzation scheme (5%)
-  - Add basic structure of Tracker class (10%)
+## v0.0.3
+- Add system initialzation scheme (done)
+  - Add basic structure of Tracker class (done)
+  - Add Frame class for feature extraction & matching scheme (done)
+    - Currently only implementations from OpenCV are used
 - Add system parameter loading scheme (done)
   - System parameter yaml file (done)
   - Create a singleton Config class for global cfgs (done)

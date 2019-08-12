@@ -2,7 +2,9 @@
 
 # Sensor Data File for OpenCV
 
-### Camera Parameters (cam 0) ###
+###
+### Camera Parameters (cam 0)
+###
 
 # Camera general data
 Camera.model: pinhole
@@ -26,4 +28,20 @@ Camera.p1: 0.00019359
 Camera.p2: 1.76187114e-05
 
 
+###
+### Feature Extraction Parameters ###
+###
+
+# Number of extracted features
+Feature.nFeatures: 1000
+
+# Scale factor of the iamge pyramid
+Feature.scaleFactor: 1.2
+
+# Number of octaves/levels of the image pyramid
+Feature.nLevels: 8
+
+
+###
 ### Misc ###
+###

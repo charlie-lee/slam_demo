@@ -43,20 +43,24 @@ int main(int argc, char** argv)
     cout << cfg << endl;
 
     // initialize the SLAM system
-    SLAM_demo::System(SLAM_demo::System::Mode::MONOCULAR);
+    SLAM_demo::System SLAM(SLAM_demo::System::Mode::MONOCULAR);
 
     // parse and load camera-captured data
     CamDataLoader cdl(argv[2], argv[3]);
 
-    // temp test on data loading scheme
-    cv::Mat img;
+    // load each frame and its corresponding timestamp into the SLAM system
     for (int ni = 0; ni < cdl.getNFrames(); ni++) {
+        cv::Mat img;
         img = cdl.loadImg(ni, CamDataLoader::View::MONO);
         assert(img.cols == SLAM_demo::Config::width() &&
                img.rows == SLAM_demo::Config::height());
-        cv::imshow("cam0", img);
-        cv::waitKey(1);
+        // load a vector of images into the SLAM system
+        vector<cv::Mat> vImgs;
+        vImgs.reserve(1);
+        vImgs.push_back(img);
+        SLAM.trackImgs(vImgs, cdl.getTimestamp(ni));
     }
-    
+
+    // TODO: dump SLAM results
     return 0;
 }

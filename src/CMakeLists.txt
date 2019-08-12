@@ -3,6 +3,7 @@ add_library(${PROJECT_NAME} SHARED
   System.cpp
   Config.cpp
   Tracker.cpp
+  Frame.cpp
   )
 
 target_link_libraries(${PROJECT_NAME}

@@ -28,12 +28,15 @@ bool Config::setParameters(const string& strCfgFile, System::Mode eMode)
     }
     // set camera parameters
     setCamParams(fs, eMode);
+    // set feature extraction parameters
+    setFeatExtParams(fs);
     return true;
 }
 
 ostream& operator<<(ostream& os, const Config& cfg)
 {
     os << endl << "SLAM system parameters:" << endl;
+    // camera parameters
     os << "### Camera Parameters ###" << endl;
     const vector<CameraParameters>& vCamParams = cfg.mvCamParams;
     for (int i = 0; i < vCamParams.size(); ++i) {
@@ -50,6 +53,12 @@ ostream& operator<<(ostream& os, const Config& cfg)
            << "  - p2: " << vCamParams[i].p2 << endl
            << "  - FPS: " << vCamParams[i].fps << endl;
     }
+    // feature extraction parameters
+    const FeatExtParameters& featParams = cfg.mFeatParams;
+    os << "### Feature Extraction Parameters ###" << endl;
+    os << "- Number of Features: " << featParams.nFeatures << endl
+       << "- Scale Factor of Image Pyramid: " << featParams.scaleFactor << endl
+       << "- Number of Pyramid Levels: " << featParams.nLevels << endl;
     return os;
 }
 
@@ -78,6 +87,13 @@ void Config::setCamParams(const cv::FileStorage& fs, System::Mode eMode)
         mvCamParams.reserve(2);
         // TODO: process multi-view parameters
     }
+}
+
+void Config::setFeatExtParams(const cv::FileStorage& fs)
+{
+    fs["Feature.nFeatures"] >> mFeatParams.nFeatures;
+    fs["Feature.scaleFactor"] >> mFeatParams.scaleFactor;
+    fs["Feature.nLevels"] >> mFeatParams.nLevels;
 }
 
 void Config::setCamIntrinsics(int view)

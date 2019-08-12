@@ -18,10 +18,10 @@
 
 namespace SLAM_demo {
 
-/// Camera parameters
+/// Camera parameters.
 struct CameraParameters {
-    int w;      ///< Width of captured image.
-    int h;      ///< Height of captured image.
+    int w;     ///< Width of captured image.
+    int h;     ///< Height of captured image.
     float fx;  ///< Focal length (x-axis).
     float fy;  ///< Focal length (y-axis).
     float cx;  ///< Camera center \f$x_c\f$ in pixel.
@@ -31,6 +31,13 @@ struct CameraParameters {
     float p1;  ///< Camera distortion coefficient \f$p_1\f$.
     float p2;  ///< Camera distortion coefficient \f$p_2\f$.
     float fps; ///< Camera framerate.
+};
+
+/// Feature extraction parameters.
+struct FeatExtParameters {
+    int nFeatures;     ///< Number of extracted features.
+    float scaleFactor; ///< Scale factor of the image pyramid.
+    int nLevels;       ///< Number of octaves/levels of the image pyramid.
 };
 
 /**
@@ -59,7 +66,7 @@ public:
      * @return A boolean value indicating if the configuration is successful.
      */
     bool setParameters(const std::string& strCfgFile,
-                       System::Mode eMode = System::Mode::MONOCULAR);
+                       System::Mode eMode);
     // getters
     /** 
      * @name groupCamParamGetters
@@ -80,6 +87,15 @@ public:
     static float fps(int i = 0) { return getInstance().mvCamParams[i].fps; }
     static cv::Mat K(int i = 0) { return getInstance().mvK[i]; }
     ///@} // end of groupCamParamGetters
+    /**
+     * @name groupFeatExtParamGetters
+     * @brief A group of feature extraction parameter getters.
+     */
+    ///@{
+    static int nFeatures() { return getInstance().mFeatParams.nFeatures; }
+    static float scaleFactor() { return getInstance().mFeatParams.scaleFactor; }
+    static int nLevels() { return getInstance().mFeatParams.nLevels; }
+    ///@} // end of groupFeatExtParamGetters
 private: // private members
     /// Constructor that configures all the parsed system parameters.
     Config() = default;
@@ -89,6 +105,8 @@ private: // private members
     Config& operator=(const Config&) = delete;
     /// Set camera parameters based on loaded cfg file and system mode.
     void setCamParams(const cv::FileStorage& fs, System::Mode eMode);
+    /// Set feature extraction parameters based on loaded cfg file.
+    void setFeatExtParams(const cv::FileStorage& fs);
     /** 
      * @brief Set camera intrinsics using configured camera parameters.
      * @param[in] view Camera index starting from 0.
@@ -97,6 +115,8 @@ private: // private members
 private: // private data for this class
     /// Camera parameters for each camera.
     std::vector<CameraParameters> mvCamParams;
+    /// Feature extraction parameters.
+    FeatExtParameters mFeatParams;
     /// Camera intrinsics
     std::vector<cv::Mat> mvK;
 };

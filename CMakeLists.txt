@@ -9,7 +9,7 @@ endif()
 
 # set up top-level project
 project(slam_demo
-  VERSION 0.0.2
+  VERSION 0.0.3
   DESCRIPTION "SLAM demo"
   LANGUAGES CXX)
 

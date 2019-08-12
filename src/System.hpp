@@ -8,8 +8,11 @@
 #ifndef SYSTEM_HPP
 #define SYSTEM_HPP
 
+#include <vector>
 #include <string>
 #include <memory>
+
+#include <opencv2/core.hpp>
 
 namespace SLAM_demo {
 
@@ -32,8 +35,15 @@ public:
      * @brief Constructor for SLAM system class,
      * @param[in] eMode SLAM system mode (see System::Mode for details).
      */
-    System(Mode eMode = Mode::MONOCULAR);
-private:
+    System(Mode eMode);
+    /**
+     * @brief Track input images.
+     * @param[in] vImgs     A vector of input images captured with the same
+     *                      timestamp info.
+     * @param[in] timestamp The timestamp info.
+     */
+    void trackImgs(const std::vector<cv::Mat>& vImgs, double timestamp);
+private: // private data
     Mode meMode;
     std::shared_ptr<Tracker> mpTracker; // pointer to tracker module
 };
