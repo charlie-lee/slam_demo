@@ -9,13 +9,19 @@
 
 #include <iostream>
 #include <memory>
+#include <string>
+#include <vector>
 
 #include <opencv2/core.hpp>
 #include "Tracker.hpp"
 
-using namespace std;
-
 namespace SLAM_demo {
+
+using std::cout;
+using std::endl;
+using std::make_shared;
+using std::string;
+using std::vector;
 
 System::System(Mode eMode):
     meMode(eMode)

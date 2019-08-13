@@ -8,6 +8,7 @@
 #ifndef FRAME_HPP
 #define FRAME_HPP
 
+#include <memory>
 #include <vector>
 
 #include <opencv2/core.hpp>
@@ -39,7 +40,7 @@ private: // private member functions
     /// Extract features from the current frame.
     void extractFeatures(const cv::Mat& img);
 private: // private data
-    cv::Ptr<cv::Feature2D> mpFeatExtractor; ///< Feature extractor.
+    std::shared_ptr<cv::Feature2D> mpFeatExtractor; ///< Feature extractor.
     std::vector<cv::KeyPoint> mvKpts; ///< Keypoint data of the current frame.
     cv::Mat mDesc; ///< Descriptor of the current frame.
 };

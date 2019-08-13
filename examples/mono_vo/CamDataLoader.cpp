@@ -15,8 +15,11 @@
 #include <opencv2/core.hpp>
 #include <opencv2/imgcodecs.hpp>
 
-using namespace std;
-using namespace cv;
+using std::ifstream;
+using std::stringstream;
+using std::vector;
+using std::string;
+using cv::Mat;
 
 CamDataLoader::CamDataLoader(const string& strImgPath,
                              const string& strDataFile)
@@ -38,10 +41,12 @@ CamDataLoader::CamDataLoader(const string& strImgPath,
 Mat CamDataLoader::loadImg(int nFrame, View eView)
 {
     Mat img;
+    // view 1 for monocular, left in stereo, and RGB in RGB-D
+    // view 2 for right in stereo, and D in RGB-D
     if (eView == View::MONO || eView == View::LEFT || eView == View::RGB) {
-        img = imread(mvstrImgs1[nFrame], IMREAD_UNCHANGED); // load to view 1
+        img = cv::imread(mvstrImgs1[nFrame], cv::IMREAD_UNCHANGED);
     } else if (eView == View::RIGHT || eView == View::DEPTH) {
-        img = imread(mvstrImgs2[nFrame], IMREAD_UNCHANGED); // load to view 2
+        img = cv::imread(mvstrImgs2[nFrame], cv::IMREAD_UNCHANGED);
     }
     return img;
 }

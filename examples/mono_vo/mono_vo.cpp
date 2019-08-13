@@ -6,14 +6,17 @@
  */
 
 #include <iostream>
-#include <memory> // std::unique_ptr
+#include <vector>
 
 #include <opencv2/highgui.hpp>
 #include "Config.hpp"
 #include "System.hpp"
 #include "CamDataLoader.hpp"
 
-using namespace std;
+using std::cerr;
+using std::cout;
+using std::endl;
+using std::vector;
 
 /**
  * @brief Main function for the monocular VO application.

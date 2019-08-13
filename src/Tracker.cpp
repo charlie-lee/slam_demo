@@ -7,23 +7,28 @@
 
 #include "Tracker.hpp"
 
+#include <memory>
+#include <vector>
+
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/features2d.hpp>
 #include <opencv2/highgui.hpp> // cv::imshow()
 #include "Frame.hpp"
 
-using namespace std;
-using namespace cv;
-
 namespace SLAM_demo {
+
+using std::shared_ptr;
+using std::make_shared;
+using std::vector;
+using cv::Mat;
 
 Tracker::Tracker(System::Mode eMode):
     meMode(eMode), mbFirstFrame(true)
 {
     // initialize feature matcher
-    mpFeatMatcher = DescriptorMatcher::create(
-        DescriptorMatcher::MatcherType::BRUTEFORCE_HAMMING);
+    mpFeatMatcher = cv::DescriptorMatcher::create(
+        cv::DescriptorMatcher::MatcherType::BRUTEFORCE_HAMMING);
     // allocate space for vectors
     if (meMode == System::Mode::MONOCULAR) {
         mvpFrames.resize(1);
@@ -55,7 +60,7 @@ void Tracker::trackImgsMono(const Mat& img, double timestamp)
         mvpRefFrames[0] = mvpFrames[0];
         mvpFrames[0] = pFrame;
         // match features between current (1) and reference (2) frame
-        vector<DMatch> vMatches;
+        vector<cv::DMatch> vMatches;
         matchFeatures(mvpFrames[0], mvpRefFrames[0], vMatches);
         
         // temp test on display of feature matching result
@@ -63,15 +68,15 @@ void Tracker::trackImgsMono(const Mat& img, double timestamp)
         drawMatches(imgGray, mvpFrames[0]->getKeyPoints(),
                     mPrevImg, mvpRefFrames[0]->getKeyPoints(),
                     vMatches, imgOut);
-        imshow("cam0: Matches between current and previous frame", imgOut);
-        waitKey();
+        cv::imshow("cam0: Matches between current and previous frame", imgOut);
+        cv::waitKey(1);
     }
     mPrevImg = imgGray;
 }
 
 void Tracker::matchFeatures(shared_ptr<Frame> pFrame1,
                             shared_ptr<Frame> pFrame2,
-                            vector<DMatch>& vMatches)
+                            vector<cv::DMatch>& vMatches)
 {
     mpFeatMatcher->match(pFrame1->getFeatDescriptor(),
                          pFrame2->getFeatDescriptor(),

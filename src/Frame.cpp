@@ -9,13 +9,12 @@
 
 #include <opencv2/core.hpp>
 #include <opencv2/features2d.hpp>
-#include <opencv2/highgui.hpp> // cv::imshow()
 #include "Config.hpp"
 
-using namespace std;
-using namespace cv;
-
 namespace SLAM_demo {
+
+using cv::Mat;
+using cv::ORB;
 
 Frame::Frame(const Mat& img)
 {
@@ -26,9 +25,9 @@ Frame::Frame(const Mat& img)
     extractFeatures(img);
 }
 
-void Frame::extractFeatures(const cv::Mat& img)
+void Frame::extractFeatures(const Mat& img)
 {
-    mpFeatExtractor->detectAndCompute(img, noArray(), mvKpts, mDesc);
+    mpFeatExtractor->detectAndCompute(img, cv::noArray(), mvKpts, mDesc);
 }
 
 } // namespace SLAM_demo

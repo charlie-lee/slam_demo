@@ -8,15 +8,19 @@
 #include "Config.hpp"
 
 #include <iostream>
-#include <vector>
 #include <string>
+#include <vector>
 
 #include <opencv2/core.hpp>
 #include "System.hpp"
 
-using namespace std;
-
 namespace SLAM_demo {
+
+using std::cerr;
+using std::endl;
+using std::ostream;
+using std::string;
+using std::vector;
 
 bool Config::setParameters(const string& strCfgFile, System::Mode eMode)
 {

@@ -8,9 +8,9 @@
 #ifndef SYSTEM_HPP
 #define SYSTEM_HPP
 
-#include <vector>
-#include <string>
 #include <memory>
+#include <string>
+#include <vector>
 
 #include <opencv2/core.hpp>
 

@@ -8,10 +8,10 @@
 #ifndef CONFIG_HPP
 #define CONFIG_HPP
 
-#include <memory> // std::unique_ptr
-#include <vector>
-#include <string>
 #include <iostream>
+#include <memory> // std::unique_ptr
+#include <string>
+#include <vector>
 
 #include <opencv2/core.hpp>
 #include "System.hpp"
