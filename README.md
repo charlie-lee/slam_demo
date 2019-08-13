@@ -4,13 +4,15 @@ A Simultaneous Localization and Mapping (SLAM) demo application.
 
 ## Dependencies
 - [OpenCV](https://opencv.org/)
+- [Doxygen](http://www.doxygen.nl/) (optional)
 
 ## Build Programs & Documentations
-1. Build CMake Files
-   - `cd build && cmake ..`
+1. Build CMake files
+   - `mkdir build && cd build`
+   - `cmake ..`
 2. Build Programs
    - `make`
-3. Build Documentations (optional)
+3. Build Documentations with Doxygen (optional)
    - `make doc`
 
 ## Build Tags

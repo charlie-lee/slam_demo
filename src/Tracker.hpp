@@ -42,11 +42,14 @@ private: // private member functions
      * @brief Match features between current frame (1) and reference frame (2).
      * @param[in]  pFrame1  Pointer to current frame.
      * @param[in]  pFrame2  Pointer to reference frame.
+     * @param[in]  TH_DIST  A threshold in Lowe's ratio test for discarding 
+     *                      wrong matches (default value: 0.7).
      * @param[out] vMatches A vector of matching keypoints of cv::DMatch type.
      */
     void matchFeatures(std::shared_ptr<Frame> pFrame1,
                        std::shared_ptr<Frame> pFrame2,
-                       std::vector<cv::DMatch>& vMatches);
+                       std::vector<cv::DMatch>& vMatches,
+                       const float TH_DIST = 0.7f);
 private: // private data
     System::Mode meMode; ///< SLAM system mode.
     cv::Mat mPrevImg; ///< Image of previous frame.
@@ -56,7 +59,7 @@ private: // private data
     /// A pointer to reference (previous) frame (frame 2) for a vector of views.
     std::vector<std::shared_ptr<Frame>> mvpRefFrames;
     /// Feature matcher.
-    cv::Ptr<cv::DescriptorMatcher> mpFeatMatcher;
+    std::shared_ptr<cv::DescriptorMatcher> mpFeatMatcher;
 };
 
 } // namespace SLAM_demo

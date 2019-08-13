@@ -76,11 +76,21 @@ void Tracker::trackImgsMono(const Mat& img, double timestamp)
 
 void Tracker::matchFeatures(shared_ptr<Frame> pFrame1,
                             shared_ptr<Frame> pFrame2,
-                            vector<cv::DMatch>& vMatches)
+                            vector<cv::DMatch>& vMatches,
+                            const float TH_DIST)
 {
-    mpFeatMatcher->match(pFrame1->getFeatDescriptor(),
-                         pFrame2->getFeatDescriptor(),
-                         vMatches);
+    vector<vector<cv::DMatch>> vknnMatches;
+    mpFeatMatcher->knnMatch(pFrame1->getFeatDescriptors(),
+                            pFrame2->getFeatDescriptors(),
+                            vknnMatches, 2); // get 2 best matches
+    // find good matches using Lowe's ratio test
+    const float TH = TH_DIST;
+    vMatches.reserve(vknnMatches.size());
+    for (int i = 0; i < vknnMatches.size(); ++i) {
+        if (vknnMatches[i][0].distance < TH * vknnMatches[i][1].distance) {
+            vMatches.push_back(vknnMatches[i][0]);
+        }
+    }
 }
 
 } // namespace SLAM_demo

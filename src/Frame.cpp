@@ -27,7 +27,7 @@ Frame::Frame(const Mat& img)
 
 void Frame::extractFeatures(const Mat& img)
 {
-    mpFeatExtractor->detectAndCompute(img, cv::noArray(), mvKpts, mDesc);
+    mpFeatExtractor->detectAndCompute(img, cv::noArray(), mvKpts, mDescs);
 }
 
 } // namespace SLAM_demo

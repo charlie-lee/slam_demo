@@ -35,14 +35,14 @@ public:
     /// Get keypoint data for current frame.
     std::vector<cv::KeyPoint> getKeyPoints() { return mvKpts; }
     /// Get feature descriptor for current frame.
-    cv::Mat getFeatDescriptor() { return mDesc; }
+    cv::Mat getFeatDescriptors() { return mDescs; }
 private: // private member functions
     /// Extract features from the current frame.
     void extractFeatures(const cv::Mat& img);
 private: // private data
     std::shared_ptr<cv::Feature2D> mpFeatExtractor; ///< Feature extractor.
     std::vector<cv::KeyPoint> mvKpts; ///< Keypoint data of the current frame.
-    cv::Mat mDesc; ///< Descriptor of the current frame.
+    cv::Mat mDescs; ///< Descriptor of the current frame.
 };
 
 } // namespace SLAM_demo
