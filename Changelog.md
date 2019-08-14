@@ -1,10 +1,11 @@
 # Changelog & TODO-list
 
 ## TODO
-- Improve performance on feature matching based on implementations on OpenCV.
+- Compute camera pose {R, t} from 2D-2D keypoint matches
 
 ## Latest Version
 - Fix some coding style issues
+- Improve performance on feature matching based on implementations on OpenCV
 
 ## v0.0.3
 - Add system initialzation scheme

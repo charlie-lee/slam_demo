@@ -67,9 +67,11 @@ void Tracker::trackImgsMono(const Mat& img, double timestamp)
         Mat imgOut;
         drawMatches(imgGray, mvpFrames[0]->getKeyPoints(),
                     mPrevImg, mvpRefFrames[0]->getKeyPoints(),
-                    vMatches, imgOut);
+                    vMatches, imgOut,
+                    cv::Scalar({255, 0, 0}), // color for matching line (BGR)
+                    cv::Scalar({0, 255, 0})); // color for keypoint (BGR)
         cv::imshow("cam0: Matches between current and previous frame", imgOut);
-        cv::waitKey(1);
+        cv::waitKey();
     }
     mPrevImg = imgGray;
 }
