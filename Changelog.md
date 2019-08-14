@@ -1,11 +1,18 @@
 # Changelog & TODO-list
 
 ## TODO
-- Compute camera pose {R, t} from 2D-2D keypoint matches
+- Compute pose {R, t} from 2D-2D keypoint matches
+  - Compute fundamental matrix F
+  - Compute homography H
+  - Select better transformation from F and H
+  - Decompose {R, t} from F or H
+- Add a class for storing pose information
 
 ## Latest Version
 - Fix some coding style issues
 - Improve performance on feature matching based on implementations on OpenCV
+- Store undistorted keypoint data
+- Display feature matching result on undistorted images
 
 ## v0.0.3
 - Add system initialzation scheme

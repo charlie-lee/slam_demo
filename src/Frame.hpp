@@ -39,6 +39,11 @@ public:
 private: // private member functions
     /// Extract features from the current frame.
     void extractFeatures(const cv::Mat& img);
+    /**
+     * @brief Undistort keypoint coordinates based on camera intrinsics and
+     *        distortion coefficients.
+     */
+    void undistortKpts();
 private: // private data
     std::shared_ptr<cv::Feature2D> mpFeatExtractor; ///< Feature extractor.
     std::vector<cv::KeyPoint> mvKpts; ///< Keypoint data of the current frame.

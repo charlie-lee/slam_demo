@@ -10,10 +10,12 @@
 #include <memory>
 #include <vector>
 
+#include <opencv2/calib3d.hpp> // cv::undistort()
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/features2d.hpp>
 #include <opencv2/highgui.hpp> // cv::imshow()
+#include "Config.hpp"
 #include "Frame.hpp"
 
 namespace SLAM_demo {
@@ -23,8 +25,7 @@ using std::make_shared;
 using std::vector;
 using cv::Mat;
 
-Tracker::Tracker(System::Mode eMode):
-    meMode(eMode), mbFirstFrame(true)
+Tracker::Tracker(System::Mode eMode) : meMode(eMode), mbFirstFrame(true)
 {
     // initialize feature matcher
     mpFeatMatcher = cv::DescriptorMatcher::create(
@@ -42,14 +43,7 @@ Tracker::Tracker(System::Mode eMode):
 void Tracker::trackImgsMono(const Mat& img, double timestamp)
 {
     // RGB -> Grayscale
-    Mat imgGray;
-    if (img.channels() == 3) {
-        cvtColor(img, imgGray, cv::COLOR_RGB2GRAY);
-    } else if (img.channels() == 4) {
-        cvtColor(img, imgGray, cv::COLOR_RGBA2GRAY);
-    } else {
-        imgGray = img.clone();
-    }
+    Mat imgGray = rgb2Gray(img);
     // initialize each frame
     shared_ptr<Frame> pFrame = make_shared<Frame>(Frame(imgGray));
     // feature matching
@@ -62,18 +56,23 @@ void Tracker::trackImgsMono(const Mat& img, double timestamp)
         // match features between current (1) and reference (2) frame
         vector<cv::DMatch> vMatches;
         matchFeatures(mvpFrames[0], mvpRefFrames[0], vMatches);
-        
         // temp test on display of feature matching result
-        Mat imgOut;
-        drawMatches(imgGray, mvpFrames[0]->getKeyPoints(),
-                    mPrevImg, mvpRefFrames[0]->getKeyPoints(),
-                    vMatches, imgOut,
-                    cv::Scalar({255, 0, 0}), // color for matching line (BGR)
-                    cv::Scalar({0, 255, 0})); // color for keypoint (BGR)
-        cv::imshow("cam0: Matches between current and previous frame", imgOut);
-        cv::waitKey();
+        displayFeatMatchResult(imgGray, vMatches);
     }
-    mPrevImg = imgGray;
+    mImgPrev = imgGray;
+}
+
+Mat Tracker::rgb2Gray(const Mat& img)
+{
+    Mat imgGray;
+    if (img.channels() == 3) {
+        cvtColor(img, imgGray, cv::COLOR_RGB2GRAY);
+    } else if (img.channels() == 4) {
+        cvtColor(img, imgGray, cv::COLOR_RGBA2GRAY);
+    } else {
+        imgGray = img.clone();
+    }
+    return imgGray;
 }
 
 void Tracker::matchFeatures(shared_ptr<Frame> pFrame1,
@@ -95,4 +94,24 @@ void Tracker::matchFeatures(shared_ptr<Frame> pFrame1,
     }
 }
 
-} // namespace SLAM_demo
+void Tracker::displayFeatMatchResult(const Mat& img,
+                                     const vector<cv::DMatch> vMatches)
+{
+    Mat imgUnD, imgPrevUnD, imgOut;
+    // undistort input images
+    imgUnD = img;
+    imgPrevUnD = mImgPrev;
+    //cv::undistort(img, imgUnD, Config::K(), Config::distCoeffs());
+    //cv::undistort(mImgPrev, imgPrevUnD, Config::K(), Config::distCoeffs());
+    // display keypoint matches (undistorted) on undistorted images
+    cv::drawMatches(imgUnD, mvpFrames[0]->getKeyPoints(),
+                    imgPrevUnD, mvpRefFrames[0]->getKeyPoints(),
+                    vMatches, imgOut,
+                    cv::Scalar({255, 0, 0}), // color for matching line (BGR)
+                    cv::Scalar({0, 255, 0})); // color for keypoint (BGR)
+    cv::imshow("cam0: Matches between current (left) and "
+               "previous (right) frame", imgOut);
+    cv::waitKey();
+}
+
+} // Namespace SLAM_demo

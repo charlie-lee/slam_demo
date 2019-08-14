@@ -38,6 +38,8 @@ public:
      */
     void trackImgsMono(const cv::Mat& img, double timestamp);
 private: // private member functions
+    /// Convert input image @p img into grayscale image.
+    cv::Mat rgb2Gray(const cv::Mat& img);
     /** 
      * @brief Match features between current frame (1) and reference frame (2).
      * @param[in]  pFrame1  Pointer to current frame.
@@ -50,9 +52,17 @@ private: // private member functions
                        std::shared_ptr<Frame> pFrame2,
                        std::vector<cv::DMatch>& vMatches,
                        const float TH_DIST = 0.7f);
+    /** 
+     * @brief Display feature matching results of adjacent 2 **UNDISTORTED**
+     *        frames (left for current frame and right for previous frame).
+     * @param[in] img      Input image of current frame (distorted).
+     * @param[in] vMatches Keypoint matches of current and reference frame.
+     */
+    void displayFeatMatchResult(const cv::Mat& img,
+                                const std::vector<cv::DMatch> vMatches);
 private: // private data
     System::Mode meMode; ///< SLAM system mode.
-    cv::Mat mPrevImg; ///< Image of previous frame.
+    cv::Mat mImgPrev; ///< Image of previous frame.
     bool mbFirstFrame; ///< Whether it is the 1st input frame to be processed.
     /// A pointer to current frame (frame 1) for a vector of views.
     std::vector<std::shared_ptr<Frame>> mvpFrames;

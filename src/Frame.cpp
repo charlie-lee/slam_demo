@@ -7,8 +7,11 @@
 
 #include "Frame.hpp"
 
+#include <iostream>
+
 #include <opencv2/core.hpp>
 #include <opencv2/features2d.hpp>
+#include <opencv2/calib3d.hpp> // cv::undistortPoints()
 #include "Config.hpp"
 
 namespace SLAM_demo {
@@ -19,7 +22,6 @@ using cv::ORB;
 Frame::Frame(const Mat& img)
 {
     // configure feature extractor
-    const Config& cfg = Config::getInstance();
     mpFeatExtractor = ORB::create(Config::nFeatures(), Config::scaleFactor(),
                                   Config::nLevels());
     extractFeatures(img);
@@ -28,6 +30,36 @@ Frame::Frame(const Mat& img)
 void Frame::extractFeatures(const Mat& img)
 {
     mpFeatExtractor->detectAndCompute(img, cv::noArray(), mvKpts, mDescs);
+    // undistort keypoint coordinates
+    undistortKpts();
+ }
+
+void Frame::undistortKpts()
+{
+    // convert src kpts data to Nx2 matrix
+    Mat kpts(mvKpts.size(), 2, CV_32F); // input of cv::undistortPoints() is Nx2
+    for (int i = 0; i < mvKpts.size(); ++i) {
+        kpts.at<float>(i, 0) = mvKpts[i].pt.x;
+        kpts.at<float>(i, 1) = mvKpts[i].pt.y;
+    }
+    // undistort keypoints
+    cv::undistortPoints(kpts, kpts, Config::K(), Config::distCoeffs(),
+                        cv::noArray(), Config::K());
+    kpts.reshape(1); // reshape output to 1 channel (currently 2 channels)
+    // update keypoint coordinates
+    for (int i = 0; i < mvKpts.size(); ++i) {
+        cv::KeyPoint& kpt = mvKpts[i];
+        float px = kpts.at<float>(i, 0);
+        float py = kpts.at<float>(i, 1);
+        // discard out-of-border keypoints
+        if (px >= 0 && px < Config::width() &&
+            py >= 0 && py < Config::height()) {
+            kpt.pt.x = px;
+            kpt.pt.y = py;
+        } else {
+            kpt = cv::KeyPoint(); 
+        }
+    }
 }
 
 } // namespace SLAM_demo

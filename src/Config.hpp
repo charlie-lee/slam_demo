@@ -22,6 +22,7 @@ namespace SLAM_demo {
 struct CameraParameters {
     int w;     ///< Width of captured image.
     int h;     ///< Height of captured image.
+    float fps; ///< Camera framerate.
     float fx;  ///< Focal length (x-axis).
     float fy;  ///< Focal length (y-axis).
     float cx;  ///< Camera center \f$x_c\f$ in pixel.
@@ -30,7 +31,7 @@ struct CameraParameters {
     float k2;  ///< Camera distortion coefficient \f$k_2\f$.
     float p1;  ///< Camera distortion coefficient \f$p_1\f$.
     float p2;  ///< Camera distortion coefficient \f$p_2\f$.
-    float fps; ///< Camera framerate.
+    float k3;  ///< Camera distortion coefficient \f$k_3\f$.
 };
 
 /// Feature extraction parameters.
@@ -76,6 +77,7 @@ public:
     ///@{
     static int width(int i = 0) { return getInstance().mvCamParams[i].w; }
     static int height(int i = 0) { return getInstance().mvCamParams[i].h; }
+    static float fps(int i = 0) { return getInstance().mvCamParams[i].fps; }
     static float fx(int i = 0) { return getInstance().mvCamParams[i].fx; }
     static float fy(int i = 0) { return getInstance().mvCamParams[i].fy; }
     static float cx(int i = 0) { return getInstance().mvCamParams[i].cx; }
@@ -84,8 +86,9 @@ public:
     static float k2(int i = 0) { return getInstance().mvCamParams[i].k2; }
     static float p1(int i = 0) { return getInstance().mvCamParams[i].p1; }
     static float p2(int i = 0) { return getInstance().mvCamParams[i].p2; }
-    static float fps(int i = 0) { return getInstance().mvCamParams[i].fps; }
+    static float k3(int i = 0) { return getInstance().mvCamParams[i].k3; }
     static cv::Mat K(int i = 0) { return getInstance().mvK[i]; }
+    static cv::Mat distCoeffs(int i = 0) { return getInstance().mvDistCoeffs[i]; }
     ///@} // end of groupCamParamGetters
     /**
      * @name groupFeatExtParamGetters
@@ -108,17 +111,26 @@ private: // private members
     /// Set feature extraction parameters based on loaded cfg file.
     void setFeatExtParams(const cv::FileStorage& fs);
     /** 
-     * @brief Set camera intrinsics using configured camera parameters.
+     * @name groupCamIntrinsicsSetters
+     * @brief Set camera intrinsics and distortion coefficients 
+     *        using configured camera parameters.
      * @param[in] view Camera index starting from 0.
      */
+    ///@{
     void setCamIntrinsics(int view);
+    void setCamDistCoeffs(int view);
+    ///@} // end of groupCamIntrinsicsSetters
 private: // private data for this class
     /// Camera parameters for each camera.
     std::vector<CameraParameters> mvCamParams;
     /// Feature extraction parameters.
     FeatExtParameters mFeatParams;
-    /// Camera intrinsics
+    /// Camera intrinsics.
     std::vector<cv::Mat> mvK;
+    /// Camera distortion coefficients.
+    std::vector<cv::Mat> mvDistCoeffs;
+    /// Number of camera distorion coefficients.
+    std::vector<int> mvnDistCoeffs;
 };
 
 /// Display configured system parameters.

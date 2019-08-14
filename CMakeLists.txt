@@ -46,6 +46,7 @@ if(${DOXYGEN_FOUND})
   set(DOXYGEN_FILE_PATTERNS "*.c" "*.cpp" "*.h" "*.hpp" "*.md")
   set(DOXYGEN_EXTRACT_ALL YES)
   set(DOXYGEN_EXTRACT_STATIC YES) # documenting static funcs
+  set(DOXYGEN_EXTRACT_PRIVATE YES) # extract private members
   set(DOXYGEN_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/doc)
   #    - math-related options
   set(DOXYGEN_USE_MATHJAX YES)

@@ -23,8 +23,7 @@ using std::make_shared;
 using std::string;
 using std::vector;
 
-System::System(Mode eMode):
-    meMode(eMode)
+System::System(Mode eMode) : meMode(eMode)
 {
     // determine system mode
     string strMode;
