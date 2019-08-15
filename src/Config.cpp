@@ -37,39 +37,6 @@ bool Config::setParameters(const string& strCfgFile, System::Mode eMode)
     return true;
 }
 
-ostream& operator<<(ostream& os, const Config& cfg)
-{
-    os << endl << "SLAM system parameters:" << endl;
-    // camera parameters
-    os << "### Camera Parameters ###" << endl;
-    const vector<CameraParameters>& vCamParams = cfg.mvCamParams;
-    const vector<int>& vnDistCoeffs = cfg.mvnDistCoeffs;
-    for (int i = 0; i < vCamParams.size(); ++i) {
-        os << "- View " << i << ":" << endl
-           << "  - Image resolution: "
-           << vCamParams[i].w << "x" << vCamParams[i].h << endl
-           << "  - FPS: " << vCamParams[i].fps << endl
-           << "  - fx: " << vCamParams[i].fx << endl
-           << "  - fy: " << vCamParams[i].fy << endl
-           << "  - cx: " << vCamParams[i].cx << endl
-           << "  - cy: " << vCamParams[i].cy << endl
-           << "  - k1: " << vCamParams[i].k1 << endl
-           << "  - k2: " << vCamParams[i].k2 << endl
-           << "  - p1: " << vCamParams[i].p1 << endl
-           << "  - p2: " << vCamParams[i].p2 << endl;
-        if (vnDistCoeffs[i] == 5) {
-            os << "  - k3: " << vCamParams[i].k3 << endl;
-        }
-    }
-    // feature extraction parameters
-    const FeatExtParameters& featParams = cfg.mFeatParams;
-    os << "### Feature Extraction Parameters ###" << endl;
-    os << "- Number of Features: " << featParams.nFeatures << endl
-       << "- Scale Factor of Image Pyramid: " << featParams.scaleFactor << endl
-       << "- Number of Pyramid Levels: " << featParams.nLevels << endl;
-    return os;
-}
-
 void Config::setCamParams(const cv::FileStorage& fs, System::Mode eMode)
 {
     // confirm mode and allocate camera parameters
@@ -137,6 +104,39 @@ void Config::setCamDistCoeffs(int view)
         distCoeffs.at<float>(4, 0) = Config::k3(view);
     }
     distCoeffs.copyTo(mvDistCoeffs[view]);
+}
+
+ostream& operator<<(ostream& os, const Config& cfg)
+{
+    os << endl << "SLAM system parameters:" << endl;
+    // camera parameters
+    os << "### Camera Parameters ###" << endl;
+    const vector<CameraParameters>& vCamParams = cfg.mvCamParams;
+    const vector<int>& vnDistCoeffs = cfg.mvnDistCoeffs;
+    for (unsigned i = 0; i < vCamParams.size(); ++i) {
+        os << "- View " << i << ":" << endl
+           << "  - Image resolution: "
+           << vCamParams[i].w << "x" << vCamParams[i].h << endl
+           << "  - FPS: " << vCamParams[i].fps << endl
+           << "  - fx: " << vCamParams[i].fx << endl
+           << "  - fy: " << vCamParams[i].fy << endl
+           << "  - cx: " << vCamParams[i].cx << endl
+           << "  - cy: " << vCamParams[i].cy << endl
+           << "  - k1: " << vCamParams[i].k1 << endl
+           << "  - k2: " << vCamParams[i].k2 << endl
+           << "  - p1: " << vCamParams[i].p1 << endl
+           << "  - p2: " << vCamParams[i].p2 << endl;
+        if (vnDistCoeffs[i] == 5) {
+            os << "  - k3: " << vCamParams[i].k3 << endl;
+        }
+    }
+    // feature extraction parameters
+    const FeatExtParameters& featParams = cfg.mFeatParams;
+    os << "### Feature Extraction Parameters ###" << endl;
+    os << "- Number of Features: " << featParams.nFeatures << endl
+       << "- Scale Factor of Image Pyramid: " << featParams.scaleFactor << endl
+       << "- Number of Pyramid Levels: " << featParams.nLevels << endl;
+    return os;
 }
 
 } // namespace SLAM_demo

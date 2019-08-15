@@ -19,7 +19,7 @@ namespace SLAM_demo {
 using cv::Mat;
 using cv::ORB;
 
-Frame::Frame(const Mat& img)
+Frame::Frame(const Mat& img, double timestamp) : mTimestamp(timestamp)
 {
     // configure feature extractor
     mpFeatExtractor = ORB::create(Config::nFeatures(), Config::scaleFactor(),
@@ -38,7 +38,7 @@ void Frame::undistortKpts()
 {
     // convert src kpts data to Nx2 matrix
     Mat kpts(mvKpts.size(), 2, CV_32F); // input of cv::undistortPoints() is Nx2
-    for (int i = 0; i < mvKpts.size(); ++i) {
+    for (unsigned i = 0; i < mvKpts.size(); ++i) {
         kpts.at<float>(i, 0) = mvKpts[i].pt.x;
         kpts.at<float>(i, 1) = mvKpts[i].pt.y;
     }
@@ -47,20 +47,9 @@ void Frame::undistortKpts()
                         cv::noArray(), Config::K());
     kpts.reshape(1); // reshape output to 1 channel (currently 2 channels)
     // update keypoint coordinates (no out-of-border keypoint filtering)
-    for (int i = 0; i < mvKpts.size(); ++i) {
+    for (unsigned i = 0; i < mvKpts.size(); ++i) {
         mvKpts[i].pt.x = kpts.at<float>(i, 0);
         mvKpts[i].pt.y = kpts.at<float>(i, 1);
-        //cv::KeyPoint& kpt = mvKpts[i];
-        //float px = kpts.at<float>(i, 0);
-        //float py = kpts.at<float>(i, 1);
-        //// discard out-of-border keypoints
-        //if (px >= 0 && px < Config::width() &&
-        //    py >= 0 && py < Config::height()) {
-        //    kpt.pt.x = px;
-        //    kpt.pt.y = py;
-        //} else {
-        //    kpt.pt.x = kpt.pt.y = -1.f;
-        //}
     }
 }
 

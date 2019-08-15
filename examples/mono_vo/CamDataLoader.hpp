@@ -56,7 +56,7 @@ public:
     int getNFrames() const { return mvTimestamps.size(); }
     /// Get timestamp info of a target frame.
     double getTimestamp(int nFrame) const { return mvTimestamps[nFrame]; }
-private:
+private: // private data
     std::vector<std::string> mvstrImgs1; // image filenames (mono/left/RGB view)
     std::vector<std::string> mvstrImgs2; // image filenames (right/D view)
     std::vector<double> mvTimestamps; // timestamp info (unit: second)

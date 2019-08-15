@@ -29,13 +29,19 @@ public:
      * Features in the input image will be extracted by a feature extractor
      * into keypoint and descriptor data.
      *
-     * @param[in] img Input image.
+     * @param[in] img       Input image.
+     * @[aram[in] timestemp Timestamp info of current frame.
      */
-    Frame(const cv::Mat& img);
+    Frame(const cv::Mat& img, double timestamp);
     /// Get keypoint data for current frame.
     std::vector<cv::KeyPoint> getKeyPoints() const { return mvKpts; }
     /// Get feature descriptor for current frame.
     cv::Mat getFeatDescriptors() const { return mDescs; }
+private: // private data
+    double mTimestamp; ///< Timestamp info for the current frame.
+    std::shared_ptr<cv::Feature2D> mpFeatExtractor; ///< Feature extractor.
+    std::vector<cv::KeyPoint> mvKpts; ///< Keypoint data of the current frame.
+    cv::Mat mDescs; ///< Descriptor of the current frame.
 private: // private member functions
     /// Extract features from the current frame.
     void extractFeatures(const cv::Mat& img);
@@ -44,10 +50,6 @@ private: // private member functions
      *        distortion coefficients.
      */
     void undistortKpts();
-private: // private data
-    std::shared_ptr<cv::Feature2D> mpFeatExtractor; ///< Feature extractor.
-    std::vector<cv::KeyPoint> mvKpts; ///< Keypoint data of the current frame.
-    cv::Mat mDescs; ///< Descriptor of the current frame.
 };
 
 } // namespace SLAM_demo

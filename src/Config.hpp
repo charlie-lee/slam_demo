@@ -99,7 +99,18 @@ public:
     static float scaleFactor() { return getInstance().mFeatParams.scaleFactor; }
     static int nLevels() { return getInstance().mFeatParams.nLevels; }
     ///@} // end of groupFeatExtParamGetters
-private: // private members
+private: // private data
+    /// Camera parameters for each camera.
+    std::vector<CameraParameters> mvCamParams;
+    /// Feature extraction parameters.
+    FeatExtParameters mFeatParams;
+    /// Camera intrinsics.
+    std::vector<cv::Mat> mvK;
+    /// Camera distortion coefficients.
+    std::vector<cv::Mat> mvDistCoeffs;
+    /// Number of camera distorion coefficients.
+    std::vector<int> mvnDistCoeffs;
+private: // private member functions
     /// Constructor that configures all the parsed system parameters.
     Config() = default;
     /// No copy is allowed.
@@ -120,17 +131,6 @@ private: // private members
     void setCamIntrinsics(int view);
     void setCamDistCoeffs(int view);
     ///@} // end of groupCamIntrinsicsSetters
-private: // private data for this class
-    /// Camera parameters for each camera.
-    std::vector<CameraParameters> mvCamParams;
-    /// Feature extraction parameters.
-    FeatExtParameters mFeatParams;
-    /// Camera intrinsics.
-    std::vector<cv::Mat> mvK;
-    /// Camera distortion coefficients.
-    std::vector<cv::Mat> mvDistCoeffs;
-    /// Number of camera distorion coefficients.
-    std::vector<int> mvnDistCoeffs;
 };
 
 /// Display configured system parameters.
