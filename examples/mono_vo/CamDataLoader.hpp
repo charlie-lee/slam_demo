@@ -51,11 +51,11 @@ public:
      * @param[in] eView  The image view to be loaded.
      * @return Loaded image data of cv::Mat type.
      */
-    cv::Mat loadImg(int nFrame, View eView);
+    cv::Mat loadImg(int nFrame, View eView) const;
     /// Get number of frames loaded.
-    int getNFrames() { return mvTimestamps.size(); }
+    int getNFrames() const { return mvTimestamps.size(); }
     /// Get timestamp info of a target frame.
-    double getTimestamp(int nFrame) { return mvTimestamps[nFrame]; }
+    double getTimestamp(int nFrame) const { return mvTimestamps[nFrame]; }
 private:
     std::vector<std::string> mvstrImgs1; // image filenames (mono/left/RGB view)
     std::vector<std::string> mvstrImgs2; // image filenames (right/D view)

@@ -38,7 +38,7 @@ CamDataLoader::CamDataLoader(const string& strImgPath,
     }
 }
 
-Mat CamDataLoader::loadImg(int nFrame, View eView)
+Mat CamDataLoader::loadImg(int nFrame, View eView) const
 {
     Mat img;
     // view 1 for monocular, left in stereo, and RGB in RGB-D

@@ -42,7 +42,7 @@ public:
      *                      timestamp info.
      * @param[in] timestamp The timestamp info.
      */
-    void trackImgs(const std::vector<cv::Mat>& vImgs, double timestamp);
+    void trackImgs(const std::vector<cv::Mat>& vImgs, double timestamp) const;
 private: // private data
     Mode meMode;
     std::shared_ptr<Tracker> mpTracker; // pointer to tracker module
