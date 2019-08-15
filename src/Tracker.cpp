@@ -62,7 +62,7 @@ void Tracker::trackImgsMono(const Mat& img, double timestamp)
     mImgPrev = imgGray;
 }
 
-Mat Tracker::rgb2Gray(const Mat& img)
+Mat Tracker::rgb2Gray(const Mat& img) const
 {
     Mat imgGray;
     if (img.channels() == 3) {
@@ -78,7 +78,7 @@ Mat Tracker::rgb2Gray(const Mat& img)
 void Tracker::matchFeatures(shared_ptr<Frame> pFrame1,
                             shared_ptr<Frame> pFrame2,
                             vector<cv::DMatch>& vMatches,
-                            const float TH_DIST)
+                            const float TH_DIST) const
 {
     vector<vector<cv::DMatch>> vknnMatches;
     mpFeatMatcher->knnMatch(pFrame1->getFeatDescriptors(),
@@ -86,23 +86,32 @@ void Tracker::matchFeatures(shared_ptr<Frame> pFrame1,
                             vknnMatches, 2); // get 2 best matches
     // find good matches using Lowe's ratio test
     const float TH = TH_DIST;
+    // TODO: filter out-of-border matches!
+    const vector<cv::KeyPoint>& vKpts1 = pFrame1->getKeyPoints();
+    const vector<cv::KeyPoint>& vKpts2 = pFrame2->getKeyPoints();
     vMatches.reserve(vknnMatches.size());
     for (int i = 0; i < vknnMatches.size(); ++i) {
         if (vknnMatches[i][0].distance < TH * vknnMatches[i][1].distance) {
-            vMatches.push_back(vknnMatches[i][0]);
+            // filter out-of-border matches
+            const cv::KeyPoint& kpt1 = vKpts1[vknnMatches[i][0].queryIdx];
+            const cv::KeyPoint& kpt2 = vKpts2[vknnMatches[i][0].trainIdx];
+            if (kpt1.pt.x >= 0 && kpt1.pt.x < Config::width() &&
+                kpt1.pt.y >= 0 && kpt1.pt.y < Config::height() &&
+                kpt2.pt.x >= 0 && kpt2.pt.x < Config::width() &&
+                kpt2.pt.y >= 0 && kpt2.pt.y < Config::height()) {
+                vMatches.push_back(vknnMatches[i][0]);
+            }
         }
     }
 }
 
 void Tracker::displayFeatMatchResult(const Mat& img,
-                                     const vector<cv::DMatch> vMatches)
+                                     const vector<cv::DMatch> vMatches) const
 {
     Mat imgUnD, imgPrevUnD, imgOut;
     // undistort input images
-    imgUnD = img;
-    imgPrevUnD = mImgPrev;
-    //cv::undistort(img, imgUnD, Config::K(), Config::distCoeffs());
-    //cv::undistort(mImgPrev, imgPrevUnD, Config::K(), Config::distCoeffs());
+    cv::undistort(img, imgUnD, Config::K(), Config::distCoeffs());
+    cv::undistort(mImgPrev, imgPrevUnD, Config::K(), Config::distCoeffs());
     // display keypoint matches (undistorted) on undistorted images
     cv::drawMatches(imgUnD, mvpFrames[0]->getKeyPoints(),
                     imgPrevUnD, mvpRefFrames[0]->getKeyPoints(),
@@ -111,7 +120,7 @@ void Tracker::displayFeatMatchResult(const Mat& img,
                     cv::Scalar({0, 255, 0})); // color for keypoint (BGR)
     cv::imshow("cam0: Matches between current (left) and "
                "previous (right) frame", imgOut);
-    cv::waitKey();
+    cv::waitKey(1);
 }
 
 } // Namespace SLAM_demo

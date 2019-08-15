@@ -39,7 +39,7 @@ public:
     void trackImgsMono(const cv::Mat& img, double timestamp);
 private: // private member functions
     /// Convert input image @p img into grayscale image.
-    cv::Mat rgb2Gray(const cv::Mat& img);
+    cv::Mat rgb2Gray(const cv::Mat& img) const;
     /** 
      * @brief Match features between current frame (1) and reference frame (2).
      * @param[in]  pFrame1  Pointer to current frame.
@@ -47,11 +47,15 @@ private: // private member functions
      * @param[in]  TH_DIST  A threshold in Lowe's ratio test for discarding 
      *                      wrong matches (default value: 0.7).
      * @param[out] vMatches A vector of matching keypoints of cv::DMatch type.
+     * @note After the feature matching scheme, where candidate keypoint matches
+     *       are filterd out using Lowe's ratio test, the candidates whose 
+     *       keypoints from both frames are out-of-border after undistorting 
+     *       the captured images are discarded.
      */
     void matchFeatures(std::shared_ptr<Frame> pFrame1,
                        std::shared_ptr<Frame> pFrame2,
                        std::vector<cv::DMatch>& vMatches,
-                       const float TH_DIST = 0.7f);
+                       const float TH_DIST = 0.7f) const;
     /** 
      * @brief Display feature matching results of adjacent 2 **UNDISTORTED**
      *        frames (left for current frame and right for previous frame).
@@ -59,7 +63,7 @@ private: // private member functions
      * @param[in] vMatches Keypoint matches of current and reference frame.
      */
     void displayFeatMatchResult(const cv::Mat& img,
-                                const std::vector<cv::DMatch> vMatches);
+                                const std::vector<cv::DMatch> vMatches) const;
 private: // private data
     System::Mode meMode; ///< SLAM system mode.
     cv::Mat mImgPrev; ///< Image of previous frame.

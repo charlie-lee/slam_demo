@@ -11,7 +11,7 @@
 ## Latest Version
 - Fix some coding style issues
 - Improve performance on feature matching based on implementations on OpenCV
-- Store undistorted keypoint data
+- Feature matching on undistorted keypoint data
 - Display feature matching result on undistorted images
 
 ## v0.0.3

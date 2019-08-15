@@ -46,19 +46,21 @@ void Frame::undistortKpts()
     cv::undistortPoints(kpts, kpts, Config::K(), Config::distCoeffs(),
                         cv::noArray(), Config::K());
     kpts.reshape(1); // reshape output to 1 channel (currently 2 channels)
-    // update keypoint coordinates
+    // update keypoint coordinates (no out-of-border keypoint filtering)
     for (int i = 0; i < mvKpts.size(); ++i) {
-        cv::KeyPoint& kpt = mvKpts[i];
-        float px = kpts.at<float>(i, 0);
-        float py = kpts.at<float>(i, 1);
-        // discard out-of-border keypoints
-        if (px >= 0 && px < Config::width() &&
-            py >= 0 && py < Config::height()) {
-            kpt.pt.x = px;
-            kpt.pt.y = py;
-        } else {
-            kpt = cv::KeyPoint(); 
-        }
+        mvKpts[i].pt.x = kpts.at<float>(i, 0);
+        mvKpts[i].pt.y = kpts.at<float>(i, 1);
+        //cv::KeyPoint& kpt = mvKpts[i];
+        //float px = kpts.at<float>(i, 0);
+        //float py = kpts.at<float>(i, 1);
+        //// discard out-of-border keypoints
+        //if (px >= 0 && px < Config::width() &&
+        //    py >= 0 && py < Config::height()) {
+        //    kpt.pt.x = px;
+        //    kpt.pt.y = py;
+        //} else {
+        //    kpt.pt.x = kpt.pt.y = -1.f;
+        //}
     }
 }
 

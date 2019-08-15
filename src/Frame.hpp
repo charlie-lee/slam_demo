@@ -33,9 +33,9 @@ public:
      */
     Frame(const cv::Mat& img);
     /// Get keypoint data for current frame.
-    std::vector<cv::KeyPoint> getKeyPoints() { return mvKpts; }
+    std::vector<cv::KeyPoint> getKeyPoints() const { return mvKpts; }
     /// Get feature descriptor for current frame.
-    cv::Mat getFeatDescriptors() { return mDescs; }
+    cv::Mat getFeatDescriptors() const { return mDescs; }
 private: // private member functions
     /// Extract features from the current frame.
     void extractFeatures(const cv::Mat& img);
