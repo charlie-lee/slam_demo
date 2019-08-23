@@ -4,6 +4,7 @@ A Simultaneous Localization and Mapping (SLAM) demo application.
 
 ## Dependencies
 - [OpenCV](https://opencv.org/)
+- [Eigen](http://eigen.tuxfamily.org)
 - [Doxygen](http://www.doxygen.nl/) (optional)
 
 ## Build Programs & Documentations

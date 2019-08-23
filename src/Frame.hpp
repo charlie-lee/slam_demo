@@ -24,7 +24,8 @@ namespace SLAM_demo {
  */
 class Frame {
 public: // public data
-    CamPose mPose; ///< Camera pose of the current frame.
+    /// Relative camera pose \f$T_{cw,k|k-1}\f$ of the current frame.
+    CamPose mPose; 
 public: // public members
     /**
      * @brief Constructor of the Frame class.
@@ -40,8 +41,11 @@ public: // public members
     std::vector<cv::KeyPoint> getKeyPoints() const { return mvKpts; }
     /// Get feature descriptor for current frame.
     cv::Mat getFeatDescriptors() const { return mDescs; }
+    unsigned getFrameIdx() const { return mnIdx; }
 private: // private data
     double mTimestamp; ///< Timestamp info for the current frame.
+    unsigned mnIdx; ///< Frame index.
+    static unsigned nNextIdx; ///< Frame index for next frame.
     std::shared_ptr<cv::Feature2D> mpFeatExtractor; ///< Feature extractor.
     std::vector<cv::KeyPoint> mvKpts; ///< Keypoint data of the current frame.
     cv::Mat mDescs; ///< Descriptor of the current frame.

@@ -19,7 +19,10 @@ namespace SLAM_demo {
 using cv::Mat;
 using cv::ORB;
 
-Frame::Frame(const Mat& img, double timestamp) : mTimestamp(timestamp)
+unsigned Frame::nNextIdx = 0;
+
+Frame::Frame(const Mat& img, double timestamp) :
+    mTimestamp(timestamp), mnIdx(nNextIdx++)
 {
     // configure feature extractor
     mpFeatExtractor = ORB::create(Config::nFeatures(), Config::scaleFactor(),

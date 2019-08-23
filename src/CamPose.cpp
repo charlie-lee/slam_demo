@@ -1,6 +1,6 @@
 /**
  * @file   CamPose.cpp
- * @brief  Implementation of CanPose class for camera pose representation.
+ * @brief  Implementation of CamPose class for camera pose representation.
  * @author Charlie Li
  * @date   2019.08.23
  */
@@ -8,6 +8,7 @@
 #include "CamPose.hpp"
 
 #include <opencv2/core.hpp>
+#include <opencv2/core/eigen.hpp> // cv::cv2eigen()
 #include <Eigen/Core>
 #include <Eigen/Geometry> // for Matrix3f::eulerAngles()
 
@@ -24,8 +25,17 @@ CamPose::CamPose() : mTcw(Mat(3, 4, CV_32FC1)), mTwc(Mat(3, 4, CV_32FC1))
     setPoseInv();
 }
 
-CamPose::CamPose(const Mat& Tcw): mTcw(Tcw.clone()), mTwc(Mat(3, 4, CV_32FC1))
+CamPose::CamPose(const cv::Mat& Tcw) :
+    mTcw(Tcw.clone()), mTwc(Mat(3, 4, CV_32FC1))
 {
+    setPoseInv();
+}
+
+CamPose::CamPose(const cv::Mat& Rcw, const cv::Mat& tcw) :
+    mTcw(Mat(3, 4, CV_32FC1)), mTwc(Mat(3, 4, CV_32FC1))
+{
+    Rcw.copyTo(mTcw.rowRange(0, 3).colRange(0, 3));
+    tcw.copyTo(mTcw.rowRange(0, 3).col(3));
     setPoseInv();
 }
 
@@ -48,19 +58,14 @@ void CamPose::setPose(const cv::Mat& Tcw)
     setPoseInv();
 }
 
-void CamPose::setRotation(const Mat& Rcw)
+void CamPose::setPose(const cv::Mat& Rcw, const cv::Mat& tcw)
 {
-    Rcw.copyTo(mTcw.rowRange(0, 3).colRange(0, 3));
+    setRotation(Rcw);
+    setTranslation(tcw);
     setPoseInv();
 }
 
-void CamPose::setTranslation(const Mat& tcw)
-{
-    tcw.copyTo(mTcw.rowRange(0, 3).col(3));
-    setPoseInv();
-}
-
-Eigen::Matrix<float, 3, 1> CamPose::getREulerAngleEigen()
+Eigen::Matrix<float, 3, 1> CamPose::getREulerAngleEigen() const
 {
     Eigen::Matrix<float, 3, 1> ea;
     Eigen::Matrix<float, 3, 3> R = getRotationEigen();
@@ -70,6 +75,27 @@ Eigen::Matrix<float, 3, 1> CamPose::getREulerAngleEigen()
     // convert unit from radian to degree
     ea *= 180.f / M_PI;
     return ea;
+}
+
+CamPose& CamPose::operator*(const CamPose& rhs)
+{
+    Mat RcwL = getRotation();
+    Mat tcwL = getTranslation();
+    Mat RcwR = rhs.getRotation();
+    Mat tcwR = rhs.getTranslation();
+    // (4*4 matrix) T_L * T_R = [R_L*R_R, R_L*t_R + t_L; 0^T, 1] 
+    setPose(RcwL*RcwR, RcwL*tcwR + tcwL);
+    return *this;
+}
+
+void CamPose::setRotation(const cv::Mat& Rcw)
+{
+    Rcw.copyTo(mTcw.rowRange(0, 3).colRange(0, 3));
+}
+
+void CamPose::setTranslation(const cv::Mat& tcw)
+{
+    tcw.copyTo(mTcw.rowRange(0, 3).col(3));
 }
 
 void CamPose::setPoseInv()
@@ -82,12 +108,10 @@ void CamPose::setPoseInv()
     twc.copyTo(mTwc.rowRange(0, 3).col(3));    
 }
 
-Eigen::Matrix<float, 3, 3> CamPose::getRotationEigen()
+Eigen::Matrix<float, 3, 3> CamPose::getRotationEigen() const
 {
     Eigen::Matrix<float, 3, 3> R;
-    R << mTcw.at<float>(0,0), mTcw.at<float>(0,1), mTcw.at<float>(0,2),
-         mTcw.at<float>(1,0), mTcw.at<float>(1,1), mTcw.at<float>(1,2),
-         mTcw.at<float>(2,0), mTcw.at<float>(2,1), mTcw.at<float>(2,2);
+    cv::cv2eigen(getRotation(), R);
     return R;
 }
 

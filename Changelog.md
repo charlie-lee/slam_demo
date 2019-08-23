@@ -3,6 +3,8 @@
 ## TODO
 - Compute pose [R|t] from 2D-2D keypoint matches (for map initialization)
   - Recover pose [R|t] from F or H (H: 80%, F: 0%)
+- Check whether the reprojection error computation is correct when selcting
+  from H & F
 
 ## Latest Version
 - Fix some coding style issues
@@ -12,8 +14,9 @@
 - Update class interface design
 - Compute pose {R, t} from 2D-2D keypoint matches (for map initialization)
   - Compute fundamental matrix F & homography H
-  - Select better transformation from F and H (1st version done)
-- Add a class for storing pose information
+  - Select better transformation from F and H
+    - Fix computation of reprojection error of F
+- Add CamPose class for storing pose information
   - Basic constructors & getters/setters
   - Getters for other pose representations
 

@@ -35,7 +35,7 @@ using std::endl;
 // constants
 const float Tracker::TH_DIST = 0.7f;
 const float Tracker::TH_SIMILARITY = 1.2f;
-const float Tracker::TH_POSE_SEL = 0.5f;
+const float Tracker::TH_POSE_SEL = 0.8f;
 
 Tracker::Tracker(System::Mode eMode) : meMode(eMode), mbFirstFrame(true)
 {
@@ -76,6 +76,7 @@ void Tracker::trackImgsMono(const Mat& img, double timestamp)
     if (mbFirstFrame) {
         mvpFramesCur[0] = pFrameCur;
         mbFirstFrame = false;
+        setAbsPose(pFrameCur->mPose);
     } else {
         mvpFramesPrev[0] = mvpFramesCur[0];
         mvpFramesCur[0] = pFrameCur;
@@ -240,7 +241,7 @@ bool Tracker::recoverPoseFromFH(const shared_ptr<Frame>& pFPrev,
                                 const shared_ptr<Frame>& pFCur,
                                 const vector<cv::DMatch>& vMatches,
                                 const Mat& Fcp,
-                                const Mat& Hcp) const
+                                const Mat& Hcp)
 {
     // select the better transformation from either F or H
     FHResult resFH = selectFH(pFPrev, pFCur, vMatches, Fcp, Hcp);
@@ -258,44 +259,53 @@ Tracker::FHResult Tracker::selectFH(const shared_ptr<Frame>& pFPrev,
                                     const shared_ptr<Frame>& pFCur,
                                     const vector<cv::DMatch>& vMatches,
                                     const Mat& Fcp,
-                                    const Mat& Hcp) const
+                                    const Mat& Hcp)
 {
     // compute reprojection errors for F & H result:
-    // error_F = sigma_i(d(x_{2,i)^T F_{21} x_{1,i})^2 +
-    //                   d(x_{1,i}^T F_{21}^{-1} x_{2,i})^2
-    // error_H = sigma_i(d(x_{1,i}, H_{21} x_{1,i})^2 +
-    //                   d(x_{2,i}, H21^{-1} x_{2,i})^2)
-    bool bFpcValid, bHpcValid;
+    // error_F = (1/N) * sigma_i(d(x_{2,i}, F_{21} x_{1,i})^2 +
+    //                           d(x_{1,i}, F_{21}^T x_{2,i})^2
+    // note: error_F is the mean distance between point and epipolar line
+    // error_H = (1/N) * sigma_i(d(x_{1,i}, H_{21} x_{1,i})^2 +
+    //                           d(x_{2,i}, H21^{-1} x_{2,i})^2)
     Mat Fpc, Hpc; // inverse matrix of H and F
-    // F & H must be non-singular for LU decomposition
-    bFpcValid = static_cast<bool>(cv::invert(Fcp, Fpc, cv::DECOMP_LU));
-    bHpcValid = static_cast<bool>(cv::invert(Hcp, Hpc, cv::DECOMP_LU));
-    // give up {F, H} selection if at least one of them is invalid
-    if (!bFpcValid || !bHpcValid) {
-        return FHResult::NONE;
-    }
+    Fpc = Fcp.t();
+    Hpc = Hcp.inv(cv::DECOMP_LU);
     // retrieve input 2D-2D matches
     const vector<cv::KeyPoint>& vKptsP = pFPrev->getKeyPoints();
     const vector<cv::KeyPoint>& vKptsC = pFCur->getKeyPoints();
     // compute reprojection errors
     float errorF = 0.f;
     float errorH = 0.f;
-    for (unsigned i = 0; i < vMatches.size(); ++i) {
+    unsigned nMatches = vMatches.size();
+    for (unsigned i = 0; i < nMatches; ++i) {
         const cv::KeyPoint& kptP = vKptsP[vMatches[i].queryIdx];
         const cv::KeyPoint& kptC = vKptsC[vMatches[i].trainIdx];
         // use homogeneous coordinate
         Mat xP = (cv::Mat_<float>(3, 1) << kptP.pt.x, kptP.pt.y, 1.f);
         Mat xC = (cv::Mat_<float>(3, 1) << kptC.pt.x, kptC.pt.y, 1.f);
         // reprojection error for F
-        Mat diffFcp = xC.t() * Fcp * xP;
-        Mat diffFpc = xP.t() * Fpc * xC;
-        errorF += diffFcp.dot(diffFcp) + diffFpc.dot(diffFpc);
+        // epipolar line in current frame w.r.t. 2D point in previous frame
+        Mat lC = Fcp * xP;
+        float alC = lC.at<float>(0, 0);
+        float blC = lC.at<float>(1, 0);
+        // epipolar line in previous frame w.r.t. 2D point in current frame
+        Mat lP = Fpc * xC;
+        float alP = lP.at<float>(0, 0);
+        float blP = lP.at<float>(1, 0);
+        // dist between point (x,y) and line ax+by+c=0: |ax+by+c|/sqrt(a^2+b^2)
+        float numerFcp = xC.dot(lC);
+        float numerFpc = xP.dot(lP);
+        float diffFcp2 = numerFcp*numerFcp / (alC*alC + blC*blC);
+        float diffFpc2 = numerFpc*numerFpc / (alP*alP + blP*blP);
+        errorF += diffFcp2 + diffFpc2;
         // reprojection error for H
         Mat diffHcp = xC - Hcp*xP;
         Mat diffHpc = xP - Hpc*xC;
         errorH += diffHcp.dot(diffHcp) + diffHpc.dot(diffHpc);
     }
-    //cout << "eF = " << errorF << " | eH = " << errorH << endl;
+    errorF /= static_cast<float>(nMatches);
+    errorH /= static_cast<float>(nMatches);
+    cout << "eF = " << errorF << " | eH = " << errorH << endl;
     // similarity between error of F and H
     float errFHSimilarity = errorF / errorH;
     if (errFHSimilarity > TH_SIMILARITY) {
@@ -310,7 +320,7 @@ Tracker::FHResult Tracker::selectFH(const shared_ptr<Frame>& pFPrev,
 bool Tracker::recoverPoseFromF(const shared_ptr<Frame>& pFPrev,
                                const shared_ptr<Frame>& pFCur,
                                const vector<cv::DMatch>& vMatches,
-                               const Mat& Fcp) const
+                               const Mat& Fcp)
 {
     return false;
 }
@@ -318,7 +328,7 @@ bool Tracker::recoverPoseFromF(const shared_ptr<Frame>& pFPrev,
 bool Tracker::recoverPoseFromH(const shared_ptr<Frame>& pFPrev,
                                const shared_ptr<Frame>& pFCur,
                                const vector<cv::DMatch>& vMatches,
-                               const Mat& Hcp) const
+                               const Mat& Hcp)
 {
     const Mat K = Config::K(); // cam intrinsics
     vector<Mat> vRcps; // possible rotations
@@ -401,7 +411,7 @@ bool Tracker::recoverPoseFromH(const shared_ptr<Frame>& pFPrev,
     }
     // select the most possible pose
     int nBestPose = 0;
-    for (int& nGoodPt : vnGoodPts) {
+    for (const int& nGoodPt : vnGoodPts) {
         if (nGoodPt > TH_POSE_SEL * nMaxGoodPts) {
             nBestPose++;
         }
@@ -411,12 +421,17 @@ bool Tracker::recoverPoseFromH(const shared_ptr<Frame>& pFPrev,
         Mat Tcw = Mat::zeros(3, 4, CV_32FC1);
         vRcps[nIdxBestPose].copyTo(Tcw.rowRange(0, 3).colRange(0, 3));
         vtcps[nIdxBestPose].copyTo(Tcw.rowRange(0, 3).col(3));
-        cout << "Pose recovered from H: " << endl << Tcw << endl;
         pFCur->mPose.setPose(Tcw);
-        Eigen::Vector3f ea = pFCur->mPose.getREulerAngleEigen();
+        CamPose TcwPrev = getAbsPose(pFPrev->getFrameIdx());
+        CamPose TcwCur = pFCur->mPose * TcwPrev;
+        cout << "Pose T_{" << pFCur->getFrameIdx() << "|0} recovered from H: "
+             << endl << TcwCur.getPose() << endl;
+        Eigen::Vector3f ea = TcwCur.getREulerAngleEigen();
         cout << "(yaw, pitch, roll): ("
              << ea(0) << ", " << ea(1) << ", " << ea(2) << ") (deg)" << endl;
+        setAbsPose(TcwCur); // temp test
     }
+    setAbsPose(CamPose()); // temp test
     return false;
 }
 

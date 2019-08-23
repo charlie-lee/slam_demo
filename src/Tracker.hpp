@@ -12,6 +12,7 @@
 
 #include <opencv2/core.hpp>
 #include <opencv2/features2d.hpp>
+#include "CamPose.hpp"
 
 namespace SLAM_demo {
 
@@ -73,6 +74,8 @@ private: // private data
     std::vector<std::shared_ptr<Frame>> mvpFramesCur;
     /// Feature matcher.
     std::shared_ptr<cv::DescriptorMatcher> mpFeatMatcher;
+    /// Camera poses \f$T_{cw,k|1}\f$ w.r.t. 1st frame.
+    std::vector<CamPose> mvTs;
 private: // private member functions
     /// Convert input image @p img into grayscale image.
     cv::Mat rgb2Gray(const cv::Mat& img) const;
@@ -149,7 +152,7 @@ private: // private member functions
     bool recoverPoseFromFH(const std::shared_ptr<Frame>& pFPrev,
                            const std::shared_ptr<Frame>& pFCur,
                            const std::vector<cv::DMatch>& vMatches,
-                           const cv::Mat& Fcp, const cv::Mat& Hcp) const;
+                           const cv::Mat& Fcp, const cv::Mat& Hcp);
     /**
      * @brief Select the better transformation of 2D-to-2D point matches
      *        from fundamental matrix F and homography H.
@@ -158,7 +161,7 @@ private: // private member functions
     FHResult selectFH(const std::shared_ptr<Frame>& pFPrev,
                       const std::shared_ptr<Frame>& pFCur,
                       const std::vector<cv::DMatch>& vMatches,
-                      const cv::Mat& Fcp, const cv::Mat& Hcp) const;
+                      const cv::Mat& Fcp, const cv::Mat& Hcp);
     /**
      * @brief Recover pose \f$[R|t]\f$ from fundamental matrix F.
      * @return True if pose recovery based on F is successful.
@@ -166,7 +169,7 @@ private: // private member functions
     bool recoverPoseFromF(const std::shared_ptr<Frame>& pFPrev,
                           const std::shared_ptr<Frame>& pFCur,
                           const std::vector<cv::DMatch>& vMatches,
-                          const cv::Mat& Fcp) const;
+                          const cv::Mat& Fcp);
     /**
      * @brief Recover pose \f$[R|t]\f$ from homography H.
      * @return True if pose recovery based on H is successful.
@@ -174,8 +177,12 @@ private: // private member functions
     bool recoverPoseFromH(const std::shared_ptr<Frame>& pFPrev,
                           const std::shared_ptr<Frame>& pFCur,
                           const std::vector<cv::DMatch>& vMatches,
-                          const cv::Mat& Hcp) const;
+                          const cv::Mat& Hcp);
     ///@} // end of groupFHComputation
+    /// Get camera pose of a target frame relative to 1st frame.
+    CamPose getAbsPose(unsigned nIdx) const { return mvTs[nIdx]; }
+    /// Set camera pose of current frame relative to 1st frame.
+    void setAbsPose(const CamPose& pose) { mvTs.push_back(pose); }
 };
 
 } // namespace SLAM_demo
