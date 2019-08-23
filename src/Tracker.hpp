@@ -23,7 +23,18 @@ class Frame;
  * @brief Track adjacent 2 frames for feature extraction and matching.
  */
 class Tracker {
-public:
+public: // public data
+    /// A threshold in Lowe's ratio test for discarding wrong matches.
+    static const float TH_DIST;
+    /** 
+     * @brief Similarity threshold between reprojection error of F and H when
+     *        selecting the better representation of the transformation from
+     *        previous frame to current frame.
+     */
+    static const float TH_SIMILARITY;
+    /// For selecting best possible recovered pose.
+    static const float TH_POSE_SEL;
+public: // public members
     /**
      * @brief Constructor.
      * @param[in] eMode See System::Mode for more information.
@@ -78,8 +89,6 @@ private: // private member functions
      * @brief Match features between previous frame (1) and current frame (2).
      * @param[in]  pFPrev  Pointer to previous frame.
      * @param[in]  pFCur   Pointer to current frame.
-     * @param[in]  TH_DIST A threshold in Lowe's ratio test for discarding 
-     *                     wrong matches (default value: 0.7).
      * @return A vector of matching keypoints of cv::DMatch type.
      * @note After the feature matching scheme, where candidate keypoint matches
      *       are filterd out using Lowe's ratio test, the candidates whose 
@@ -88,8 +97,7 @@ private: // private member functions
      */
     std::vector<cv::DMatch> matchFeatures2Dto2D(
         const std::shared_ptr<Frame>& pFPrev,
-        const std::shared_ptr<Frame>& pFCur,
-        const float TH_DIST = 0.7f) const;
+        const std::shared_ptr<Frame>& pFCur) const;
     /** 
      * @brief Check whether a cv::KeyPoint keypoint is inside the border 
      *        of an undistorted image.
@@ -110,7 +118,7 @@ private: // private member functions
     /**
      * @name groupFHComputation
      * @brief A group of functions related to fundamental matrix F & 
-     *        homography H computation, and reconstruction of pose 
+     *        homography H computation, and recovery of pose 
      *        \f$[R|t]\f$ using F & H.
      * @param[in] pFPrev   Pointer to previous frame.
      * @param[in] pFCur    Pointer to current frame.
@@ -134,14 +142,14 @@ private: // private member functions
                               const std::shared_ptr<Frame>& pFCur,
                               const std::vector<cv::DMatch>& vMatches) const;
     /**
-     * @brief Reconstruct pose \f$[R|t]\f$ from either fundamental matrix F
+     * @brief Recover pose \f$[R|t]\f$ from either fundamental matrix F
      *        or homography H.
-     * @return True if pose reconstruction is successful.
+     * @return True if pose recovery is successful.
      */
-    bool reconstructPoseFromFH(const std::shared_ptr<Frame>& pFPrev,
-                               const std::shared_ptr<Frame>& pFCur,
-                               const std::vector<cv::DMatch>& vMatches,
-                               const cv::Mat& Fcp, const cv::Mat& Hcp) const;
+    bool recoverPoseFromFH(const std::shared_ptr<Frame>& pFPrev,
+                           const std::shared_ptr<Frame>& pFCur,
+                           const std::vector<cv::DMatch>& vMatches,
+                           const cv::Mat& Fcp, const cv::Mat& Hcp) const;
     /**
      * @brief Select the better transformation of 2D-to-2D point matches
      *        from fundamental matrix F and homography H.
@@ -152,21 +160,21 @@ private: // private member functions
                       const std::vector<cv::DMatch>& vMatches,
                       const cv::Mat& Fcp, const cv::Mat& Hcp) const;
     /**
-     * @brief Reconstruct pose \f$[R|t]\f$ from fundamental matrix F.
-     * @return True if pose reconstruction based on F is successful.
+     * @brief Recover pose \f$[R|t]\f$ from fundamental matrix F.
+     * @return True if pose recovery based on F is successful.
      */
-    bool reconstructPoseFromF(const std::shared_ptr<Frame>& pFPrev,
-                              const std::shared_ptr<Frame>& pFCur,
-                              const std::vector<cv::DMatch>& vMatches,
-                              const cv::Mat& Fcp) const;
+    bool recoverPoseFromF(const std::shared_ptr<Frame>& pFPrev,
+                          const std::shared_ptr<Frame>& pFCur,
+                          const std::vector<cv::DMatch>& vMatches,
+                          const cv::Mat& Fcp) const;
     /**
-     * @brief Reconstruct pose \f$[R|t]\f$ from homography H.
-     * @return True if pose reconstruction based on H is successful.
+     * @brief Recover pose \f$[R|t]\f$ from homography H.
+     * @return True if pose recovery based on H is successful.
      */
-    bool reconstructPoseFromH(const std::shared_ptr<Frame>& pFPrev,
-                              const std::shared_ptr<Frame>& pFCur,
-                              const std::vector<cv::DMatch>& vMatches,
-                              const cv::Mat& Hcp) const;
+    bool recoverPoseFromH(const std::shared_ptr<Frame>& pFPrev,
+                          const std::shared_ptr<Frame>& pFCur,
+                          const std::vector<cv::DMatch>& vMatches,
+                          const cv::Mat& Hcp) const;
     ///@} // end of groupFHComputation
 };
 

@@ -13,6 +13,7 @@
 
 #include <opencv2/core.hpp>
 #include <opencv2/features2d.hpp>
+#include "CamPose.hpp"
 
 namespace SLAM_demo {
 
@@ -22,7 +23,9 @@ namespace SLAM_demo {
  *        camera pose, etc.
  */
 class Frame {
-public:
+public: // public data
+    CamPose mPose; ///< Camera pose of the current frame.
+public: // public members
     /**
      * @brief Constructor of the Frame class.
      *
@@ -30,7 +33,7 @@ public:
      * into keypoint and descriptor data.
      *
      * @param[in] img       Input image.
-     * @[aram[in] timestemp Timestamp info of current frame.
+     * @param[in] timestamp Timestamp info of current frame.
      */
     Frame(const cv::Mat& img, double timestamp);
     /// Get keypoint data for current frame.

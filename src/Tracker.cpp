@@ -7,14 +7,16 @@
 
 #include "Tracker.hpp"
 
+#include <cmath>
 #include <memory>
 #include <vector>
 
 #include <opencv2/calib3d.hpp> // cv::undistort(), H & F computation, ...
 #include <opencv2/core.hpp>
-#include <opencv2/imgproc.hpp>
 #include <opencv2/features2d.hpp>
 #include <opencv2/highgui.hpp> // cv::imshow()
+#include <opencv2/imgproc.hpp>
+#include <Eigen/Core>
 #include "Config.hpp"
 #include "Frame.hpp"
 
@@ -29,6 +31,11 @@ using cv::Mat;
 
 using std::cout;
 using std::endl;
+
+// constants
+const float Tracker::TH_DIST = 0.7f;
+const float Tracker::TH_SIMILARITY = 1.2f;
+const float Tracker::TH_POSE_SEL = 0.5f;
 
 Tracker::Tracker(System::Mode eMode) : meMode(eMode), mbFirstFrame(true)
 {
@@ -105,26 +112,25 @@ bool Tracker::initializeMap()
 bool Tracker::initializeMapMono(const shared_ptr<Frame>& pFPrev,
                                 const shared_ptr<Frame>& pFCur)
 {
-    // match features between current (1) and reference (2) frame
+    // match features between previous (1) and current (2) frame
     vector<cv::DMatch> vMatches = matchFeatures2Dto2D(pFPrev, pFCur);
     // temp test on display of feature matching result
     displayFeatMatchResult(vMatches, 0, 0);
     // compute fundamental matrix F (from previous (p) to current (c))
-    cv::Mat Fcp = computeFundamental(pFPrev, pFCur, vMatches);
+    Mat Fcp = computeFundamental(pFPrev, pFCur, vMatches);
     // compute homography H (from previous (p) to current (c))
-    cv::Mat Hcp = computeHomography(pFPrev, pFCur, vMatches);
+    Mat Hcp = computeHomography(pFPrev, pFCur, vMatches);
     //cout << "Fcp = " << endl << Fcp << endl << "Hcp = " << endl << Hcp << endl;
-    // reconstruct pose from F or H
-    if (reconstructPoseFromFH(pFPrev, pFCur, vMatches, Fcp, Hcp)) {
-        ; // TODO: initialize 3D map points by triangulation 2D keypoints
+    // recover pose from F or H
+    if (recoverPoseFromFH(pFPrev, pFCur, vMatches, Fcp, Hcp)) {
+        ; // TODO: initialize 3D map points by triangulating 2D keypoints
     }
     // temp: always return false as the initalization scheme is incomplete
     return false; 
 }
 
 vector<cv::DMatch> Tracker::matchFeatures2Dto2D(
-    const shared_ptr<Frame>& pFPrev, const shared_ptr<Frame>& pFCur,
-    const float TH_DIST) const
+    const shared_ptr<Frame>& pFPrev, const shared_ptr<Frame>& pFCur) const
 {
     vector<cv::DMatch> vMatches;
     vector<vector<cv::DMatch>> vknnMatches;
@@ -132,12 +138,11 @@ vector<cv::DMatch> Tracker::matchFeatures2Dto2D(
                             pFCur->getFeatDescriptors(), // train
                             vknnMatches, 2); // get 2 best matches
     // find good matches using Lowe's ratio test
-    const float TH = TH_DIST;
     const vector<cv::KeyPoint>& vKptsP = pFPrev->getKeyPoints();
     const vector<cv::KeyPoint>& vKptsC = pFCur->getKeyPoints();
     vMatches.reserve(vknnMatches.size());
     for (unsigned i = 0; i < vknnMatches.size(); ++i) {
-        if (vknnMatches[i][0].distance < TH * vknnMatches[i][1].distance) {
+        if (vknnMatches[i][0].distance < TH_DIST * vknnMatches[i][1].distance) {
             // filter out-of-border matches
             const cv::KeyPoint& kptP = vKptsP[vknnMatches[i][0].queryIdx];
             const cv::KeyPoint& kptC = vKptsC[vknnMatches[i][0].trainIdx];
@@ -160,8 +165,8 @@ inline bool Tracker::isKptInBorder(const cv::KeyPoint& kpt) const
 void Tracker::displayFeatMatchResult(const vector<cv::DMatch>& vMatches,
                                      int viewPrev, int viewCur) const
 {
-    const cv::Mat& imgPrev = mvImgsPrev[viewPrev];
-    const cv::Mat& imgCur = mvImgsCur[viewCur];
+    const Mat& imgPrev = mvImgsPrev[viewPrev];
+    const Mat& imgCur = mvImgsCur[viewCur];
     Mat imgPrevUnD, imgCurUnD, imgOut;
     // undistort input images
     cv::undistort(imgPrev, imgPrevUnD, Config::K(), Config::distCoeffs());
@@ -177,11 +182,12 @@ void Tracker::displayFeatMatchResult(const vector<cv::DMatch>& vMatches,
     cv::waitKey();
 }
 
-cv::Mat Tracker::computeFundamental(const shared_ptr<Frame>& pFPrev,
-                                    const shared_ptr<Frame>& pFCur,
-                                    const vector<cv::DMatch>& vMatches) const
+Mat Tracker::computeFundamental(const shared_ptr<Frame>& pFPrev,
+                                const shared_ptr<Frame>& pFCur,
+                                const vector<cv::DMatch>& vMatches) const
 {
-    Mat Fcp; // fundamental matrix result (from previous (p) to current (c))
+    // fundamental matrix result (from previous (p) to current (c))
+    Mat Fcp;
     // retrieve input 2D-2D matches
     const vector<cv::KeyPoint>& vKptsP = pFPrev->getKeyPoints();
     const vector<cv::KeyPoint>& vKptsC = pFCur->getKeyPoints();
@@ -199,14 +205,16 @@ cv::Mat Tracker::computeFundamental(const shared_ptr<Frame>& pFPrev,
     // F computation (using RANSAC)
     Fcp = cv::findFundamentalMat(vPtsP, vPtsC, cv::FM_RANSAC, 1., 0.99,
                                  cv::noArray());
+    Fcp.convertTo(Fcp, CV_32FC1); // maintain precision
     return Fcp;
 }
 
-cv::Mat Tracker::computeHomography(const shared_ptr<Frame>& pFPrev,
-                                   const shared_ptr<Frame>& pFCur,
-                                   const vector<cv::DMatch>& vMatches) const
+Mat Tracker::computeHomography(const shared_ptr<Frame>& pFPrev,
+                               const shared_ptr<Frame>& pFCur,
+                               const vector<cv::DMatch>& vMatches) const
 {
-    Mat Hcp; // fundamental matrix result (from previous (p) to current (c))
+    // fundamental matrix result (from previous (p) to current (c))
+    Mat Hcp;
     // retrieve input 2D-2D matches
     const vector<cv::KeyPoint>& vKptsP = pFPrev->getKeyPoints();
     const vector<cv::KeyPoint>& vKptsC = pFCur->getKeyPoints();
@@ -224,21 +232,22 @@ cv::Mat Tracker::computeHomography(const shared_ptr<Frame>& pFPrev,
     // H computation (using RANSAC)
     Hcp = cv::findHomography(vPtsP, vPtsC, cv::RANSAC, 1., cv::noArray(),
                              2000, 0.99);
+    Hcp.convertTo(Hcp, CV_32FC1);
     return Hcp;
 }
 
-bool Tracker::reconstructPoseFromFH(const shared_ptr<Frame>& pFPrev,
-                                    const shared_ptr<Frame>& pFCur,
-                                    const vector<cv::DMatch>& vMatches,
-                                    const cv::Mat& Fcp,
-                                    const cv::Mat& Hcp) const
+bool Tracker::recoverPoseFromFH(const shared_ptr<Frame>& pFPrev,
+                                const shared_ptr<Frame>& pFCur,
+                                const vector<cv::DMatch>& vMatches,
+                                const Mat& Fcp,
+                                const Mat& Hcp) const
 {
     // select the better transformation from either F or H
     FHResult resFH = selectFH(pFPrev, pFCur, vMatches, Fcp, Hcp);
     if (resFH == FHResult::F) {
-        return reconstructPoseFromF(pFPrev, pFCur, vMatches, Fcp);
+        return recoverPoseFromF(pFPrev, pFCur, vMatches, Fcp);
     } else if (resFH == FHResult::H) {
-        return reconstructPoseFromH(pFPrev, pFCur, vMatches, Hcp);
+        return recoverPoseFromH(pFPrev, pFCur, vMatches, Hcp);
     } else if (resFH == FHResult::NONE) {
         return false;
     }
@@ -248,30 +257,166 @@ bool Tracker::reconstructPoseFromFH(const shared_ptr<Frame>& pFPrev,
 Tracker::FHResult Tracker::selectFH(const shared_ptr<Frame>& pFPrev,
                                     const shared_ptr<Frame>& pFCur,
                                     const vector<cv::DMatch>& vMatches,
-                                    const cv::Mat& Fcp,
-                                    const cv::Mat& Hcp) const
+                                    const Mat& Fcp,
+                                    const Mat& Hcp) const
 {
     // compute reprojection errors for F & H result:
     // error_F = sigma_i(d(x_{2,i)^T F_{21} x_{1,i})^2 +
     //                   d(x_{1,i}^T F_{21}^{-1} x_{2,i})^2
     // error_H = sigma_i(d(x_{1,i}, H_{21} x_{1,i})^2 +
     //                   d(x_{2,i}, H21^{-1} x_{2,i})^2)
+    bool bFpcValid, bHpcValid;
+    Mat Fpc, Hpc; // inverse matrix of H and F
+    // F & H must be non-singular for LU decomposition
+    bFpcValid = static_cast<bool>(cv::invert(Fcp, Fpc, cv::DECOMP_LU));
+    bHpcValid = static_cast<bool>(cv::invert(Hcp, Hpc, cv::DECOMP_LU));
+    // give up {F, H} selection if at least one of them is invalid
+    if (!bFpcValid || !bHpcValid) {
+        return FHResult::NONE;
+    }
+    // retrieve input 2D-2D matches
+    const vector<cv::KeyPoint>& vKptsP = pFPrev->getKeyPoints();
+    const vector<cv::KeyPoint>& vKptsC = pFCur->getKeyPoints();
+    // compute reprojection errors
+    float errorF = 0.f;
+    float errorH = 0.f;
+    for (unsigned i = 0; i < vMatches.size(); ++i) {
+        const cv::KeyPoint& kptP = vKptsP[vMatches[i].queryIdx];
+        const cv::KeyPoint& kptC = vKptsC[vMatches[i].trainIdx];
+        // use homogeneous coordinate
+        Mat xP = (cv::Mat_<float>(3, 1) << kptP.pt.x, kptP.pt.y, 1.f);
+        Mat xC = (cv::Mat_<float>(3, 1) << kptC.pt.x, kptC.pt.y, 1.f);
+        // reprojection error for F
+        Mat diffFcp = xC.t() * Fcp * xP;
+        Mat diffFpc = xP.t() * Fpc * xC;
+        errorF += diffFcp.dot(diffFcp) + diffFpc.dot(diffFpc);
+        // reprojection error for H
+        Mat diffHcp = xC - Hcp*xP;
+        Mat diffHpc = xP - Hpc*xC;
+        errorH += diffHcp.dot(diffHcp) + diffHpc.dot(diffHpc);
+    }
+    //cout << "eF = " << errorF << " | eH = " << errorH << endl;
+    // similarity between error of F and H
+    float errFHSimilarity = errorF / errorH;
+    if (errFHSimilarity > TH_SIMILARITY) {
+        return FHResult::H;
+    } else if (errFHSimilarity < 1.f/TH_SIMILARITY) {
+        return FHResult::F;
+    }
+    // no result if errors are similar between F and H
     return FHResult::NONE;
 }
 
-bool Tracker::reconstructPoseFromF(const shared_ptr<Frame>& pFPrev,
-                                   const shared_ptr<Frame>& pFCur,
-                                   const vector<cv::DMatch>& vMatches,
-                                   const cv::Mat& Fcp) const
+bool Tracker::recoverPoseFromF(const shared_ptr<Frame>& pFPrev,
+                               const shared_ptr<Frame>& pFCur,
+                               const vector<cv::DMatch>& vMatches,
+                               const Mat& Fcp) const
 {
     return false;
 }
 
-bool Tracker::reconstructPoseFromH(const shared_ptr<Frame>& pFPrev,
-                                   const shared_ptr<Frame>& pFCur,
-                                   const vector<cv::DMatch>& vMatches,
-                                   const cv::Mat& Hcp) const
+bool Tracker::recoverPoseFromH(const shared_ptr<Frame>& pFPrev,
+                               const shared_ptr<Frame>& pFCur,
+                               const vector<cv::DMatch>& vMatches,
+                               const Mat& Hcp) const
 {
+    const Mat K = Config::K(); // cam intrinsics
+    vector<Mat> vRcps; // possible rotations
+    vector<Mat> vtcps; // possible translations
+    vector<Mat> vNormalcps; // plane normal matrices
+    // at most 8 possibilities
+    vRcps.reserve(8);
+    vtcps.reserve(8);
+    vNormalcps.reserve(8);
+    // return number of possibilities of [R|t]
+    // ref: Ezio Malis, Manuel Vargas, and others.
+    // Deeper understanding of the homography decomposition for vision-based
+    // control. 2007.
+    int nSolutions = cv::decomposeHomographyMat(Hcp, K, vRcps, vtcps,
+                                                vNormalcps);
+    // retrieve input 2D-2D matches
+    const vector<cv::KeyPoint>& vKptsP = pFPrev->getKeyPoints();
+    const vector<cv::KeyPoint>& vKptsC = pFCur->getKeyPoints();
+    // get the vector of 2D keypoints from both frames
+    unsigned nMatches = vMatches.size();
+    vector<cv::Point2f> vPtsP;
+    vector<cv::Point2f> vPtsC;
+    vPtsP.reserve(nMatches);
+    vPtsC.reserve(nMatches);
+    for (unsigned i = 0; i < nMatches; ++i) {
+        const cv::KeyPoint& kptP = vKptsP[vMatches[i].queryIdx];
+        const cv::KeyPoint& kptC = vKptsC[vMatches[i].trainIdx];
+        vPtsP.push_back(kptP.pt);
+        vPtsC.push_back(kptC.pt);
+    }
+    // for each [R|t], triangulate 3D points and check number of good points
+    vector<int> vnGoodPts(nSolutions, 0);
+    int nMaxGoodPts = 0;
+    int nIdxBestPose = -1;
+    for (int i = 0; i < nSolutions; ++i) {
+        // maintain precision
+        vRcps[i].convertTo(vRcps[i], CV_32FC1);
+        vtcps[i].convertTo(vtcps[i], CV_32FC1);
+        // pose T = K[I|0] for previous frame
+        Mat TcwP = Mat::zeros(3, 4, CV_32FC1);
+        K.copyTo(TcwP.rowRange(0, 3).colRange(0, 3));
+        // pose T = K[R|t] for current frame
+        Mat TcwC = Mat::zeros(3, 4, CV_32FC1);
+        vRcps[i].copyTo(TcwC.rowRange(0, 3).colRange(0, 3));
+        vtcps[i].copyTo(TcwC.rowRange(0, 3).col(3));
+        TcwC = K * TcwC;
+        // compute triangulated 3D world points
+        Mat Xws;
+        cv::triangulatePoints(TcwP, TcwC, vPtsP, vPtsC, Xws);
+        // check number of good points
+        for (unsigned j = 0; j < nMatches; ++j) {
+            // inhomogeneous coord for world 3D point Xw
+            Mat Xw = Xws.col(j) / Xws.at<float>(3, j);
+            Xw.convertTo(Xw, CV_32FC1);
+            float invDepth = 1.f / Xw.at<float>(2);
+            // must be positive depth
+            if (invDepth < 0) { 
+                continue;
+            }
+            // reprojection error needs to be lower than a threshold
+            Mat Xc = vRcps[i] * Xw.rowRange(0, 3) + vtcps[i]; // 3D cam coord
+            Mat XcProj = invDepth * K * Xc; // projected 3D cam coord
+            Mat xCReproj = XcProj.rowRange(0, 2);
+            Mat xC = Mat(vPtsC[j]);
+            // reprojection error threshold: s^o (d < s^o)
+            float s = Config::scaleFactor();
+            int o = vKptsC[i].octave;
+            float thReproj = std::pow(s, o);
+            float errReproj = cv::norm(xC - xCReproj, cv::NORM_L2);
+            if (errReproj >= thReproj) {
+                continue;
+            }
+            vnGoodPts[i]++;
+        }
+        if (vnGoodPts[i] > nMaxGoodPts) {
+            nMaxGoodPts = vnGoodPts[i];
+            nIdxBestPose = i;
+        }
+        //cout << "solution " << i << ": " << vnGoodPts[i] << endl;
+    }
+    // select the most possible pose
+    int nBestPose = 0;
+    for (int& nGoodPt : vnGoodPts) {
+        if (nGoodPt > TH_POSE_SEL * nMaxGoodPts) {
+            nBestPose++;
+        }
+    }
+    // TODO: store best recovered pose
+    if (nBestPose == 1) {
+        Mat Tcw = Mat::zeros(3, 4, CV_32FC1);
+        vRcps[nIdxBestPose].copyTo(Tcw.rowRange(0, 3).colRange(0, 3));
+        vtcps[nIdxBestPose].copyTo(Tcw.rowRange(0, 3).col(3));
+        cout << "Pose recovered from H: " << endl << Tcw << endl;
+        pFCur->mPose.setPose(Tcw);
+        Eigen::Vector3f ea = pFCur->mPose.getREulerAngleEigen();
+        cout << "(yaw, pitch, roll): ("
+             << ea(0) << ", " << ea(1) << ", " << ea(2) << ") (deg)" << endl;
+    }
     return false;
 }
 

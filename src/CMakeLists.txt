@@ -4,10 +4,12 @@ add_library(${PROJECT_NAME} SHARED
   Config.cpp
   Tracker.cpp
   Frame.cpp
+  CamPose.cpp
   )
 
 target_link_libraries(${PROJECT_NAME}
   ${OpenCV_LIBS} # OpenCV 4.0+
+  Eigen3::Eigen # Eigen3 3.3+
   )
 
 target_compile_options(${PROJECT_NAME} PRIVATE

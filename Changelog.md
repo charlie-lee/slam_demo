@@ -1,12 +1,8 @@
 # Changelog & TODO-list
 
 ## TODO
-- Compute pose {R, t} from 2D-2D keypoint matches (for map initialization)
-  - Compute fundamental matrix F (done)
-  - Compute homography H (done)
-  - Select better transformation from F and H (0%)
-  - Decompose {R, t} from F or H (TODO)
-- Add a class for storing pose information
+- Compute pose [R|t] from 2D-2D keypoint matches (for map initialization)
+  - Recover pose [R|t] from F or H (H: 80%, F: 0%)
 
 ## Latest Version
 - Fix some coding style issues
@@ -16,8 +12,10 @@
 - Update class interface design
 - Compute pose {R, t} from 2D-2D keypoint matches (for map initialization)
   - Compute fundamental matrix F & homography H
-    - Get input data: store these data vs. conversion on the fly
-      - Conversion: need to store 2D-2D matches to retrieve the keypoints
+  - Select better transformation from F and H (1st version done)
+- Add a class for storing pose information
+  - Basic constructors & getters/setters
+  - Getters for other pose representations
 
 ## v0.0.3
 - Add system initialzation scheme

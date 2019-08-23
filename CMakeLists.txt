@@ -26,10 +26,14 @@ set(DEBUG_OPTIONS "-Wall" "-Wextra" "-Wshadow" "-pedantic" "-Wnon-virtual-dtor")
 
 
 # declare dependencies (must be called after project() is called!!!)
+# OpenCV for vision algorithms
 find_package(OpenCV 4.0 REQUIRED)
 # custom OpenCV build: path should contain OpenCVConfig.cmake file!
 #find_package(OpenCV ${OpenCV_VER} REQUIRED
 #  PATHS "~/Workspace/c++/opencv/opencv-${OpenCV_VER}/build")
+# Eigen3 for pose representations
+find_package(Eigen3 3.3 REQUIRED)
+# doxygen for documentation
 find_package(Doxygen QUIET
   REQUIRED COMPONENTS dot)
 
