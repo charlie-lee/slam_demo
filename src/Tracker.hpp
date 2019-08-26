@@ -33,8 +33,12 @@ public: // public data
      *        previous frame to current frame.
      */
     static const float TH_SIMILARITY;
+    /// Cosine of smallest appropriate parallax/angle between 2 views.
+    static const float TH_COS_PARALLAX;
     /// For selecting best possible recovered pose.
     static const float TH_POSE_SEL;
+    /// Minimum ratio of triangulated points to total keypoint matches,
+    static const float TH_MIN_RATIO_TRIANG_PTS;
 public: // public members
     /**
      * @brief Constructor.
@@ -52,6 +56,11 @@ public: // public members
 private: // private data
     /// Selection result of the better transformation from F and H.
     enum class FHResult {F, H, NONE /**< Neither H nor F is appropriate. */};
+    /// Reprojection error computation scheme.
+    enum class ReprojErrScheme {
+        F, ///< Fundamental matrix as reprojection transformation.
+        H  ///< Homography as reprojection transformation.
+    };
     System::Mode meMode; ///< SLAM system mode.
     /** 
      * @brief Images of previous frame for a vector of views. 
@@ -162,23 +171,44 @@ private: // private member functions
                       const std::shared_ptr<Frame>& pFCur,
                       const std::vector<cv::DMatch>& vMatches,
                       const cv::Mat& Fcp, const cv::Mat& Hcp);
-    /**
-     * @brief Recover pose \f$[R|t]\f$ from fundamental matrix F.
-     * @return True if pose recovery based on F is successful.
-     */
-    bool recoverPoseFromF(const std::shared_ptr<Frame>& pFPrev,
-                          const std::shared_ptr<Frame>& pFCur,
-                          const std::vector<cv::DMatch>& vMatches,
-                          const cv::Mat& Fcp);
-    /**
-     * @brief Recover pose \f$[R|t]\f$ from homography H.
-     * @return True if pose recovery based on H is successful.
-     */
-    bool recoverPoseFromH(const std::shared_ptr<Frame>& pFPrev,
-                          const std::shared_ptr<Frame>& pFCur,
-                          const std::vector<cv::DMatch>& vMatches,
-                          const cv::Mat& Hcp);
     ///@} // end of groupFHComputation
+    /**
+     * @brief Compute reprojection error based on transformation matrix
+     *        @p T21 (reproject @p p1 from view 1 to view 2) and @p T12
+     *        (reproject @p p2 from view 2 to view 1).
+     * @param[in] T21 Transformation matrix from view 1 to view 2.
+     * @param[in] T12 Transformation matrix from view 2 to view 1.
+     * @param[in] p1  Point in view 1.
+     * @param[in] p2  Point in view 2.
+     * @param[in] scheme Computation scheme based on different transformation
+     *                   matrices (see Tracker::ReprojErrScheme for details).
+     * @return Reprojection error (square form) in FP32 precision.
+     */
+    float computeReprojErr(const cv::Mat& T21, const cv::Mat& T12,
+                           const cv::Mat& p1, const cv::Mat& p2,
+                           ReprojErrScheme scheme) const;
+    /**
+     * @brief Check whether a triangulated 3D world point is good enough
+     *        to be included to the map.
+     *
+     * Basically there're 3 things to check:
+     * - The depth of the 3D camera coordinates in both views;
+     * - The parallax of the 2 views (the angle oP-Xw-oC where oP and oC are 
+     *   the camera origins in previous and current frame, Xw is the 
+     *   triangulated point,
+     * - The reprojection errors in both views.
+     *
+     * @param[in] Xw   \f$4 \times 1\f$ triangulated 3D world point in
+     *                 homogeneous coordinate.
+     * @param[in] kptP 2D keypoint in previous frame.
+     * @param[in] kptC corresponding 2D keypoint in current frame.
+     * @param[in] Rcw  Rotation matrix of the recovered pose.
+     * @param[in] tcw  Translation matrix of the recovered pose.
+     * @return True if the triangulated point is good enough, otherwise false.
+     */
+    bool checkTriangulatedPt(const cv::Mat& Xw4D,
+                             const cv::KeyPoint& kptP, const cv::KeyPoint& kptC,
+                             const CamPose& pose) const;
     /// Get camera pose of a target frame relative to 1st frame.
     CamPose getAbsPose(unsigned nIdx) const { return mvTs[nIdx]; }
     /// Set camera pose of current frame relative to 1st frame.

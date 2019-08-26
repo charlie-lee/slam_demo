@@ -53,7 +53,7 @@ public: // public members
      */
     ///@{
     cv::Mat getPose() const { return mTcw; }
-    cv::Mat getRotation() const { return mTcw.rowRange(0, 3).colRange(0, 3); }
+    cv::Mat getRotation() const { return mTcw.colRange(0, 3).rowRange(0, 3); }
     cv::Mat getTranslation() const { return mTcw.rowRange(0, 3).col(3); }
     cv::Mat getPoseInv() const { return mTwc; }
     cv::Mat getRotationInv() const { return mTwc.rowRange(0, 3).colRange(0, 3); }

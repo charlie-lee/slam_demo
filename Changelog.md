@@ -2,11 +2,15 @@
 
 ## TODO
 - Compute pose [R|t] from 2D-2D keypoint matches (for map initialization)
-  - Recover pose [R|t] from F or H (H: 80%, F: 0%)
+  - Store triangulated 3D world points to map (TODO)
 - Check whether the reprojection error computation is correct when selcting
-  from H & F
+  from H & F (TODO)
+- Add Map and MapPoint class for storing map data (TODO)
+- Add pose display function (TODO)
 
 ## Latest Version
+
+## v0.0.4
 - Fix some coding style issues
 - Improve performance on feature matching based on implementations on OpenCV
 - Feature matching on undistorted keypoint data
@@ -16,6 +20,7 @@
   - Compute fundamental matrix F & homography H
   - Select better transformation from F and H
     - Fix computation of reprojection error of F
+  - Recover pose [R|t] from H or F
 - Add CamPose class for storing pose information
   - Basic constructors & getters/setters
   - Getters for other pose representations

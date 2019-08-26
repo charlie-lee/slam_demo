@@ -17,6 +17,7 @@
 #include <opencv2/highgui.hpp> // cv::imshow()
 #include <opencv2/imgproc.hpp>
 #include <Eigen/Core>
+#include "CamPose.hpp"
 #include "Config.hpp"
 #include "Frame.hpp"
 
@@ -35,7 +36,9 @@ using std::endl;
 // constants
 const float Tracker::TH_DIST = 0.7f;
 const float Tracker::TH_SIMILARITY = 1.2f;
+const float Tracker::TH_COS_PARALLAX = 0.9999f;
 const float Tracker::TH_POSE_SEL = 0.8f;
+const float Tracker::TH_MIN_RATIO_TRIANG_PTS = 0.5f;
 
 Tracker::Tracker(System::Mode eMode) : meMode(eMode), mbFirstFrame(true)
 {
@@ -245,13 +248,119 @@ bool Tracker::recoverPoseFromFH(const shared_ptr<Frame>& pFPrev,
 {
     // select the better transformation from either F or H
     FHResult resFH = selectFH(pFPrev, pFCur, vMatches, Fcp, Hcp);
+    const Mat K = Config::K(); // cam intrinsics
+    vector<Mat> vRcps; // possible rotations
+    vector<Mat> vtcps; // possible translations
+    int nSolutions = 0; // number of possible poses
+    // decompose F or H into [R|t]s
     if (resFH == FHResult::F) {
-        return recoverPoseFromF(pFPrev, pFCur, vMatches, Fcp);
+        // at most 4 possibilities
+        vRcps.reserve(4);
+        vtcps.reserve(4);
+        // ref: Richard Hartley and Andrew Zisserman. Multiple view geometry
+        // in computer vision. Cambridge university press, 2003.
+        Mat Ecp = K.t() * Fcp * K;
+        vRcps.resize(2);
+        vtcps.resize(2);
+        cv::decomposeEssentialMat(Ecp, vRcps[0], vRcps[1], vtcps[0]);
+        vtcps[1] = vtcps[0].clone();
+        nSolutions = 2;
+        //return recoverPoseFromF(pFPrev, pFCur, vMatches, Fcp);
     } else if (resFH == FHResult::H) {
-        return recoverPoseFromH(pFPrev, pFCur, vMatches, Hcp);
+        vector<Mat> vNormalcps; // plane normal matrices
+        // at most 8 possibilities
+        vRcps.reserve(8);
+        vtcps.reserve(8);
+        vNormalcps.reserve(8);
+        // return number of possibilities of [R|t]
+        // ref: Ezio Malis, Manuel Vargas, and others.
+        // Deeper understanding of the homography decomposition for
+        // vision-based control. 2007.
+        nSolutions = cv::decomposeHomographyMat(Hcp, K, vRcps, vtcps,
+                                                vNormalcps);
+        //return recoverPoseFromH(pFPrev, pFCur, vMatches, Hcp);
     } else if (resFH == FHResult::NONE) {
         return false;
     }
+    // retrieve input 2D-2D matches
+    const vector<cv::KeyPoint>& vKptsP = pFPrev->getKeyPoints();
+    const vector<cv::KeyPoint>& vKptsC = pFCur->getKeyPoints();
+    // get the vector of 2D keypoints from both frames
+    unsigned nMatches = vMatches.size();
+    vector<cv::Point2f> vPtsP;
+    vector<cv::Point2f> vPtsC;
+    vPtsP.reserve(nMatches);
+    vPtsC.reserve(nMatches);
+    for (unsigned i = 0; i < nMatches; ++i) {
+        const cv::KeyPoint& kptP = vKptsP[vMatches[i].queryIdx];
+        const cv::KeyPoint& kptC = vKptsC[vMatches[i].trainIdx];
+        vPtsP.push_back(kptP.pt);
+        vPtsC.push_back(kptC.pt);
+    }
+    // get best pose & corresponding triangulated 3D points from the solutions
+    vector<int> vnGoodPts(nSolutions, 0);
+    vector<Mat> vXws(nSolutions); // triangulated 3D points
+    int nMaxGoodPts = 0;
+    int nIdxBestPose = -1;
+    for (int i = 0; i < nSolutions; ++i) {
+        // maintain precision
+        vRcps[i].convertTo(vRcps[i], CV_32FC1);
+        vtcps[i].convertTo(vtcps[i], CV_32FC1);
+        // pose T = K[I|0] for previous frame
+        Mat TcwP = Mat::zeros(3, 4, CV_32FC1);
+        K.copyTo(TcwP.rowRange(0, 3).colRange(0, 3));
+        // pose T = K[R|t] for current frame
+        Mat TcwC = Mat::zeros(3, 4, CV_32FC1);
+        vRcps[i].copyTo(TcwC.rowRange(0, 3).colRange(0, 3));
+        vtcps[i].copyTo(TcwC.rowRange(0, 3).col(3));
+        TcwC = K * TcwC;
+        // compute triangulated 3D world points
+        Mat Xws;
+        cv::triangulatePoints(TcwP, TcwC, vPtsP, vPtsC, Xws);
+        Xws.convertTo(Xws, CV_32FC1);
+        vXws.push_back(Xws);
+        // check number of good points
+        CamPose tmpPose = CamPose(vRcps[i], vtcps[i]);
+        for (unsigned j = 0; j < nMatches; ++j) {
+            Mat Xw = Xws.col(j);
+            const cv::KeyPoint& kptP = vKptsP[vMatches[j].queryIdx];
+            const cv::KeyPoint& kptC = vKptsC[vMatches[j].trainIdx];
+            if (checkTriangulatedPt(Xw, kptP, kptC, tmpPose)) {
+                vnGoodPts[i]++;
+            }
+        }
+        if (vnGoodPts[i] > nMaxGoodPts) {
+            nMaxGoodPts = vnGoodPts[i];
+            nIdxBestPose = i;
+        }
+        cout << "solution " << i << ": " << vnGoodPts[i] << endl;
+    }
+    // select the most possible pose
+    int nBestPose = 0;
+    for (const int& nGoodPt : vnGoodPts) {
+        if (nGoodPt > TH_MIN_RATIO_TRIANG_PTS * nMatches &&
+            nGoodPt > TH_POSE_SEL * nMaxGoodPts) {
+            nBestPose++;
+        }
+    }
+    // TODO: store best recovered pose & triangulated 3D points
+    if (nBestPose == 1) {
+        Mat Tcw = Mat::zeros(3, 4, CV_32FC1);
+        vRcps[nIdxBestPose].copyTo(Tcw.rowRange(0, 3).colRange(0, 3));
+        vtcps[nIdxBestPose].copyTo(Tcw.rowRange(0, 3).col(3));
+        pFCur->mPose.setPose(Tcw);
+        unsigned nCurFrmIdx = pFCur->getFrameIdx();
+        cout << "Pose T_{" << nCurFrmIdx << "|" << nCurFrmIdx - 1
+             <<"} recovered from " << (resFH == FHResult::F ? "F" : "H")
+             << endl << pFCur->mPose.getPose() << endl;
+        // cout << pFCur->mPose << endl;
+        Eigen::Vector3f ea = pFCur->mPose.getREulerAngleEigen();
+        cout << "(yaw, pitch, roll): ("
+             << ea(0) << ", " << ea(1) << ", " << ea(2) << ") (deg)" << endl;
+        //setAbsPose(TcwCur); // temp test
+        // store triangulated 3D points to map
+    }
+    //setAbsPose(CamPose()); // temp test
     return false;
 }
 
@@ -283,25 +392,8 @@ Tracker::FHResult Tracker::selectFH(const shared_ptr<Frame>& pFPrev,
         // use homogeneous coordinate
         Mat xP = (cv::Mat_<float>(3, 1) << kptP.pt.x, kptP.pt.y, 1.f);
         Mat xC = (cv::Mat_<float>(3, 1) << kptC.pt.x, kptC.pt.y, 1.f);
-        // reprojection error for F
-        // epipolar line in current frame w.r.t. 2D point in previous frame
-        Mat lC = Fcp * xP;
-        float alC = lC.at<float>(0, 0);
-        float blC = lC.at<float>(1, 0);
-        // epipolar line in previous frame w.r.t. 2D point in current frame
-        Mat lP = Fpc * xC;
-        float alP = lP.at<float>(0, 0);
-        float blP = lP.at<float>(1, 0);
-        // dist between point (x,y) and line ax+by+c=0: |ax+by+c|/sqrt(a^2+b^2)
-        float numerFcp = xC.dot(lC);
-        float numerFpc = xP.dot(lP);
-        float diffFcp2 = numerFcp*numerFcp / (alC*alC + blC*blC);
-        float diffFpc2 = numerFpc*numerFpc / (alP*alP + blP*blP);
-        errorF += diffFcp2 + diffFpc2;
-        // reprojection error for H
-        Mat diffHcp = xC - Hcp*xP;
-        Mat diffHpc = xP - Hpc*xC;
-        errorH += diffHcp.dot(diffHcp) + diffHpc.dot(diffHpc);
+        errorF += computeReprojErr(Fcp, Fpc, xP, xC, ReprojErrScheme::F);
+        errorH += computeReprojErr(Hcp, Hpc, xP, xC, ReprojErrScheme::H);
     }
     errorF /= static_cast<float>(nMatches);
     errorH /= static_cast<float>(nMatches);
@@ -317,122 +409,94 @@ Tracker::FHResult Tracker::selectFH(const shared_ptr<Frame>& pFPrev,
     return FHResult::NONE;
 }
 
-bool Tracker::recoverPoseFromF(const shared_ptr<Frame>& pFPrev,
-                               const shared_ptr<Frame>& pFCur,
-                               const vector<cv::DMatch>& vMatches,
-                               const Mat& Fcp)
+float Tracker::computeReprojErr(const cv::Mat& T21, const cv::Mat& T12,
+                                const cv::Mat& p1, const cv::Mat& p2,
+                                ReprojErrScheme scheme) const
 {
-    return false;
+    // compute reprojection errors for F & H result:
+    // error_F = d(x_{2,i}, F_{21} x_{1,i})^2 + d(x_{1,i}, F_{21}^T x_{2,i})^2
+    // error_H = d(x_{1,i}, H_{21} x_{1,i})^2 + d(x_{2,i}, H21^{-1} x_{2,i})^2
+    float err = 0.0f;
+    if (scheme == ReprojErrScheme::F) {
+        // reprojection error for fundamental matrix
+        // epipolar line in current frame w.r.t. 2D point in previous frame
+        Mat l2 = T21 * p1;
+        float al2 = l2.at<float>(0, 0);
+        float bl2 = l2.at<float>(1, 0);
+        // epipolar line in previous frame w.r.t. 2D point in current frame
+        Mat l1 = T12 * p2;
+        float al1 = l1.at<float>(0, 0);
+        float bl1 = l1.at<float>(1, 0);
+        // dist between point (x,y) and line ax+by+c=0: |ax+by+c|/sqrt(a^2+b^2)
+        float numerF21 = p2.dot(l2);
+        float numerF12 = p1.dot(l1);
+        float diffF21Sq = numerF21*numerF21 / (al2*al2 + bl2*bl2);
+        float diffF12Sq = numerF12*numerF12 / (al1*al1 + bl1*bl1);
+        err = diffF21Sq + diffF12Sq;
+    } else if (scheme == ReprojErrScheme::H) {
+        // reprojection error for homography
+        Mat diffH21 = p2 - T21*p1;
+        Mat diffH12 = p1 - T12*p2;
+        err = diffH21.dot(diffH21) + diffH12.dot(diffH12);
+    } else {
+        assert(0); // TODO: add other schemes
+    }
+    return err;
 }
 
-bool Tracker::recoverPoseFromH(const shared_ptr<Frame>& pFPrev,
-                               const shared_ptr<Frame>& pFCur,
-                               const vector<cv::DMatch>& vMatches,
-                               const Mat& Hcp)
+bool Tracker::checkTriangulatedPt(const cv::Mat& Xw,
+                                  const cv::KeyPoint& kptP,
+                                  const cv::KeyPoint& kptC,
+                                  const CamPose& pose) const
 {
-    const Mat K = Config::K(); // cam intrinsics
-    vector<Mat> vRcps; // possible rotations
-    vector<Mat> vtcps; // possible translations
-    vector<Mat> vNormalcps; // plane normal matrices
-    // at most 8 possibilities
-    vRcps.reserve(8);
-    vtcps.reserve(8);
-    vNormalcps.reserve(8);
-    // return number of possibilities of [R|t]
-    // ref: Ezio Malis, Manuel Vargas, and others.
-    // Deeper understanding of the homography decomposition for vision-based
-    // control. 2007.
-    int nSolutions = cv::decomposeHomographyMat(Hcp, K, vRcps, vtcps,
-                                                vNormalcps);
-    // retrieve input 2D-2D matches
-    const vector<cv::KeyPoint>& vKptsP = pFPrev->getKeyPoints();
-    const vector<cv::KeyPoint>& vKptsC = pFCur->getKeyPoints();
-    // get the vector of 2D keypoints from both frames
-    unsigned nMatches = vMatches.size();
-    vector<cv::Point2f> vPtsP;
-    vector<cv::Point2f> vPtsC;
-    vPtsP.reserve(nMatches);
-    vPtsC.reserve(nMatches);
-    for (unsigned i = 0; i < nMatches; ++i) {
-        const cv::KeyPoint& kptP = vKptsP[vMatches[i].queryIdx];
-        const cv::KeyPoint& kptC = vKptsC[vMatches[i].trainIdx];
-        vPtsP.push_back(kptP.pt);
-        vPtsC.push_back(kptC.pt);
+    // inhomogeneous coord for world 3D point Xw
+    // world coord in current frame / cam coord based on K[I|0] in Previous frame
+    float scale = Xw.at<float>(3);
+    Mat XcP = Xw.rowRange(0, 3) / scale;
+    // 3D cam coord in Current frame
+    Mat Rcw = pose.getRotation();
+    Mat tcw = pose.getTranslation();
+    Mat XcC = Rcw*XcP + tcw;
+    // condition 1: must be positive depth in both views
+    float invDepthP = 1.f / XcP.at<float>(2);
+    float invDepthC = 1.f / XcC.at<float>(2);
+    if (invDepthP < 0 || invDepthC < 0) { 
+        return false;
     }
-    // for each [R|t], triangulate 3D points and check number of good points
-    vector<int> vnGoodPts(nSolutions, 0);
-    int nMaxGoodPts = 0;
-    int nIdxBestPose = -1;
-    for (int i = 0; i < nSolutions; ++i) {
-        // maintain precision
-        vRcps[i].convertTo(vRcps[i], CV_32FC1);
-        vtcps[i].convertTo(vtcps[i], CV_32FC1);
-        // pose T = K[I|0] for previous frame
-        Mat TcwP = Mat::zeros(3, 4, CV_32FC1);
-        K.copyTo(TcwP.rowRange(0, 3).colRange(0, 3));
-        // pose T = K[R|t] for current frame
-        Mat TcwC = Mat::zeros(3, 4, CV_32FC1);
-        vRcps[i].copyTo(TcwC.rowRange(0, 3).colRange(0, 3));
-        vtcps[i].copyTo(TcwC.rowRange(0, 3).col(3));
-        TcwC = K * TcwC;
-        // compute triangulated 3D world points
-        Mat Xws;
-        cv::triangulatePoints(TcwP, TcwC, vPtsP, vPtsC, Xws);
-        // check number of good points
-        for (unsigned j = 0; j < nMatches; ++j) {
-            // inhomogeneous coord for world 3D point Xw
-            Mat Xw = Xws.col(j) / Xws.at<float>(3, j);
-            Xw.convertTo(Xw, CV_32FC1);
-            float invDepth = 1.f / Xw.at<float>(2);
-            // must be positive depth
-            if (invDepth < 0) { 
-                continue;
-            }
-            // reprojection error needs to be lower than a threshold
-            Mat Xc = vRcps[i] * Xw.rowRange(0, 3) + vtcps[i]; // 3D cam coord
-            Mat XcProj = invDepth * K * Xc; // projected 3D cam coord
-            Mat xCReproj = XcProj.rowRange(0, 2);
-            Mat xC = Mat(vPtsC[j]);
-            // reprojection error threshold: s^o (d < s^o)
-            float s = Config::scaleFactor();
-            int o = vKptsC[i].octave;
-            float thReproj = std::pow(s, o);
-            float errReproj = cv::norm(xC - xCReproj, cv::NORM_L2);
-            if (errReproj >= thReproj) {
-                continue;
-            }
-            vnGoodPts[i]++;
-        }
-        if (vnGoodPts[i] > nMaxGoodPts) {
-            nMaxGoodPts = vnGoodPts[i];
-            nIdxBestPose = i;
-        }
-        //cout << "solution " << i << ": " << vnGoodPts[i] << endl;
+    // condition 2: the parallax of 2 views must not be too small
+    Mat OP = Mat::zeros(3, 1, CV_32FC1); // 3D cam origin in previous frame
+    Mat OC = pose.getCamOrigin(); // 3D cam origin in current frame
+    Mat XwoP = OP - XcP; // vector from Xw to oP
+    Mat XwoC = OC - XcP; // vector from Xw to oC
+    float normXwoP = cv::norm(XwoP, cv::NORM_L2);
+    float normXwoC = cv::norm(XwoC, cv::NORM_L2);
+    float cosParallax = XwoP.dot(XwoC) / (normXwoP * normXwoC);
+    if (cosParallax > TH_COS_PARALLAX) {
+        return false;
     }
-    // select the most possible pose
-    int nBestPose = 0;
-    for (const int& nGoodPt : vnGoodPts) {
-        if (nGoodPt > TH_POSE_SEL * nMaxGoodPts) {
-            nBestPose++;
-        }
+    // condition 3: reprojection error needs to be lower than a threshold
+    //              for both views
+    const Mat K = Config::K();
+    // projected cam coords in previous and current frames
+    Mat XcPProj = invDepthP * K * XcP; 
+    Mat XcCProj = invDepthC * K * XcC;
+    // reprojected 2D image coords in both frames
+    Mat xPReproj = XcPProj.rowRange(0, 2);
+    Mat xCReproj = XcCProj.rowRange(0, 2);
+    Mat xP = Mat(kptP.pt);
+    Mat xC = Mat(kptC.pt);
+    // reprojection error threshold: s^o (d < s^o)
+    float s = Config::scaleFactor();
+    int oP = kptP.octave;
+    int oC = kptC.octave;
+    float thPReproj = std::pow(s, oP);
+    float thCReproj = std::pow(s, oC);
+    float errPReproj = cv::norm(xP - xPReproj, cv::NORM_L2);
+    float errCReproj = cv::norm(xC - xCReproj, cv::NORM_L2);
+    if (errPReproj > thPReproj || errCReproj > thCReproj) {
+        return false;
     }
-    // TODO: store best recovered pose
-    if (nBestPose == 1) {
-        Mat Tcw = Mat::zeros(3, 4, CV_32FC1);
-        vRcps[nIdxBestPose].copyTo(Tcw.rowRange(0, 3).colRange(0, 3));
-        vtcps[nIdxBestPose].copyTo(Tcw.rowRange(0, 3).col(3));
-        pFCur->mPose.setPose(Tcw);
-        CamPose TcwPrev = getAbsPose(pFPrev->getFrameIdx());
-        CamPose TcwCur = pFCur->mPose * TcwPrev;
-        cout << "Pose T_{" << pFCur->getFrameIdx() << "|0} recovered from H: "
-             << endl << TcwCur.getPose() << endl;
-        Eigen::Vector3f ea = TcwCur.getREulerAngleEigen();
-        cout << "(yaw, pitch, roll): ("
-             << ea(0) << ", " << ea(1) << ", " << ea(2) << ") (deg)" << endl;
-        setAbsPose(TcwCur); // temp test
-    }
-    setAbsPose(CamPose()); // temp test
-    return false;
+    return true; // triangulated result is good if all conditions are met
 }
 
 } // Namespace SLAM_demo
