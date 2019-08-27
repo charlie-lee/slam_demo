@@ -70,7 +70,7 @@ public:
                        System::Mode eMode);
     // getters
     /** 
-     * @name groupCamParamGetters
+     * @name Getters for Camera Parameters
      * @brief A group of camera parameter getters.
      * @param[in] i Get the parameter from the \f$i\f$th camera.
      */
@@ -89,16 +89,16 @@ public:
     static float k3(int i = 0) { return getInstance().mvCamParams[i].k3; }
     static cv::Mat K(int i = 0) { return getInstance().mvK[i]; }
     static cv::Mat distCoeffs(int i = 0) { return getInstance().mvDistCoeffs[i]; }
-    ///@} // end of groupCamParamGetters
+    ///@}
     /**
-     * @name groupFeatExtParamGetters
+     * @name Getters for Feature Extraction Parameters
      * @brief A group of feature extraction parameter getters.
      */
     ///@{
     static int nFeatures() { return getInstance().mFeatParams.nFeatures; }
     static float scaleFactor() { return getInstance().mFeatParams.scaleFactor; }
     static int nLevels() { return getInstance().mFeatParams.nLevels; }
-    ///@} // end of groupFeatExtParamGetters
+    ///@}
 private: // private data
     /// Camera parameters for each camera.
     std::vector<CameraParameters> mvCamParams;
@@ -122,7 +122,7 @@ private: // private member functions
     /// Set feature extraction parameters based on loaded cfg file.
     void setFeatExtParams(const cv::FileStorage& fs);
     /** 
-     * @name groupCamIntrinsicsSetters
+     * @name Setters for Camera Intrinsics
      * @brief Set camera intrinsics and distortion coefficients 
      *        using configured camera parameters.
      * @param[in] view Camera index starting from 0.
@@ -130,7 +130,7 @@ private: // private member functions
     ///@{
     void setCamIntrinsics(int view);
     void setCamDistCoeffs(int view);
-    ///@} // end of groupCamIntrinsicsSetters
+    ///@}
 };
 
 /// Display configured system parameters.

@@ -7,6 +7,8 @@
 
 #include "CamPose.hpp"
 
+#include <iostream>
+
 #include <opencv2/core.hpp>
 #include <opencv2/core/eigen.hpp> // cv::cv2eigen()
 #include <Eigen/Core>
@@ -14,6 +16,7 @@
 
 namespace SLAM_demo {
 
+using std::endl;
 using cv::Mat;
 
 CamPose::CamPose() : mTcw(Mat(3, 4, CV_32FC1)), mTwc(Mat(3, 4, CV_32FC1))
@@ -113,6 +116,17 @@ Eigen::Matrix<float, 3, 3> CamPose::getRotationEigen() const
     Eigen::Matrix<float, 3, 3> R;
     cv::cv2eigen(getRotation(), R);
     return R;
+}
+
+std::ostream& operator<<(std::ostream& os, const CamPose& pose)
+{
+    //os << "Pose Tcw = [Rcw | tcw] = " << endl << pose.getPose() << endl;
+    Eigen::Vector3f ea = pose.getREulerAngleEigen();
+    os << "Rotation {yaw, pitch, roll} = {"
+       << ea(0) << ", " << ea(1) << ", " << ea(2) << "} (deg)" << endl;
+    os << "Translation tcw = " << pose.getTranslation().t() << endl;
+    os << "Camera origin = " << pose.getCamOrigin().t() << endl;
+    return os;
 }
 
 } // namespace SLAM_demo

@@ -8,6 +8,8 @@
 #ifndef CAMPOSE_HPP
 #define CAMPOSE_HPP
 
+#include <iostream>
+
 #include <opencv2/core.hpp>
 #include <Eigen/Core>
 
@@ -47,7 +49,7 @@ public: // public members
      */
     void setPose(const cv::Mat& Rcw, const cv::Mat& tcw);
     /**
-     * @name groupGetters
+     * @name Getters for Pose-related Data
      * @brief A group of getters for retrieving pose-related data.
      * @return Matrix representation of pose-related data of type cv::Mat.
      */
@@ -59,7 +61,7 @@ public: // public members
     cv::Mat getRotationInv() const { return mTwc.rowRange(0, 3).colRange(0, 3); }
     /// Get \f$t_{wc}\f$, which is the camera origin in world coordinate system.
     cv::Mat getCamOrigin() const { return mTwc.rowRange(0, 3).col(3); }
-    ///@} // end of groupGetters
+    ///@}
     /**
      * @brief  Get Euler angle representation of rotation matrix \f$R_{cw}\f$
      *         as \f$3 \times 1\f$ vector \f$(yaw, pitch, roll)^T\f$. 
@@ -96,6 +98,8 @@ private: // private members
     /// Get rotation matrix represented using Eigen.
     Eigen::Matrix<float, 3, 3> getRotationEigen() const;    
 };
+
+std::ostream& operator<<(std::ostream& os, const CamPose& pose);
 
 } // namespace SLAM_demo
 

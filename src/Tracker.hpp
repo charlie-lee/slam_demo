@@ -54,6 +54,13 @@ public: // public members
      */
     void trackImgsMono(const cv::Mat& img, double timestamp);
 private: // private data
+    /// Tracking state.
+    enum class State {
+        /// Map is not initialized. Using 2D-2D matches for pose estimation.
+        NOT_INITIALIZED, 
+        OK, ///< Tracking is successful for a new incoming frame.
+        LOST ///< Tracking is unsuccessful.
+    };
     /// Selection result of the better transformation from F and H.
     enum class FHResult {F, H, NONE /**< Neither H nor F is appropriate. */};
     /// Reprojection error computation scheme.
@@ -62,6 +69,7 @@ private: // private data
         H  ///< Homography as reprojection transformation.
     };
     System::Mode meMode; ///< SLAM system mode.
+    State mState; ///< Tracking state.
     /** 
      * @brief Images of previous frame for a vector of views. 
      * @note Previous frame (maybe adjacent) for System::Mode::MONOCULAR and 
@@ -89,14 +97,16 @@ private: // private member functions
     /// Convert input image @p img into grayscale image.
     cv::Mat rgb2Gray(const cv::Mat& img) const;
     /// Initialize 3D map of SLAM system.
-    bool initializeMap();
+    State initializeMap();
     /** 
      * @brief Initialize 3D map of SLAM system for System::Mode::MONOCULAR case.
      * @param[in] pFPrev Pointer to previous frame.
      * @param[in] pFCur  Pointer to current frame.
+     * @return State::OK if the initialization is successful, otherwise
+     *         State::NOT_INITIALIZED.
      */
-    bool initializeMapMono(const std::shared_ptr<Frame>& pFPrev,
-                           const std::shared_ptr<Frame>& pFCur);
+    State initializeMapMono(const std::shared_ptr<Frame>& pFPrev,
+                            const std::shared_ptr<Frame>& pFCur);
     /** 
      * @brief Match features between previous frame (1) and current frame (2).
      * @param[in]  pFPrev  Pointer to previous frame.
@@ -111,12 +121,12 @@ private: // private member functions
         const std::shared_ptr<Frame>& pFPrev,
         const std::shared_ptr<Frame>& pFCur) const;
     /** 
-     * @brief Check whether a cv::KeyPoint keypoint is inside the border 
-     *        of an undistorted image.
-     * @param[in] kpt Keypoint of type cv::KeyPoint.
-     * @return true if the keypoint is inside the border.
+     * @brief Check whether a \f$2 \times 1\f$ cv::Mat point is inside 
+     *        the border of an undistorted image.
+     * @param[in] pt \f$2 \times 1\f$ point of cv::Mat type
+     * @return True if the 2D point is inside the border.
      */
-    bool isKptInBorder(const cv::KeyPoint& kpt) const;
+    bool is2DPtInBorder(const cv::Mat& pt) const;
     /** 
      * @brief Display feature matching results of adjacent 2 **UNDISTORTED**
      *        frames (left for current/left frame and right for 
@@ -128,7 +138,7 @@ private: // private member functions
     void displayFeatMatchResult(const std::vector<cv::DMatch>& vMatches,
                                 int viewPrev = 0, int viewCur = 0) const;
     /**
-     * @name groupFHComputation
+     * @name F/H Computation Functions
      * @brief A group of functions related to fundamental matrix F & 
      *        homography H computation, and recovery of pose 
      *        \f$[R|t]\f$ using F & H.
@@ -170,8 +180,36 @@ private: // private member functions
     FHResult selectFH(const std::shared_ptr<Frame>& pFPrev,
                       const std::shared_ptr<Frame>& pFCur,
                       const std::vector<cv::DMatch>& vMatches,
-                      const cv::Mat& Fcp, const cv::Mat& Hcp);
-    ///@} // end of groupFHComputation
+                      const cv::Mat& Fcp, const cv::Mat& Hcp) const;
+    /**
+     * @brief Decompose fundamental matrix \f$F\f$ to get possible pose
+     *        \f$[R|t]\f$ solutions. Camera intrinsics \f$K\f$ is needed.
+     * @param[in]     Fcp   Fundamental matrix to be decomposed. 
+     * @param[in,out] vRcps A vector of possible rotation matrices (
+     *                      with \f$i\f$th pose being {vRcps[i], vtcps[i]}).
+     * @param[in,out] vtcps A vector of possible translation matrices (
+     *                      with \f$i\f$th pose being {vRcps[i], vtcps[i]}).
+     * @return Number of possible pose solutions.
+     */
+    int decomposeFforRT(const cv::Mat& Fcp,
+                        std::vector<cv::Mat>& vRcps,
+                        std::vector<cv::Mat>& vtcps) const;
+    /**
+     * @brief Decompose homography \f$H\f$ to get possible pose
+     *        \f$[R|t]\f$ solutions.
+     * @param[in]     Hcp        Homography to be decomposed. 
+     * @param[in,out] vRcps      A vector of possible rotation matrices (with
+     *                           \f$i\f$th pose being {vRcps[i], vtcps[i]}).
+     * @param[in,out] vtcps      A vector of possible translation matrices (with
+     *                           \f$i\f$th pose being {vRcps[i], vtcps[i]}).
+     * @param[in,out] vNormalcps A vector of possible normal planes 
+     *                           (vNormalcps[i] for \f$i\f$th pose).
+     * @return Number of possible pose solutions.
+     */
+    int decomposeHforRT(const cv::Mat& Hcp,
+                        std::vector<cv::Mat>& vRcps,
+                        std::vector<cv::Mat>& vtcps,
+                        std::vector<cv::Mat>& vNormalcps) const;
     /**
      * @brief Compute reprojection error based on transformation matrix
      *        @p T21 (reproject @p p1 from view 1 to view 2) and @p T12
@@ -191,24 +229,27 @@ private: // private member functions
      * @brief Check whether a triangulated 3D world point is good enough
      *        to be included to the map.
      *
-     * Basically there're 3 things to check:
-     * - The depth of the 3D camera coordinates in both views;
+     * Basically there're 4 things to check:
+     * - The depth of the 3D camera coordinates in both views (whether the depth
+     *   is negative)
      * - The parallax of the 2 views (the angle oP-Xw-oC where oP and oC are 
      *   the camera origins in previous and current frame, Xw is the 
-     *   triangulated point,
-     * - The reprojection errors in both views.
+     *   triangulated point) (whether the parallax is too low),
+     * - The position of reprojected 2D image point (whether it is outside the 
+     *   image border);
+     * - The reprojection errors in both views (whether it is too high).
      *
      * @param[in] Xw   \f$4 \times 1\f$ triangulated 3D world point in
      *                 homogeneous coordinate.
      * @param[in] kptP 2D keypoint in previous frame.
      * @param[in] kptC corresponding 2D keypoint in current frame.
-     * @param[in] Rcw  Rotation matrix of the recovered pose.
-     * @param[in] tcw  Translation matrix of the recovered pose.
+     * @param[in] pose The recovered pose.
      * @return True if the triangulated point is good enough, otherwise false.
      */
-    bool checkTriangulatedPt(const cv::Mat& Xw4D,
+    bool checkTriangulatedPt(const cv::Mat& Xw,
                              const cv::KeyPoint& kptP, const cv::KeyPoint& kptC,
                              const CamPose& pose) const;
+    ///@}    
     /// Get camera pose of a target frame relative to 1st frame.
     CamPose getAbsPose(unsigned nIdx) const { return mvTs[nIdx]; }
     /// Set camera pose of current frame relative to 1st frame.

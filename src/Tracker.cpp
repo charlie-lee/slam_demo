@@ -38,9 +38,10 @@ const float Tracker::TH_DIST = 0.7f;
 const float Tracker::TH_SIMILARITY = 1.2f;
 const float Tracker::TH_COS_PARALLAX = 0.9999f;
 const float Tracker::TH_POSE_SEL = 0.8f;
-const float Tracker::TH_MIN_RATIO_TRIANG_PTS = 0.5f;
+const float Tracker::TH_MIN_RATIO_TRIANG_PTS = 0.2f;
 
-Tracker::Tracker(System::Mode eMode) : meMode(eMode), mbFirstFrame(true)
+Tracker::Tracker(System::Mode eMode) :
+    meMode(eMode), mState(State::NOT_INITIALIZED), mbFirstFrame(true)
 {
     // initialize feature matcher
     mpFeatMatcher = cv::DescriptorMatcher::create(
@@ -83,8 +84,12 @@ void Tracker::trackImgsMono(const Mat& img, double timestamp)
     } else {
         mvpFramesPrev[0] = mvpFramesCur[0];
         mvpFramesCur[0] = pFrameCur;
-        if (initializeMap()) {
+        if (mState == State::NOT_INITIALIZED) {
+            mState = initializeMap();
+        } else if (mState == State::OK) {
             ; // TODO: tracking scheme after map is initialized
+        } else if (mState == State::LOST) {
+            ; // TODO: relocalization?
         }
     }
     imgPrev = imgCur;
@@ -103,18 +108,18 @@ Mat Tracker::rgb2Gray(const Mat& img) const
     return imgGray;
 }
 
-bool Tracker::initializeMap()
+Tracker::State Tracker::initializeMap()
 {
     if (meMode == System::Mode::MONOCULAR) {
         const shared_ptr<Frame>& pFPrev = mvpFramesPrev[0];
         const shared_ptr<Frame>& pFCur = mvpFramesCur[0];
         return initializeMapMono(pFPrev, pFCur);
     }
-    return false;
+    return State::NOT_INITIALIZED;
 }
 
-bool Tracker::initializeMapMono(const shared_ptr<Frame>& pFPrev,
-                                const shared_ptr<Frame>& pFCur)
+Tracker::State Tracker::initializeMapMono(const shared_ptr<Frame>& pFPrev,
+                                          const shared_ptr<Frame>& pFCur)
 {
     // match features between previous (1) and current (2) frame
     vector<cv::DMatch> vMatches = matchFeatures2Dto2D(pFPrev, pFCur);
@@ -130,7 +135,7 @@ bool Tracker::initializeMapMono(const shared_ptr<Frame>& pFPrev,
         ; // TODO: initialize 3D map points by triangulating 2D keypoints
     }
     // temp: always return false as the initalization scheme is incomplete
-    return false; 
+    return State::NOT_INITIALIZED; 
 }
 
 vector<cv::DMatch> Tracker::matchFeatures2Dto2D(
@@ -148,9 +153,9 @@ vector<cv::DMatch> Tracker::matchFeatures2Dto2D(
     for (unsigned i = 0; i < vknnMatches.size(); ++i) {
         if (vknnMatches[i][0].distance < TH_DIST * vknnMatches[i][1].distance) {
             // filter out-of-border matches
-            const cv::KeyPoint& kptP = vKptsP[vknnMatches[i][0].queryIdx];
-            const cv::KeyPoint& kptC = vKptsC[vknnMatches[i][0].trainIdx];
-            if (isKptInBorder(kptP) && isKptInBorder(kptC)) {
+            const cv::Point2f& ptP = vKptsP[vknnMatches[i][0].queryIdx].pt;
+            const cv::Point2f& ptC = vKptsC[vknnMatches[i][0].trainIdx].pt;
+            if (is2DPtInBorder(Mat(ptP)) && is2DPtInBorder(Mat(ptC))) {
                 vMatches.push_back(vknnMatches[i][0]);
             }
         }
@@ -158,11 +163,11 @@ vector<cv::DMatch> Tracker::matchFeatures2Dto2D(
     return vMatches;
 }
 
-inline bool Tracker::isKptInBorder(const cv::KeyPoint& kpt) const
+inline bool Tracker::is2DPtInBorder(const cv::Mat& pt) const
 {
     bool result =
-        (kpt.pt.x >= 0 && kpt.pt.x < Config::width()) &&
-        (kpt.pt.y >= 0 && kpt.pt.y < Config::height());
+        (pt.at<float>(0) >= 0 && pt.at<float>(0) < Config::width()) &&
+        (pt.at<float>(1) >= 0 && pt.at<float>(1) < Config::height());
     return result;
 }
 
@@ -254,31 +259,12 @@ bool Tracker::recoverPoseFromFH(const shared_ptr<Frame>& pFPrev,
     int nSolutions = 0; // number of possible poses
     // decompose F or H into [R|t]s
     if (resFH == FHResult::F) {
-        // at most 4 possibilities
-        vRcps.reserve(4);
-        vtcps.reserve(4);
-        // ref: Richard Hartley and Andrew Zisserman. Multiple view geometry
-        // in computer vision. Cambridge university press, 2003.
-        Mat Ecp = K.t() * Fcp * K;
-        vRcps.resize(2);
-        vtcps.resize(2);
-        cv::decomposeEssentialMat(Ecp, vRcps[0], vRcps[1], vtcps[0]);
-        vtcps[1] = vtcps[0].clone();
-        nSolutions = 2;
-        //return recoverPoseFromF(pFPrev, pFCur, vMatches, Fcp);
+        // 4 solutions
+        nSolutions = decomposeFforRT(Fcp, vRcps, vtcps);
     } else if (resFH == FHResult::H) {
         vector<Mat> vNormalcps; // plane normal matrices
-        // at most 8 possibilities
-        vRcps.reserve(8);
-        vtcps.reserve(8);
-        vNormalcps.reserve(8);
-        // return number of possibilities of [R|t]
-        // ref: Ezio Malis, Manuel Vargas, and others.
-        // Deeper understanding of the homography decomposition for
-        // vision-based control. 2007.
-        nSolutions = cv::decomposeHomographyMat(Hcp, K, vRcps, vtcps,
-                                                vNormalcps);
-        //return recoverPoseFromH(pFPrev, pFCur, vMatches, Hcp);
+        // at most 8 solutions
+        nSolutions = decomposeHforRT(Hcp, vRcps, vtcps, vNormalcps);
     } else if (resFH == FHResult::NONE) {
         return false;
     }
@@ -352,11 +338,8 @@ bool Tracker::recoverPoseFromFH(const shared_ptr<Frame>& pFPrev,
         unsigned nCurFrmIdx = pFCur->getFrameIdx();
         cout << "Pose T_{" << nCurFrmIdx << "|" << nCurFrmIdx - 1
              <<"} recovered from " << (resFH == FHResult::F ? "F" : "H")
-             << endl << pFCur->mPose.getPose() << endl;
-        // cout << pFCur->mPose << endl;
-        Eigen::Vector3f ea = pFCur->mPose.getREulerAngleEigen();
-        cout << "(yaw, pitch, roll): ("
-             << ea(0) << ", " << ea(1) << ", " << ea(2) << ") (deg)" << endl;
+             << endl;// << pFCur->mPose.getPose() << endl;
+        cout << pFCur->mPose << endl;
         //setAbsPose(TcwCur); // temp test
         // store triangulated 3D points to map
     }
@@ -368,7 +351,7 @@ Tracker::FHResult Tracker::selectFH(const shared_ptr<Frame>& pFPrev,
                                     const shared_ptr<Frame>& pFCur,
                                     const vector<cv::DMatch>& vMatches,
                                     const Mat& Fcp,
-                                    const Mat& Hcp)
+                                    const Mat& Hcp) const
 {
     // compute reprojection errors for F & H result:
     // error_F = (1/N) * sigma_i(d(x_{2,i}, F_{21} x_{1,i})^2 +
@@ -397,16 +380,65 @@ Tracker::FHResult Tracker::selectFH(const shared_ptr<Frame>& pFPrev,
     }
     errorF /= static_cast<float>(nMatches);
     errorH /= static_cast<float>(nMatches);
-    cout << "eF = " << errorF << " | eH = " << errorH << endl;
+    cout << "eF = " << errorF << " | eH = " << errorH << " -> ";
     // similarity between error of F and H
     float errFHSimilarity = errorF / errorH;
     if (errFHSimilarity > TH_SIMILARITY) {
+        cout << "H" << endl;
         return FHResult::H;
     } else if (errFHSimilarity < 1.f/TH_SIMILARITY) {
+        cout << "F" << endl;
         return FHResult::F;
     }
     // no result if errors are similar between F and H
+    cout << "None" << endl;
     return FHResult::NONE;
+}
+
+int Tracker::decomposeFforRT(const cv::Mat& Fcp,
+                             std::vector<cv::Mat>& vRcps,
+                             std::vector<cv::Mat>& vtcps) const
+{
+    // ref: Richard Hartley and Andrew Zisserman. Multiple view geometry
+    // in computer vision. Cambridge university press, 2003.
+    // 4 possibilities
+    vRcps.resize(4);
+    vtcps.resize(4);
+    // E_{cp} = K_c^T  F_{cp} K_p (K_c == K_p == K)
+    Mat K = Config::K();
+    Mat Ecp = K.t() * Fcp * K;
+    Mat Rcp1, Rcp2, tcp;
+    cv::decomposeEssentialMat(Ecp, Rcp1, Rcp2, tcp);
+    // solution 1: [R_1|t]
+    vRcps[0] = Rcp1.clone();
+    vtcps[0] = tcp.clone();
+    // solution 2: [R_1|-t]
+    vRcps[1] = Rcp1.clone();
+    vtcps[1] = -tcp.clone();
+    // solution 3: [R_2|t]
+    vRcps[2] = Rcp2.clone();
+    vtcps[2] = tcp.clone();
+    // solution 4: [R_2|-t]
+    vRcps[3] = Rcp2.clone();
+    vtcps[3] = -tcp.clone();
+    return 4; // 4 possible solutions
+}
+
+int Tracker::decomposeHforRT(const cv::Mat& Hcp,
+                             std::vector<cv::Mat>& vRcps,
+                             std::vector<cv::Mat>& vtcps,
+                             std::vector<cv::Mat>& vNormalcps) const
+{
+    // ref: Ezio Malis, Manuel Vargas, and others.
+    // Deeper understanding of the homography decomposition for
+    // vision-based control. 2007.
+    // at most 8 possibilities
+    vRcps.reserve(8);
+    vtcps.reserve(8);
+    vNormalcps.reserve(8);
+    // return number of possibilities of [R|t]
+    return cv::decomposeHomographyMat(Hcp, Config::K(), vRcps, vtcps,
+                                      vNormalcps);
 }
 
 float Tracker::computeReprojErr(const cv::Mat& T21, const cv::Mat& T12,
@@ -435,8 +467,14 @@ float Tracker::computeReprojErr(const cv::Mat& T21, const cv::Mat& T12,
         err = diffF21Sq + diffF12Sq;
     } else if (scheme == ReprojErrScheme::H) {
         // reprojection error for homography
-        Mat diffH21 = p2 - T21*p1;
-        Mat diffH12 = p1 - T12*p2;
+        Mat p22D = p2.rowRange(0, 2) / p2.at<float>(2);
+        Mat p2Reproj = T21 * p1;
+        Mat p2Reproj2D = p2Reproj.rowRange(0, 2) / p2Reproj.at<float>(2);
+        Mat diffH21 = p22D - p2Reproj2D;
+        Mat p12D = p1.rowRange(0, 2) / p1.at<float>(2);
+        Mat p1Reproj = T12 * p2;
+        Mat p1Reproj2D = p1Reproj.rowRange(0, 2) / p1Reproj.at<float>(2);
+        Mat diffH12 = p12D - p1Reproj2D;
         err = diffH21.dot(diffH21) + diffH12.dot(diffH12);
     } else {
         assert(0); // TODO: add other schemes
@@ -474,8 +512,7 @@ bool Tracker::checkTriangulatedPt(const cv::Mat& Xw,
     if (cosParallax > TH_COS_PARALLAX) {
         return false;
     }
-    // condition 3: reprojection error needs to be lower than a threshold
-    //              for both views
+    // condition 3: reprojected 2D point needs to be inside image border
     const Mat K = Config::K();
     // projected cam coords in previous and current frames
     Mat XcPProj = invDepthP * K * XcP; 
@@ -483,6 +520,11 @@ bool Tracker::checkTriangulatedPt(const cv::Mat& Xw,
     // reprojected 2D image coords in both frames
     Mat xPReproj = XcPProj.rowRange(0, 2);
     Mat xCReproj = XcCProj.rowRange(0, 2);
+    if (!is2DPtInBorder(xPReproj) || !is2DPtInBorder(xCReproj)) {
+        return false;
+    }
+    // condition 4: reprojection error needs to be lower than a threshold
+    //              for both views
     Mat xP = Mat(kptP.pt);
     Mat xC = Mat(kptC.pt);
     // reprojection error threshold: s^o (d < s^o)

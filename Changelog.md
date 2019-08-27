@@ -3,12 +3,11 @@
 ## TODO
 - Compute pose [R|t] from 2D-2D keypoint matches (for map initialization)
   - Store triangulated 3D world points to map (TODO)
-- Check whether the reprojection error computation is correct when selcting
-  from H & F (TODO)
 - Add Map and MapPoint class for storing map data (TODO)
-- Add pose display function (TODO)
 
 ## Latest Version
+- Add pose display function
+- Fix reprojection error computation for H when selecting pose recovery model
 
 ## v0.0.4
 - Fix some coding style issues

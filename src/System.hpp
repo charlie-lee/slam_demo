@@ -25,7 +25,7 @@ class Tracker;
  */
 class System {
 public:
-    /// SLAM system mode
+    /// SLAM system mode.
     enum class Mode {
         MONOCULAR,
         STEREO,
