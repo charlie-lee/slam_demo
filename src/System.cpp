@@ -13,6 +13,7 @@
 #include <vector>
 
 #include <opencv2/core.hpp>
+#include "Map.hpp"
 #include "Tracker.hpp"
 
 namespace SLAM_demo {
@@ -37,8 +38,10 @@ System::System(Mode eMode) : meMode(eMode)
     cout << "SLAM demo in " << strMode << " mode." << endl;
 
     // initialize SLAM modules
+    // map module
+    mpMap = make_shared<Map>(Map());
     // tracker module
-    mpTracker = make_shared<Tracker>(Tracker(meMode));
+    mpTracker = make_shared<Tracker>(Tracker(meMode, mpMap));
 }
 
 void System::trackImgs(const vector<cv::Mat>& vImgs, double timestamp) const

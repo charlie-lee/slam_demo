@@ -122,10 +122,10 @@ std::ostream& operator<<(std::ostream& os, const CamPose& pose)
 {
     //os << "Pose Tcw = [Rcw | tcw] = " << endl << pose.getPose() << endl;
     Eigen::Vector3f ea = pose.getREulerAngleEigen();
+    os << "Camera origin = " << pose.getCamOrigin().t() << endl;
     os << "Rotation {yaw, pitch, roll} = {"
        << ea(0) << ", " << ea(1) << ", " << ea(2) << "} (deg)" << endl;
-    os << "Translation tcw = " << pose.getTranslation().t() << endl;
-    os << "Camera origin = " << pose.getCamOrigin().t() << endl;
+    os << "Translation tcw = " << pose.getTranslation().t();
     return os;
 }
 

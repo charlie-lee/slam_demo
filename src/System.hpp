@@ -18,6 +18,7 @@ namespace SLAM_demo {
 
 // forward declarations
 class Tracker;
+class Map;
 
 /**
  * @class System
@@ -44,8 +45,9 @@ public:
      */
     void trackImgs(const std::vector<cv::Mat>& vImgs, double timestamp) const;
 private: // private data
-    Mode meMode;
-    std::shared_ptr<Tracker> mpTracker; // pointer to tracker module
+    Mode meMode; ///< System mode.
+    std::shared_ptr<Tracker> mpTracker; ///< Pointer to tracker module.
+    std::shared_ptr<Map> mpMap; ///< Pointer to the map.
 };
 
 } // namespace SLAM_demo

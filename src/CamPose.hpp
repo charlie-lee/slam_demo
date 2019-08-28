@@ -99,6 +99,7 @@ private: // private members
     Eigen::Matrix<float, 3, 3> getRotationEigen() const;    
 };
 
+/// Display pose info.
 std::ostream& operator<<(std::ostream& os, const CamPose& pose);
 
 } // namespace SLAM_demo

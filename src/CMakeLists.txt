@@ -5,6 +5,8 @@ add_library(${PROJECT_NAME} SHARED
   Tracker.cpp
   Frame.cpp
   CamPose.cpp
+  MapPoint.cpp
+  Map.cpp
   )
 
 target_link_libraries(${PROJECT_NAME}

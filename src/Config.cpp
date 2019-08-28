@@ -106,7 +106,7 @@ void Config::setCamDistCoeffs(int view)
     distCoeffs.copyTo(mvDistCoeffs[view]);
 }
 
-ostream& operator<<(ostream& os, const Config& cfg)
+std::ostream& operator<<(std::ostream& os, const Config& cfg)
 {
     os << endl << "SLAM system parameters:" << endl;
     // camera parameters

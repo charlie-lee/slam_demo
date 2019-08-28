@@ -18,6 +18,7 @@ namespace SLAM_demo {
 
 // forward declarations
 class Frame;
+class Map;
 
 /**
  * @class Tracker
@@ -43,8 +44,9 @@ public: // public members
     /**
      * @brief Constructor.
      * @param[in] eMode See System::Mode for more information.
+     * @param[in] pMap  Pointer to the map.
      */
-    Tracker(System::Mode eMode);
+    Tracker(System::Mode eMode, const std::shared_ptr<Map>& pMap);
     /** 
      * @brief Track an input image in System::Mode::MONOCULAR mode.
      * @param[in] img       Input image.
@@ -85,14 +87,16 @@ private: // private data
      */
     std::vector<cv::Mat> mvImgsCur;
     bool mbFirstFrame; ///< Whether it is the 1st input frame to be processed.
-    /// A pointer to previous frame (frame 1) for a vector of views.
+    /// Pointers to previous frame (frame 1) for a vector of views.
     std::vector<std::shared_ptr<Frame>> mvpFramesPrev;
-    /// A pointer to current frame (frame 2) for a vector of views.
+    /// Pointers to current frame (frame 2) for a vector of views.
     std::vector<std::shared_ptr<Frame>> mvpFramesCur;
     /// Feature matcher.
     std::shared_ptr<cv::DescriptorMatcher> mpFeatMatcher;
-    /// Camera poses \f$T_{cw,k|1}\f$ w.r.t. 1st frame.
+    /// Camera poses \f$T_{cw,k|0}\f$ w.r.t. 1st frame (frame 0).
     std::vector<CamPose> mvTs;
+    /// Pointer to the map.
+    std::shared_ptr<Map> mpMap;
 private: // private member functions
     /// Convert input image @p img into grayscale image.
     cv::Mat rgb2Gray(const cv::Mat& img) const;
@@ -123,7 +127,7 @@ private: // private member functions
     /** 
      * @brief Check whether a \f$2 \times 1\f$ cv::Mat point is inside 
      *        the border of an undistorted image.
-     * @param[in] pt \f$2 \times 1\f$ point of cv::Mat type
+     * @param[in] pt \f$2 \times 1\f$ point of cv::Mat type.
      * @return True if the 2D point is inside the border.
      */
     bool is2DPtInBorder(const cv::Mat& pt) const;
@@ -166,12 +170,18 @@ private: // private member functions
     /**
      * @brief Recover pose \f$[R|t]\f$ from either fundamental matrix F
      *        or homography H.
+     * @param[in,out] Xw3Ds 
+     * @param[in,out] vidxGoodPts A vector of indices of valid 
+     *                triangulated points. The index is the index of
+     *                matched pair of 2 keypoints of 2 views stored in 
+     *                @p vMatches.
      * @return True if pose recovery is successful.
      */
     bool recoverPoseFromFH(const std::shared_ptr<Frame>& pFPrev,
                            const std::shared_ptr<Frame>& pFCur,
                            const std::vector<cv::DMatch>& vMatches,
-                           const cv::Mat& Fcp, const cv::Mat& Hcp);
+                           const cv::Mat& Fcp, const cv::Mat& Hcp,
+                           cv::Mat& Xw3Ds, std::vector<unsigned>& vIdxGoodPts);
     /**
      * @brief Select the better transformation of 2D-to-2D point matches
      *        from fundamental matrix F and homography H.
@@ -214,6 +224,33 @@ private: // private member functions
      * @brief Compute reprojection error based on transformation matrix
      *        @p T21 (reproject @p p1 from view 1 to view 2) and @p T12
      *        (reproject @p p2 from view 2 to view 1).
+     *
+     * Given 2D-to-2D match \f$p_1 = (x_1, y_1, 1)\f$, 
+     * \f$p_2 = (x_2, y_2, 1)\f$, and transformation matrix \f$T_{21}\f$,
+     * \f$T_{12}\f$,
+     * 
+     * Reprojection error \f$e_F\f$ for \f$F\f$ where \f$T_{21} = F_{21}\f$ and
+     * \f$T_{12} = F_{12} = F_{21}^T\f$:
+     * \f{align}{
+     *   e_F &= d(p_2, F_{21} p_1)^2 + d(p_1, F_{12} p_2)^2 \\
+     *       &= d(p_2, l_2)^2 + d(p_1, l_1)^2 \\
+     *       &= \frac{a_2 x_2 + b_2 y_2 + c_2}{a_2^2 + b_2^2} + 
+     *          \frac{a_1 x_1 + b_1 y_1 + c_1}{a_1^2 + b_1^2}
+     * \f}
+     * where \f$l_1 = (a_1, b_1, c_1)\f$ and \f$l_2 = (a_2, b_2, c_2)\f$ are
+     * the epipolar lines of triangulated point \f$P\f$ based on \f$p_1\f$, 
+     * \f$p_2\f$ in view 1 and 2, respectively.
+     *
+     * Reprojection error \f$e_H\f$ for \f$H\f$ where \f$T_{21} = H_{21}\f$ and
+     * \f$T_{12} = H_{12} = H_{21}^{-1}\f$:
+     * \f{align}{
+     *   e_H &= d(p_2, H_{21} p_1)^2 + d(p_1, H_{12} p_2)^2 \\
+     *       &= d(p_2, p_2')^2 + d(p_1, p_1')^2 \\
+     *       &= |x_2 - x_2'|^2 + |y_2 - y_2'|^2 + 
+     *          |x_1 - x_1'|^2 + |y_1 - y_1'|^2
+     * \f}
+     * where \f$p_1' = (x_1', y_1')\f$, \f$p_2' = (x_2', y_2')\f$.
+     *
      * @param[in] T21 Transformation matrix from view 1 to view 2.
      * @param[in] T12 Transformation matrix from view 2 to view 1.
      * @param[in] p1  Point in view 1.
@@ -239,8 +276,8 @@ private: // private member functions
      *   image border);
      * - The reprojection errors in both views (whether it is too high).
      *
-     * @param[in] Xw   \f$4 \times 1\f$ triangulated 3D world point in
-     *                 homogeneous coordinate.
+     * @param[in] Xw   \f$3 \times 1\f$ triangulated 3D world point in
+     *                 inhomogeneous coordinate.
      * @param[in] kptP 2D keypoint in previous frame.
      * @param[in] kptC corresponding 2D keypoint in current frame.
      * @param[in] pose The recovered pose.

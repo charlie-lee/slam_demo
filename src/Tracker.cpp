@@ -35,13 +35,14 @@ using std::endl;
 
 // constants
 const float Tracker::TH_DIST = 0.7f;
-const float Tracker::TH_SIMILARITY = 1.2f;
+const float Tracker::TH_SIMILARITY = 0.3f;
 const float Tracker::TH_COS_PARALLAX = 0.9999f;
-const float Tracker::TH_POSE_SEL = 0.8f;
-const float Tracker::TH_MIN_RATIO_TRIANG_PTS = 0.2f;
+const float Tracker::TH_POSE_SEL = 0.99f;
+const float Tracker::TH_MIN_RATIO_TRIANG_PTS = 0.5f;
 
-Tracker::Tracker(System::Mode eMode) :
-    meMode(eMode), mState(State::NOT_INITIALIZED), mbFirstFrame(true)
+Tracker::Tracker(System::Mode eMode, const std::shared_ptr<Map>& pMap) :
+    meMode(eMode), mState(State::NOT_INITIALIZED), mbFirstFrame(true),
+    mpMap(pMap)
 {
     // initialize feature matcher
     mpFeatMatcher = cv::DescriptorMatcher::create(
@@ -131,7 +132,12 @@ Tracker::State Tracker::initializeMapMono(const shared_ptr<Frame>& pFPrev,
     Mat Hcp = computeHomography(pFPrev, pFCur, vMatches);
     //cout << "Fcp = " << endl << Fcp << endl << "Hcp = " << endl << Hcp << endl;
     // recover pose from F or H
-    if (recoverPoseFromFH(pFPrev, pFCur, vMatches, Fcp, Hcp)) {
+    Mat Xw3Ds;
+    vector<unsigned> vIdxPts;
+    if (recoverPoseFromFH(pFPrev, pFCur, vMatches, Fcp, Hcp, Xw3Ds, vIdxPts)) {
+        cout << "Number of triangulated points (good/total) = "
+             << vIdxPts.size() << "/" << Xw3Ds.cols << endl;
+        cv::waitKey();
         ; // TODO: initialize 3D map points by triangulating 2D keypoints
     }
     // temp: always return false as the initalization scheme is incomplete
@@ -188,7 +194,7 @@ void Tracker::displayFeatMatchResult(const vector<cv::DMatch>& vMatches,
                     cv::Scalar({0, 255, 0})); // color for keypoint (BGR)
     cv::imshow("cam0: Matches between previous/left (left) and "
                "current/right (right) frame", imgOut);
-    cv::waitKey();
+    //cv::waitKey();
 }
 
 Mat Tracker::computeFundamental(const shared_ptr<Frame>& pFPrev,
@@ -249,7 +255,9 @@ bool Tracker::recoverPoseFromFH(const shared_ptr<Frame>& pFPrev,
                                 const shared_ptr<Frame>& pFCur,
                                 const vector<cv::DMatch>& vMatches,
                                 const Mat& Fcp,
-                                const Mat& Hcp)
+                                const Mat& Hcp,
+                                cv::Mat& Xw3Ds,
+                                std::vector<unsigned>& vIdxGoodPts)
 {
     // select the better transformation from either F or H
     FHResult resFH = selectFH(pFPrev, pFCur, vMatches, Fcp, Hcp);
@@ -258,16 +266,33 @@ bool Tracker::recoverPoseFromFH(const shared_ptr<Frame>& pFPrev,
     vector<Mat> vtcps; // possible translations
     int nSolutions = 0; // number of possible poses
     // decompose F or H into [R|t]s
-    if (resFH == FHResult::F) {
-        // 4 solutions
-        nSolutions = decomposeFforRT(Fcp, vRcps, vtcps);
-    } else if (resFH == FHResult::H) {
-        vector<Mat> vNormalcps; // plane normal matrices
-        // at most 8 solutions
-        nSolutions = decomposeHforRT(Hcp, vRcps, vtcps, vNormalcps);
-    } else if (resFH == FHResult::NONE) {
-        return false;
+    //if (resFH == FHResult::F) {
+    //    // 4 solutions
+    //    nSolutions = decomposeFforRT(Fcp, vRcps, vtcps);
+    //} else if (resFH == FHResult::H) {
+    //    vector<Mat> vNormalcps; // plane normal matrices
+    //    // at most 8 solutions
+    //    nSolutions = decomposeHforRT(Hcp, vRcps, vtcps, vNormalcps);
+    //} else if (resFH == FHResult::NONE) {
+    //    return false;
+    //}
+
+    // temp test 20190828: traverse all [R|t] solutions
+    vector<Mat> vRcpsF, vtcpsF, vRcpsH, vtcpsH, vNormalcpsH;
+    int nSolF = decomposeFforRT(Fcp, vRcpsF, vtcpsF);
+    int nSolH = decomposeHforRT(Hcp, vRcpsH, vtcpsH, vNormalcpsH);
+    vRcps.reserve(nSolF + nSolH);
+    vtcps.reserve(nSolF + nSolH);
+    for (int i = 0; i < nSolF; ++i) {
+        vRcps.push_back(vRcpsF[i]);
+        vtcps.push_back(vtcpsF[i]);
     }
+    for (int i = 0; i < nSolH; ++i) {
+        vRcps.push_back(vRcpsH[i]);
+        vtcps.push_back(vtcpsH[i]);
+    }
+    nSolutions = nSolF + nSolH;
+  
     // retrieve input 2D-2D matches
     const vector<cv::KeyPoint>& vKptsP = pFPrev->getKeyPoints();
     const vector<cv::KeyPoint>& vKptsC = pFCur->getKeyPoints();
@@ -286,9 +311,12 @@ bool Tracker::recoverPoseFromFH(const shared_ptr<Frame>& pFPrev,
     // get best pose & corresponding triangulated 3D points from the solutions
     vector<int> vnGoodPts(nSolutions, 0);
     vector<Mat> vXws(nSolutions); // triangulated 3D points
+    // indices of good triangulated points for all solutions
+    vector<vector<unsigned>> vvIdxPts(nSolutions);
     int nMaxGoodPts = 0;
     int nIdxBestPose = -1;
     for (int i = 0; i < nSolutions; ++i) {
+        vvIdxPts[i].reserve(nMatches);
         // maintain precision
         vRcps[i].convertTo(vRcps[i], CV_32FC1);
         vtcps[i].convertTo(vtcps[i], CV_32FC1);
@@ -301,10 +329,14 @@ bool Tracker::recoverPoseFromFH(const shared_ptr<Frame>& pFPrev,
         vtcps[i].copyTo(TcwC.rowRange(0, 3).col(3));
         TcwC = K * TcwC;
         // compute triangulated 3D world points
-        Mat Xws;
-        cv::triangulatePoints(TcwP, TcwC, vPtsP, vPtsC, Xws);
-        Xws.convertTo(Xws, CV_32FC1);
-        vXws.push_back(Xws);
+        Mat Xw4Ds;
+        cv::triangulatePoints(TcwP, TcwC, vPtsP, vPtsC, Xw4Ds);
+        Xw4Ds.convertTo(Xw4Ds, CV_32FC1);
+        Mat Xws = Xw4Ds.rowRange(0, 3);
+        for (int j = 0; j < Xw4Ds.cols; ++j) {
+            Xws.col(j) /= Xw4Ds.at<float>(3, j);
+        }
+        vXws[i] = Xws;
         // check number of good points
         CamPose tmpPose = CamPose(vRcps[i], vtcps[i]);
         for (unsigned j = 0; j < nMatches; ++j) {
@@ -312,6 +344,7 @@ bool Tracker::recoverPoseFromFH(const shared_ptr<Frame>& pFPrev,
             const cv::KeyPoint& kptP = vKptsP[vMatches[j].queryIdx];
             const cv::KeyPoint& kptC = vKptsC[vMatches[j].trainIdx];
             if (checkTriangulatedPt(Xw, kptP, kptC, tmpPose)) {
+                vvIdxPts[i].push_back(j);
                 vnGoodPts[i]++;
             }
         }
@@ -321,6 +354,10 @@ bool Tracker::recoverPoseFromFH(const shared_ptr<Frame>& pFPrev,
         }
         cout << "solution " << i << ": " << vnGoodPts[i] << endl;
     }
+
+    // temp test 20190828: traverse all [R|t] solutions
+    resFH = nIdxBestPose >= nSolF ? FHResult::H : FHResult::F;
+    
     // select the most possible pose
     int nBestPose = 0;
     for (const int& nGoodPt : vnGoodPts) {
@@ -331,19 +368,19 @@ bool Tracker::recoverPoseFromFH(const shared_ptr<Frame>& pFPrev,
     }
     // TODO: store best recovered pose & triangulated 3D points
     if (nBestPose == 1) {
-        Mat Tcw = Mat::zeros(3, 4, CV_32FC1);
-        vRcps[nIdxBestPose].copyTo(Tcw.rowRange(0, 3).colRange(0, 3));
-        vtcps[nIdxBestPose].copyTo(Tcw.rowRange(0, 3).col(3));
-        pFCur->mPose.setPose(Tcw);
+        // store pose & triangulated points
+        pFCur->mPose.setPose(vRcps[nIdxBestPose], vtcps[nIdxBestPose]);
+        vXws[nIdxBestPose].copyTo(Xw3Ds);
+        vIdxGoodPts = vvIdxPts[nIdxBestPose];
+        
         unsigned nCurFrmIdx = pFCur->getFrameIdx();
         cout << "Pose T_{" << nCurFrmIdx << "|" << nCurFrmIdx - 1
              <<"} recovered from " << (resFH == FHResult::F ? "F" : "H")
              << endl;// << pFCur->mPose.getPose() << endl;
         cout << pFCur->mPose << endl;
-        //setAbsPose(TcwCur); // temp test
-        // store triangulated 3D points to map
+        
+        return true;
     }
-    //setAbsPose(CamPose()); // temp test
     return false;
 }
 
@@ -386,7 +423,8 @@ Tracker::FHResult Tracker::selectFH(const shared_ptr<Frame>& pFPrev,
     if (errFHSimilarity > TH_SIMILARITY) {
         cout << "H" << endl;
         return FHResult::H;
-    } else if (errFHSimilarity < 1.f/TH_SIMILARITY) {
+        //} else if (errFHSimilarity < 1.f/TH_SIMILARITY) {
+    } else {
         cout << "F" << endl;
         return FHResult::F;
     }
@@ -487,10 +525,8 @@ bool Tracker::checkTriangulatedPt(const cv::Mat& Xw,
                                   const cv::KeyPoint& kptC,
                                   const CamPose& pose) const
 {
-    // inhomogeneous coord for world 3D point Xw
-    // world coord in current frame / cam coord based on K[I|0] in Previous frame
-    float scale = Xw.at<float>(3);
-    Mat XcP = Xw.rowRange(0, 3) / scale;
+    // world coord in current frame / cam coord in previous frame
+    const Mat& XcP = Xw;
     // 3D cam coord in Current frame
     Mat Rcw = pose.getRotation();
     Mat tcw = pose.getTranslation();
