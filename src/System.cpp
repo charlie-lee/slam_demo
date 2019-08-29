@@ -44,7 +44,8 @@ System::System(Mode eMode) : meMode(eMode)
     mpTracker = make_shared<Tracker>(Tracker(meMode, mpMap));
 }
 
-void System::trackImgs(const vector<cv::Mat>& vImgs, double timestamp) const
+void System::trackImgs(const std::vector<cv::Mat>& vImgs,
+                       double timestamp) const
 {
     if (meMode == System::Mode::MONOCULAR) {
         mpTracker->trackImgsMono(vImgs[0], timestamp);

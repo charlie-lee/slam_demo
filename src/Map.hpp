@@ -25,6 +25,8 @@ public: // public members
     Map() = default;
     /// Add a point into the map.
     void addPt(const std::shared_ptr<MapPoint>& pPt);
+    /// Clear the current map.
+    void clear();
 private: // private data
     /// A set of map points.
     std::set<std::shared_ptr<MapPoint>> mspPts;

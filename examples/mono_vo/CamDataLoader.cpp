@@ -21,8 +21,8 @@ using std::vector;
 using std::string;
 using cv::Mat;
 
-CamDataLoader::CamDataLoader(const string& strImgPath,
-                             const string& strDataFile)
+CamDataLoader::CamDataLoader(const std::string& strImgPath,
+                             const std::string& strDataFile)
 {
     ifstream ifs(strDataFile);
     string line;
@@ -38,7 +38,7 @@ CamDataLoader::CamDataLoader(const string& strImgPath,
     }
 }
 
-Mat CamDataLoader::loadImg(int nFrame, View eView) const
+cv::Mat CamDataLoader::loadImg(int nFrame, View eView) const
 {
     Mat img;
     // view 1 for monocular, left in stereo, and RGB in RGB-D

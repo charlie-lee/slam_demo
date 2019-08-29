@@ -1,15 +1,15 @@
 # Changelog & TODO-list
 
 ## TODO
-- Compute pose [R|t] from 2D-2D keypoint matches (for map initialization)
-  - Store triangulated 3D world points to map (10%)
+- Pose estimation after map is initialized (TODO)
 
-## Latest Version
+## v0.0.5
 - Add pose display function
 - Fix reprojection error computation for H when selecting pose recovery model
 - Map initialization: currently traverse all possible pose recovery results 
   from decompsing F & H for a best pose
 - Add Map and MapPoint class for storing map data
+- Store triangulated 3D world points to build an initial map
 
 ## v0.0.4
 - Fix some coding style issues

@@ -39,7 +39,7 @@ public: // public members
     Frame(const cv::Mat& img, double timestamp);
     /// Get keypoint data for current frame.
     std::vector<cv::KeyPoint> getKeyPoints() const { return mvKpts; }
-    /// Get feature descriptor for current frame.
+    /// Get feature descriptors. Row \f$i\f$ for \f$i\f$th descriptor.
     cv::Mat getFeatDescriptors() const { return mDescs; }
     unsigned getFrameIdx() const { return mnIdx; }
 private: // private data
@@ -48,7 +48,8 @@ private: // private data
     static unsigned nNextIdx; ///< Frame index for next frame.
     std::shared_ptr<cv::Feature2D> mpFeatExtractor; ///< Feature extractor.
     std::vector<cv::KeyPoint> mvKpts; ///< Keypoint data of the current frame.
-    cv::Mat mDescs; ///< Descriptor of the current frame.
+    /// Feature descriptors. Row \f$i\f$ for \f$i\f$th descriptor.
+    cv::Mat mDescs; 
 private: // private member functions
     /// Extract features from the current frame.
     void extractFeatures(const cv::Mat& img);

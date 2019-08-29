@@ -22,7 +22,7 @@ using std::ostream;
 using std::string;
 using std::vector;
 
-bool Config::setParameters(const string& strCfgFile, System::Mode eMode)
+bool Config::setParameters(const std::string& strCfgFile, System::Mode eMode)
 {
     // open cfg file
     cv::FileStorage fs(strCfgFile, cv::FileStorage::READ);

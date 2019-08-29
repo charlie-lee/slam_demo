@@ -21,7 +21,7 @@ using cv::ORB;
 
 unsigned Frame::nNextIdx = 0;
 
-Frame::Frame(const Mat& img, double timestamp) :
+Frame::Frame(const cv::Mat& img, double timestamp) :
     mTimestamp(timestamp), mnIdx(nNextIdx++)
 {
     // configure feature extractor
@@ -30,7 +30,7 @@ Frame::Frame(const Mat& img, double timestamp) :
     extractFeatures(img);
 }
 
-void Frame::extractFeatures(const Mat& img)
+void Frame::extractFeatures(const cv::Mat& img)
 {
     mpFeatExtractor->detectAndCompute(img, cv::noArray(), mvKpts, mDescs);
     // undistort keypoint coordinates

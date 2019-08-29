@@ -28,12 +28,8 @@ class Tracker {
 public: // public data
     /// A threshold in Lowe's ratio test for discarding wrong matches.
     static const float TH_DIST;
-    /** 
-     * @brief Similarity threshold between reprojection error of F and H when
-     *        selecting the better representation of the transformation from
-     *        previous frame to current frame.
-     */
-    static const float TH_SIMILARITY;
+    /// Max ratio of reprojection error of F to that of H.
+    static const float TH_MAX_RATIO_FH;
     /// Cosine of smallest appropriate parallax/angle between 2 views.
     static const float TH_COS_PARALLAX;
     /// For selecting best possible recovered pose.
@@ -91,6 +87,22 @@ private: // private data
     std::vector<std::shared_ptr<Frame>> mvpFramesPrev;
     /// Pointers to current frame (frame 2) for a vector of views.
     std::vector<std::shared_ptr<Frame>> mvpFramesCur;
+    /**
+     * @brief Pointer to the frame of 1st view for feature matching.
+     * @note The selected view is as follows:
+     *       - Previous frane for System::Mode::MONOCULAR mode;
+     *       - Left view of current frame for System::Mode::STEREO mode;
+     *       - RGB view of previous frame for System::Mode::RGBD mode.
+     */
+    std::shared_ptr<Frame> mpView1;
+    /**
+     * @brief Pointer to the frame of 2nd view for feature matching.
+     * @note The selected view is as follows:
+     *       - Current frane for System::Mode::MONOCULAR mode;
+     *       - Right view of current frame for System::Mode::STEREO mode;
+     *       - RGB view of current frame for System::Mode::RGBD mode.
+     */
+    std::shared_ptr<Frame> mpView2;
     /// Feature matcher.
     std::shared_ptr<cv::DescriptorMatcher> mpFeatMatcher;
     /// Camera poses \f$T_{cw,k|0}\f$ w.r.t. 1st frame (frame 0).
@@ -104,26 +116,19 @@ private: // private member functions
     State initializeMap();
     /** 
      * @brief Initialize 3D map of SLAM system for System::Mode::MONOCULAR case.
-     * @param[in] pFPrev Pointer to previous frame.
-     * @param[in] pFCur  Pointer to current frame.
      * @return State::OK if the initialization is successful, otherwise
      *         State::NOT_INITIALIZED.
      */
-    State initializeMapMono(const std::shared_ptr<Frame>& pFPrev,
-                            const std::shared_ptr<Frame>& pFCur);
+    State initializeMapMono();
     /** 
      * @brief Match features between previous frame (1) and current frame (2).
-     * @param[in]  pFPrev  Pointer to previous frame.
-     * @param[in]  pFCur   Pointer to current frame.
      * @return A vector of matching keypoints of cv::DMatch type.
      * @note After the feature matching scheme, where candidate keypoint matches
      *       are filterd out using Lowe's ratio test, the candidates whose 
      *       keypoints from both frames are out-of-border after undistorting 
      *       the captured images are discarded.
      */
-    std::vector<cv::DMatch> matchFeatures2Dto2D(
-        const std::shared_ptr<Frame>& pFPrev,
-        const std::shared_ptr<Frame>& pFCur) const;
+    std::vector<cv::DMatch> matchFeatures2Dto2D() const;
     /** 
      * @brief Check whether a \f$2 \times 1\f$ cv::Mat point is inside 
      *        the border of an undistorted image.
@@ -146,80 +151,75 @@ private: // private member functions
      * @brief A group of functions related to fundamental matrix F & 
      *        homography H computation, and recovery of pose 
      *        \f$[R|t]\f$ using F & H.
-     * @param[in] pFPrev   Pointer to previous frame.
-     * @param[in] pFCur    Pointer to current frame.
-     * @param[in] vMatches A vector 2D-to-2D keypoint matches.
-     * @param[in] Fcp      Fundamental matrix F from previous to current frame.
-     * @param[in] Hcp      Homography H from previous to current frame.
+     * @param[in] vMatches A vector of 2D-to-2D keypoint matches where its 
+     *                     queryIdx is for view 1 and trainIdx is for view 2,
+     * @param[in] F21      Fundamental matrix F from previous to current frame.
+     * @param[in] H21      Homography H from previous (1) to current (2) frame.
      */
     ///@{
     /** 
      * @brief Compute fundamental matrix F from previous frame to current frame.
      * @return Fundamental matrix F, or an empty matrix if computation failed.
      */
-    cv::Mat computeFundamental(const std::shared_ptr<Frame>& pFPrev,
-                               const std::shared_ptr<Frame>& pFCur,
-                               const std::vector<cv::DMatch>& vMatches) const;
+    cv::Mat computeFundamental(const std::vector<cv::DMatch>& vMatches) const;
     /**
      * @brief Compute homography H from previous frame to current frame.
      * @return Homography H, or an empty matrix if computation failed.
      */
-    cv::Mat computeHomography(const std::shared_ptr<Frame>& pFPrev,
-                              const std::shared_ptr<Frame>& pFCur,
-                              const std::vector<cv::DMatch>& vMatches) const;
+    cv::Mat computeHomography(const std::vector<cv::DMatch>& vMatches) const;
     /**
      * @brief Recover pose \f$[R|t]\f$ from either fundamental matrix F
      *        or homography H.
-     * @param[in,out] Xw3Ds 
-     * @param[in,out] vidxGoodPts A vector of indices of valid 
-     *                triangulated points. The index is the index of
-     *                matched pair of 2 keypoints of 2 views stored in 
-     *                @p vMatches.
+     * @param[in]     vMatches
+     * @param[in]     F21
+     * @param[in]     H21
+     * @param[in,out] Xw3Ds       \f$3 \times N\f$ matrix of \f$N\f$ triangulated 
+     *                            \f$3 \times 1\f$ world coordinates.
+     * @param[in,out] vIdxGoodPts A vector of indices of valid 
+     *                            triangulated points. The index is the index of
+     *                            matched pair of 2 keypoints of 2 views stored 
+     *                            in @p vMatches.
      * @return True if pose recovery is successful.
      */
-    bool recoverPoseFromFH(const std::shared_ptr<Frame>& pFPrev,
-                           const std::shared_ptr<Frame>& pFCur,
-                           const std::vector<cv::DMatch>& vMatches,
-                           const cv::Mat& Fcp, const cv::Mat& Hcp,
-                           cv::Mat& Xw3Ds, std::vector<unsigned>& vIdxGoodPts);
+    bool recoverPoseFromFH(const std::vector<cv::DMatch>& vMatches,
+                           const cv::Mat& F21, const cv::Mat& H21,
+                           cv::Mat& Xw3Ds, std::vector<int>& vIdxGoodPts);
     /**
      * @brief Select the better transformation of 2D-to-2D point matches
      *        from fundamental matrix F and homography H.
      * @return Tracker::FHResult result.
      */
-    FHResult selectFH(const std::shared_ptr<Frame>& pFPrev,
-                      const std::shared_ptr<Frame>& pFCur,
-                      const std::vector<cv::DMatch>& vMatches,
-                      const cv::Mat& Fcp, const cv::Mat& Hcp) const;
+    FHResult selectFH(const std::vector<cv::DMatch>& vMatches,
+                      const cv::Mat& F21, const cv::Mat& H21) const;
     /**
      * @brief Decompose fundamental matrix \f$F\f$ to get possible pose
      *        \f$[R|t]\f$ solutions. Camera intrinsics \f$K\f$ is needed.
-     * @param[in]     Fcp   Fundamental matrix to be decomposed. 
-     * @param[in,out] vRcps A vector of possible rotation matrices (
-     *                      with \f$i\f$th pose being {vRcps[i], vtcps[i]}).
-     * @param[in,out] vtcps A vector of possible translation matrices (
-     *                      with \f$i\f$th pose being {vRcps[i], vtcps[i]}).
+     * @param[in]     F21   Fundamental matrix to be decomposed. 
+     * @param[in,out] vR21s A vector of possible rotation matrices (
+     *                      with \f$i\f$th pose being {vR21s[i], vt21s[i]}).
+     * @param[in,out] vt21s A vector of possible translation matrices (
+     *                      with \f$i\f$th pose being {vR21s[i], vt21s[i]}).
      * @return Number of possible pose solutions.
      */
-    int decomposeFforRT(const cv::Mat& Fcp,
-                        std::vector<cv::Mat>& vRcps,
-                        std::vector<cv::Mat>& vtcps) const;
+    int decomposeFforRT(const cv::Mat& F21,
+                        std::vector<cv::Mat>& vR21s,
+                        std::vector<cv::Mat>& vt21s) const;
     /**
      * @brief Decompose homography \f$H\f$ to get possible pose
      *        \f$[R|t]\f$ solutions.
-     * @param[in]     Hcp        Homography to be decomposed. 
-     * @param[in,out] vRcps      A vector of possible rotation matrices (with
-     *                           \f$i\f$th pose being {vRcps[i], vtcps[i]}).
-     * @param[in,out] vtcps      A vector of possible translation matrices (with
-     *                           \f$i\f$th pose being {vRcps[i], vtcps[i]}).
-     * @param[in,out] vNormalcps A vector of possible normal planes 
-     *                           (vNormalcps[i] for \f$i\f$th pose).
+     * @param[in]     H21        Homography to be decomposed. 
+     * @param[in,out] vR21s      A vector of possible rotation matrices (with
+     *                           \f$i\f$th pose being {vR21s[i], vt21s[i]}).
+     * @param[in,out] vt21s      A vector of possible translation matrices (with
+     *                           \f$i\f$th pose being {vR21s[i], vt21s[i]}).
+     * @param[in,out] vNormal21s A vector of possible normal planes 
+     *                           (vNormal21s[i] for \f$i\f$th pose).
      * @return Number of possible pose solutions.
      */
-    int decomposeHforRT(const cv::Mat& Hcp,
-                        std::vector<cv::Mat>& vRcps,
-                        std::vector<cv::Mat>& vtcps,
-                        std::vector<cv::Mat>& vNormalcps) const;
+    int decomposeHforRT(const cv::Mat& H21,
+                        std::vector<cv::Mat>& vR21s,
+                        std::vector<cv::Mat>& vt21s,
+                        std::vector<cv::Mat>& vNormal21s) const;
     /**
      * @brief Compute reprojection error based on transformation matrix
      *        @p T21 (reproject @p p1 from view 1 to view 2) and @p T12
@@ -278,19 +278,33 @@ private: // private member functions
      *
      * @param[in] Xw   \f$3 \times 1\f$ triangulated 3D world point in
      *                 inhomogeneous coordinate.
-     * @param[in] kptP 2D keypoint in previous frame.
-     * @param[in] kptC corresponding 2D keypoint in current frame.
+     * @param[in] kpt1 2D keypoint in previous frame.
+     * @param[in] kpt2 corresponding 2D keypoint in current frame.
      * @param[in] pose The recovered pose.
      * @return True if the triangulated point is good enough, otherwise false.
      */
     bool checkTriangulatedPt(const cv::Mat& Xw,
-                             const cv::KeyPoint& kptP, const cv::KeyPoint& kptC,
+                             const cv::KeyPoint& kpt1, const cv::KeyPoint& kpt2,
                              const CamPose& pose) const;
     ///@}    
     /// Get camera pose of a target frame relative to 1st frame.
-    CamPose getAbsPose(unsigned nIdx) const { return mvTs[nIdx]; }
+    CamPose getAbsPose(int nIdx) const { return mvTs[nIdx]; }
     /// Set camera pose of current frame relative to 1st frame.
     void setAbsPose(const CamPose& pose) { mvTs.push_back(pose); }
+    /**
+     * @brief Build initial map from triangulated \f$3 \times 1\f$ world 
+     *        coordinates.
+     * @param[in] Xws      \f$3 \times N\f$ matrix of \f$N\f$ triangulated 
+     *                     \f$3 \times 1\f$ world coordinates.
+     * @param[in] vMatches A vector of 2D-to-2D keypoint matches where its 
+     *                     queryIdx is for view 1 and trainIdx is for view 2,
+     * @param[in] vIdxPts  A vector of indices of valid triangulated points. 
+     *                     The index is the index of matched pair of 2 keypoints
+     *                     of 2 views stored in @p vMatches.
+     */
+    void buildInitialMap(const cv::Mat& Xws,
+                         const std::vector<cv::DMatch>& vMatches,
+                         const std::vector<int> vIdxPts) const;
 };
 
 } // namespace SLAM_demo

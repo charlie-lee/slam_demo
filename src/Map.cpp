@@ -19,6 +19,11 @@ void Map::addPt(const std::shared_ptr<MapPoint>& pPt)
     mspPts.insert(pPt);
 }
 
+void Map::clear()
+{
+    mspPts.clear();
+}
+
 void Map::removePt(std::shared_ptr<MapPoint>& pPt)
 {
     mspPts.erase(pPt);
