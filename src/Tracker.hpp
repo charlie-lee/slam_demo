@@ -304,7 +304,7 @@ private: // private member functions
      */
     void buildInitialMap(const cv::Mat& Xws,
                          const std::vector<cv::DMatch>& vMatches,
-                         const std::vector<int> vIdxPts) const;
+                         const std::vector<int>& vIdxPts) const;
 };
 
 } // namespace SLAM_demo

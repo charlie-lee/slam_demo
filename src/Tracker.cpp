@@ -574,7 +574,7 @@ bool Tracker::checkTriangulatedPt(const cv::Mat& Xw,
 
 void Tracker::buildInitialMap(const cv::Mat& Xws,
                               const std::vector<cv::DMatch>& vMatches,
-                              const std::vector<int> vIdxPts) const
+                              const std::vector<int>& vIdxPts) const
 {
     // clear the map to build a new one
     mpMap->clear();
