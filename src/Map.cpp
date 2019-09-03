@@ -19,8 +19,8 @@ namespace SLAM_demo {
 using std::vector;
 using std::shared_ptr;
 
-const float Map::TH_MIN_RATIO_MATCH_TO_OBS = 0.f;
-const unsigned Map::TH_MAX_NUM_FRMS_LAST_SEEN = 5;
+const float Map::TH_MIN_RATIO_MATCH_TO_OBS = 0.8f;
+const unsigned Map::TH_MAX_NUM_FRMS_LAST_SEEN = 20;
 
 void Map::addMPt(const std::shared_ptr<MapPoint>& pMPt)
 {
@@ -53,7 +53,8 @@ void Map::removeMPts()
         if (!pMPt) {
             continue;
         }
-        if (pMPt->getMatch2ObsRatio() < TH_MIN_RATIO_MATCH_TO_OBS) {
+        float m2oRatio = pMPt->getMatch2ObsRatio();
+        if (m2oRatio > 0 && m2oRatio < TH_MIN_RATIO_MATCH_TO_OBS) {
             // discard low quality map points that has low
             // match-to-observe ratio            
             removeMPt(pMPt);

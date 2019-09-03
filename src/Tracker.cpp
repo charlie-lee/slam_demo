@@ -40,6 +40,7 @@ using std::endl;
 const float Tracker::TH_DIST = 0.7f;
 const float Tracker::TH_MAX_RATIO_FH = 0.03f;
 const float Tracker::TH_COS_PARALLAX = 0.9999f;
+const float Tracker::TH_REPROJ_ERR_FACTOR = 8.0f;
 const float Tracker::TH_POSE_SEL = 0.7f;
 const float Tracker::TH_MIN_RATIO_TRIANG_PTS = 0.9f;
 const int Tracker::TH_MIN_MATCHES_3D_TO_2D = 10;
@@ -600,8 +601,8 @@ bool Tracker::checkTriangulatedPt(const cv::Mat& Xw,
     float s = Config::scaleFactor();
     int o1 = kpt1.octave;
     int o2 = kpt2.octave;
-    float th1Reproj = std::pow(s, o1);
-    float th2Reproj = std::pow(s, o2);
+    float th1Reproj = std::pow(s, o1) * TH_REPROJ_ERR_FACTOR;
+    float th2Reproj = std::pow(s, o2) * TH_REPROJ_ERR_FACTOR;
     float err1Reproj = cv::norm(x1 - x1Reproj, cv::NORM_L2);
     float err2Reproj = cv::norm(x2 - x2Reproj, cv::NORM_L2);
     if (err1Reproj > th1Reproj || err2Reproj > th2Reproj) {
@@ -646,10 +647,10 @@ Tracker::State Tracker::track()
     matchFeatures3Dto2D();
     // pose estimation
     eState = poseEstimation();
-    //if (eState == State::OK) {
+    if (eState == State::OK) {
         // triangulate new map points and update the map
-    updateMap();
-    //}
+        updateMap();
+    }
     return eState;
 }
 
@@ -828,7 +829,8 @@ void Tracker::fuseMPts(const cv::Mat& Xws,
     }
 
     // TODO: check how to improve this statistics
-    cout << "Consistent matches (3 frames): " << cntMatch << endl;
+    cout << "Consistent matches (2 frames) / 3D-to-2D matches: "
+         << cntMatch << "/" << mvMatches3Dto2D.size() << endl;
 }
 
 } // namespace SLAM_demo

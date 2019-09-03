@@ -49,7 +49,7 @@ public: // public members
     ///@}
     /// Update count of being observed by input frames.
     void addCntObs(int n = 1);
-    /// Update count of being matched by other 3D points.
+    /// Update count of being matched by other points.
     void addCntMatches(int n = 1);
 private: // private data
     /// Inhomogeneous 3D world coordinate of the point.
@@ -62,7 +62,7 @@ private: // private data
     int mnCntObs;
     /** 
      * @brief Number of times by which the point is matched with another 
-     *        map point after the system is initialized.
+     *        point (2D/3D) after the system is initialized.
      */
     int mnCntMatches;
 };

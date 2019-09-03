@@ -1,9 +1,14 @@
 # Changelog & TODO-list
 
 ## TODO
-- Check how to improve number of consistent matches (same feature matched for 3
+- Check how to improve number of consistent matches (same feature matched for 2
   consecutive frames)
+- Check how to increase 3D-to-2D matches
 - Store last k frames in Tracker class (maybe?)
+
+## Latest version
+- Only update map if tracking is successful
+- Set looser conditions in good triangulated points checking procedure
 
 ## v0.1.0
 - Update Tracker class design to remove redundant member function parameters

@@ -16,11 +16,15 @@ MapPoint::MapPoint() : mX3D(cv::Mat()), mDesc(cv::Mat()), mnIdxLastObsFrm(0),
 
 MapPoint::MapPoint(const cv::Mat& X3D, const cv::Mat& desc, int nIdxFrm) :
     mX3D(X3D.clone()), mDesc(desc.clone()), mnIdxLastObsFrm(nIdxFrm),
-    mnCntObs(1), mnCntMatches(0) {}
+    mnCntObs(0), mnCntMatches(0) {}
 
 float MapPoint::getMatch2ObsRatio() const
 {
-    return static_cast<float>(mnCntMatches) / mnCntObs;
+    if (mnCntObs == 0) {
+        return 0.f;
+    } else {
+        return static_cast<float>(mnCntMatches) / mnCntObs;
+    }
 }
 
 void MapPoint::addCntObs(int n)

@@ -33,6 +33,8 @@ public: // public data
     static const float TH_MAX_RATIO_FH;
     /// Cosine of smallest appropriate parallax/angle between 2 views.
     static const float TH_COS_PARALLAX;
+    /// Reprojection error factor for checking good triangulated points.
+    static const float TH_REPROJ_ERR_FACTOR;
     /// For selecting best possible recovered pose.
     static const float TH_POSE_SEL;
     /// Minimum ratio of triangulated points to total keypoint matches,
