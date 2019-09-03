@@ -41,7 +41,31 @@ public: // public members
     std::vector<cv::KeyPoint> getKeyPoints() const { return mvKpts; }
     /// Get feature descriptors. Row \f$i\f$ for \f$i\f$th descriptor.
     cv::Mat getFeatDescriptors() const { return mDescs; }
+    /// Get frame index of current frame.
     unsigned getFrameIdx() const { return mnIdx; }
+    /**
+     * @name Coordinate Conversion given Camera Extrinsics and Intrinsics
+     * @brief Coordinate conversion among world/cam/image coordinate system.
+     * @param[in] Xw \f$3 \times 1\f$ coordinate in world coordinate system.
+     * @param[in] Xc \f$3 \times 1\f$ coordinate in camera coordinate system.
+     */
+    ///@{
+    /**
+     * @brief World to image coordinate system conversion.
+     * @return \f$2 \times 1\f$ image cooordinate w.r.t. the current frame.
+     */
+    cv::Mat coordWorld2Img(const cv::Mat& Xw) const;
+    /**
+     * @brief World to camera coordinate system conversion.
+     * @return \f$3 \times 1\f$ camera cooordinate w.r.t. the current frame.
+     */
+    cv::Mat coordWorld2Cam(const cv::Mat& Xw) const;
+    /**
+     * @brief Camera to image coordinate system conversion.
+     * @return \f$2 \times 1\f$ image cooordinate w.r.t. the current frame.
+     */
+    cv::Mat coordCam2Img(const cv::Mat& Xc) const;
+    ///@}
 private: // private data
     double mTimestamp; ///< Timestamp info for the current frame.
     unsigned mnIdx; ///< Frame index.

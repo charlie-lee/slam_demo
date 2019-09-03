@@ -9,24 +9,65 @@
 
 #include <memory>
 #include <set>
+#include <vector>
 
 #include "MapPoint.hpp"
+#include "System.hpp"
 
 namespace SLAM_demo {
 
-void Map::addPt(const std::shared_ptr<MapPoint>& pPt)
+using std::vector;
+using std::shared_ptr;
+
+const float Map::TH_MIN_RATIO_MATCH_TO_OBS = 0.f;
+const unsigned Map::TH_MAX_NUM_FRMS_LAST_SEEN = 5;
+
+void Map::addMPt(const std::shared_ptr<MapPoint>& pMPt)
 {
-    mspPts.insert(pPt);
+    mspMPts.insert(pMPt);
+}
+
+std::vector<std::shared_ptr<MapPoint>> Map::getAllMPts() const
+{
+    vector<shared_ptr<MapPoint>> vpMPts;
+    vpMPts.reserve(mspMPts.size());
+    for (const shared_ptr<MapPoint> pMPt : mspMPts) {
+        if (pMPt) {
+            vpMPts.push_back(pMPt);
+        }
+    }
+    return vpMPts;
 }
 
 void Map::clear()
 {
-    mspPts.clear();
+    mspMPts.clear();
 }
 
-void Map::removePt(std::shared_ptr<MapPoint>& pPt)
+void Map::removeMPts()
 {
-    mspPts.erase(pPt);
+    // TODO: add other criterias
+    vector<shared_ptr<MapPoint>> vpMPts = getAllMPts();
+    for (shared_ptr<MapPoint> pMPt : vpMPts) {
+        // target map point may have already removed
+        if (!pMPt) {
+            continue;
+        }
+        if (pMPt->getMatch2ObsRatio() < TH_MIN_RATIO_MATCH_TO_OBS) {
+            // discard low quality map points that has low
+            // match-to-observe ratio            
+            removeMPt(pMPt);
+        } else if (System::nCurrentFrame >
+                   pMPt->getIdxLastObsFrm() + TH_MAX_NUM_FRMS_LAST_SEEN) {
+            // the map point should be seen not long before
+            removeMPt(pMPt);
+        }
+    }
+}
+
+void Map::removeMPt(std::shared_ptr<MapPoint>& pMPt)
+{
+    mspMPts.erase(pMPt);
 }
 
 } // namespace SLAM_demo

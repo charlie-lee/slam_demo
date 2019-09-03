@@ -17,7 +17,6 @@
 namespace SLAM_demo {
 
 using cv::Mat;
-using cv::ORB;
 
 unsigned Frame::nNextIdx = 0;
 
@@ -25,9 +24,34 @@ Frame::Frame(const cv::Mat& img, double timestamp) :
     mTimestamp(timestamp), mnIdx(nNextIdx++)
 {
     // configure feature extractor
-    mpFeatExtractor = ORB::create(Config::nFeatures(), Config::scaleFactor(),
-                                  Config::nLevels());
+    mpFeatExtractor = cv::ORB::create(
+        Config::nFeatures(), Config::scaleFactor(), Config::nLevels());
     extractFeatures(img);
+}
+
+cv::Mat Frame::coordWorld2Img(const cv::Mat& Xw) const
+{
+    Mat Xc = coordWorld2Cam(Xw);
+    Mat x = coordCam2Img(Xc);
+    return x;
+}
+
+cv::Mat Frame::coordWorld2Cam(const cv::Mat& Xw) const
+{
+    Mat Xc(3, 1, CV_32FC1);
+    Mat Rcw = mPose.getRotation();
+    Mat tcw = mPose.getTranslation();
+    Xc = Rcw*Xw + tcw;
+    return Xc;
+}
+
+cv::Mat Frame::coordCam2Img(const cv::Mat& Xc) const
+{
+    Mat x(2, 1, CV_32FC1);
+    Mat K = Config::K();
+    float invZc = 1.0f / Xc.at<float>(2);
+    x = invZc * K * Xc;
+    return x;
 }
 
 void Frame::extractFeatures(const cv::Mat& img)

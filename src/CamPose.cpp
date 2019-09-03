@@ -48,7 +48,7 @@ CamPose::CamPose(const CamPose& pose)
     mTwc = pose.mTwc;
 }
 
-CamPose& CamPose::operator=(const CamPose& pose)
+inline CamPose& CamPose::operator=(const CamPose& pose)
 {
     mTcw = pose.mTcw;
     mTwc = pose.mTwc;
@@ -91,12 +91,12 @@ CamPose& CamPose::operator*(const CamPose& rhs)
     return *this;
 }
 
-void CamPose::setRotation(const cv::Mat& Rcw)
+inline void CamPose::setRotation(const cv::Mat& Rcw)
 {
     Rcw.copyTo(mTcw.rowRange(0, 3).colRange(0, 3));
 }
 
-void CamPose::setTranslation(const cv::Mat& tcw)
+inline void CamPose::setTranslation(const cv::Mat& tcw)
 {
     tcw.copyTo(mTcw.rowRange(0, 3).col(3));
 }

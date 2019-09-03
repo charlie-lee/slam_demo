@@ -24,6 +24,8 @@ using std::make_shared;
 using std::string;
 using std::vector;
 
+unsigned System::nCurrentFrame = 0;
+
 System::System(Mode eMode) : meMode(eMode)
 {
     // determine system mode
@@ -47,8 +49,9 @@ System::System(Mode eMode) : meMode(eMode)
 void System::trackImgs(const std::vector<cv::Mat>& vImgs,
                        double timestamp) const
 {
-    if (meMode == System::Mode::MONOCULAR) {
+    if (meMode == Mode::MONOCULAR) {
         mpTracker->trackImgsMono(vImgs[0], timestamp);
+        nCurrentFrame++;
     } else {
         assert(0); // TODO: track images in other SLAM modes
     }

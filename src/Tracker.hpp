@@ -13,6 +13,7 @@
 #include <opencv2/core.hpp>
 #include <opencv2/features2d.hpp>
 #include "CamPose.hpp"
+#include "MapPoint.hpp"
 
 namespace SLAM_demo {
 
@@ -36,6 +37,10 @@ public: // public data
     static const float TH_POSE_SEL;
     /// Minimum ratio of triangulated points to total keypoint matches,
     static const float TH_MIN_RATIO_TRIANG_PTS;
+    /// Minimum number of 3D-to-2D matches for pose estimation using PnP.
+    static const int TH_MIN_MATCHES_3D_TO_2D;
+    /// The 1st frame in the initialized SLAM system.
+    static unsigned n1stFrame;
 public: // public members
     /**
      * @brief Constructor.
@@ -67,7 +72,9 @@ private: // private data
         H  ///< Homography as reprojection transformation.
     };
     System::Mode meMode; ///< SLAM system mode.
-    State mState; ///< Tracking state.
+    State meState; ///< Tracking state.
+    bool mbFirstFrame; ///< Whether it is the 1st input frame to be processed.
+    std::shared_ptr<Map> mpMap; ///< Pointer to the map.
     /** 
      * @brief Images of previous frame for a vector of views. 
      * @note Previous frame (maybe adjacent) for System::Mode::MONOCULAR and 
@@ -82,7 +89,6 @@ private: // private data
      *       System::Mode::STEREO case.
      */
     std::vector<cv::Mat> mvImgsCur;
-    bool mbFirstFrame; ///< Whether it is the 1st input frame to be processed.
     /// Pointers to previous frame (frame 1) for a vector of views.
     std::vector<std::shared_ptr<Frame>> mvpFramesPrev;
     /// Pointers to current frame (frame 2) for a vector of views.
@@ -105,30 +111,63 @@ private: // private data
     std::shared_ptr<Frame> mpView2;
     /// Feature matcher.
     std::shared_ptr<cv::DescriptorMatcher> mpFeatMatcher;
-    /// Camera poses \f$T_{cw,k|0}\f$ w.r.t. 1st frame (frame 0).
+    /** 
+     * @brief 2D-to-2D matches: match info between 2D keypoints of views 1 
+     *        (querying set) & 2 (training set).
+     */
+    std::vector<cv::DMatch> mvMatches2Dto2D;
+    /**
+     * @brief 3D-to-2D matches: match info between 3D points of the map 
+     *        (querying set) and 2D keypoint of view 2 (training set).
+     */
+    std::vector<cv::DMatch> mvMatches3Dto2D;
+    /**
+     * @brief 3D-to-3D matches: match info between 3D points of the map
+     *        (querying set) and those triangulated from view 1 & 2 
+     *        (training set).
+     */
+    std::vector<cv::DMatch> mvMatches3Dto3D;
+    /**
+     * @brief Pointer to all map points. Update once when doing tracking
+     *        after the tracking state is Tracker::State::OK.
+     */
+    std::vector<std::shared_ptr<MapPoint>> mvpMPts;
+    /** 
+     * @brief Camera poses \f$T_{cw,k|x}\f$ from \f$x\f$th frame to \f$k\f$th 
+     *        frame where x = Tracker::n1stFrame.
+     */
     std::vector<CamPose> mvTs;
-    /// Pointer to the map.
-    std::shared_ptr<Map> mpMap;
 private: // private member functions
     /// Convert input image @p img into grayscale image.
     cv::Mat rgb2Gray(const cv::Mat& img) const;
     /// Initialize 3D map of SLAM system.
-    State initializeMap();
+    Tracker::State initializeMap();
     /** 
      * @brief Initialize 3D map of SLAM system for System::Mode::MONOCULAR case.
      * @return State::OK if the initialization is successful, otherwise
      *         State::NOT_INITIALIZED.
      */
-    State initializeMapMono();
+    Tracker::State initializeMapMono();
     /** 
-     * @brief Match features between previous frame (1) and current frame (2).
+     * @brief Match features between previous frame (1) and current frame (2)
+     *        for 2D-to-2D case when map has not been initialized.
      * @return A vector of matching keypoints of cv::DMatch type.
      * @note After the feature matching scheme, where candidate keypoint matches
      *       are filterd out using Lowe's ratio test, the candidates whose 
      *       keypoints from both frames are out-of-border after undistorting 
      *       the captured images are discarded.
      */
-    std::vector<cv::DMatch> matchFeatures2Dto2D() const;
+    void matchFeatures2Dto2D();
+    /** 
+     * @brief Match features between the map and current frame (2)
+     *        for 3D-to-2D case after map is initialized.
+     * @return A vector of matching keypoints of cv::DMatch type.
+     * @note After the feature matching scheme, where candidate keypoint matches
+     *       are filterd out using Lowe's ratio test, the candidates whose 
+     *       keypoints (reprojected) from both frames are out-of-border 
+     *       after undistorting the captured images are discarded.
+     */
+    void matchFeatures3Dto2D();
     /** 
      * @brief Check whether a \f$2 \times 1\f$ cv::Mat point is inside 
      *        the border of an undistorted image.
@@ -140,19 +179,15 @@ private: // private member functions
      * @brief Display feature matching results of adjacent 2 **UNDISTORTED**
      *        frames (left for current/left frame and right for 
      *        reference/previous/right frame).
-     * @param[in] vMatches Keypoint matches of current and reference frame.
      * @param[in] viewPrev View index of previous frame.
      * @param[in] viewCur  View index of current frame.
      */
-    void displayFeatMatchResult(const std::vector<cv::DMatch>& vMatches,
-                                int viewPrev = 0, int viewCur = 0) const;
+    void displayFeatMatchResult(int viewPrev = 0, int viewCur = 0) const;
     /**
      * @name F/H Computation Functions
      * @brief A group of functions related to fundamental matrix F & 
      *        homography H computation, and recovery of pose 
      *        \f$[R|t]\f$ using F & H.
-     * @param[in] vMatches A vector of 2D-to-2D keypoint matches where its 
-     *                     queryIdx is for view 1 and trainIdx is for view 2,
      * @param[in] F21      Fundamental matrix F from previous to current frame.
      * @param[in] H21      Homography H from previous (1) to current (2) frame.
      */
@@ -161,16 +196,15 @@ private: // private member functions
      * @brief Compute fundamental matrix F from previous frame to current frame.
      * @return Fundamental matrix F, or an empty matrix if computation failed.
      */
-    cv::Mat computeFundamental(const std::vector<cv::DMatch>& vMatches) const;
+    cv::Mat computeFundamental() const;
     /**
      * @brief Compute homography H from previous frame to current frame.
      * @return Homography H, or an empty matrix if computation failed.
      */
-    cv::Mat computeHomography(const std::vector<cv::DMatch>& vMatches) const;
+    cv::Mat computeHomography() const;
     /**
      * @brief Recover pose \f$[R|t]\f$ from either fundamental matrix F
      *        or homography H.
-     * @param[in]     vMatches
      * @param[in]     F21
      * @param[in]     H21
      * @param[in,out] Xw3Ds       \f$3 \times N\f$ matrix of \f$N\f$ triangulated 
@@ -178,19 +212,17 @@ private: // private member functions
      * @param[in,out] vIdxGoodPts A vector of indices of valid 
      *                            triangulated points. The index is the index of
      *                            matched pair of 2 keypoints of 2 views stored 
-     *                            in @p vMatches.
+     *                            in @p mvMatches.
      * @return True if pose recovery is successful.
      */
-    bool recoverPoseFromFH(const std::vector<cv::DMatch>& vMatches,
-                           const cv::Mat& F21, const cv::Mat& H21,
+    bool recoverPoseFromFH(const cv::Mat& F21, const cv::Mat& H21,
                            cv::Mat& Xw3Ds, std::vector<int>& vIdxGoodPts);
     /**
      * @brief Select the better transformation of 2D-to-2D point matches
      *        from fundamental matrix F and homography H.
      * @return Tracker::FHResult result.
      */
-    FHResult selectFH(const std::vector<cv::DMatch>& vMatches,
-                      const cv::Mat& F21, const cv::Mat& H21) const;
+    FHResult selectFH(const cv::Mat& F21, const cv::Mat& H21) const;
     /**
      * @brief Decompose fundamental matrix \f$F\f$ to get possible pose
      *        \f$[R|t]\f$ solutions. Camera intrinsics \f$K\f$ is needed.
@@ -251,17 +283,17 @@ private: // private member functions
      * \f}
      * where \f$p_1' = (x_1', y_1')\f$, \f$p_2' = (x_2', y_2')\f$.
      *
-     * @param[in] T21 Transformation matrix from view 1 to view 2.
-     * @param[in] T12 Transformation matrix from view 2 to view 1.
-     * @param[in] p1  Point in view 1.
-     * @param[in] p2  Point in view 2.
-     * @param[in] scheme Computation scheme based on different transformation
-     *                   matrices (see Tracker::ReprojErrScheme for details).
+     * @param[in] T21     Transformation matrix from view 1 to view 2.
+     * @param[in] T12     Transformation matrix from view 2 to view 1.
+     * @param[in] p1      Point in view 1.
+     * @param[in] p2      Point in view 2.
+     * @param[in] eScheme Computation scheme based on different transformation
+     *                    matrices (see Tracker::ReprojErrScheme for details).
      * @return Reprojection error (square form) in FP32 precision.
      */
     float computeReprojErr(const cv::Mat& T21, const cv::Mat& T12,
                            const cv::Mat& p1, const cv::Mat& p2,
-                           ReprojErrScheme scheme) const;
+                           ReprojErrScheme eScheme) const;
     /**
      * @brief Check whether a triangulated 3D world point is good enough
      *        to be included to the map.
@@ -276,16 +308,16 @@ private: // private member functions
      *   image border);
      * - The reprojection errors in both views (whether it is too high).
      *
-     * @param[in] Xw   \f$3 \times 1\f$ triangulated 3D world point in
-     *                 inhomogeneous coordinate.
-     * @param[in] kpt1 2D keypoint in previous frame.
-     * @param[in] kpt2 corresponding 2D keypoint in current frame.
-     * @param[in] pose The recovered pose.
+     * @param[in] Xw    \f$3 \times 1\f$ triangulated 3D world point in
+     *                  inhomogeneous coordinate.
+     * @param[in] kpt1  2D keypoint in previous frame.
+     * @param[in] kpt2  corresponding 2D keypoint in current frame.
+     * @param[in] pose2 The recovered pose for view 2.
      * @return True if the triangulated point is good enough, otherwise false.
      */
     bool checkTriangulatedPt(const cv::Mat& Xw,
                              const cv::KeyPoint& kpt1, const cv::KeyPoint& kpt2,
-                             const CamPose& pose) const;
+                             const CamPose& pose2) const;
     ///@}    
     /// Get camera pose of a target frame relative to 1st frame.
     CamPose getAbsPose(int nIdx) const { return mvTs[nIdx]; }
@@ -294,17 +326,49 @@ private: // private member functions
     /**
      * @brief Build initial map from triangulated \f$3 \times 1\f$ world 
      *        coordinates.
-     * @param[in] Xws      \f$3 \times N\f$ matrix of \f$N\f$ triangulated 
-     *                     \f$3 \times 1\f$ world coordinates.
-     * @param[in] vMatches A vector of 2D-to-2D keypoint matches where its 
-     *                     queryIdx is for view 1 and trainIdx is for view 2,
-     * @param[in] vIdxPts  A vector of indices of valid triangulated points. 
-     *                     The index is the index of matched pair of 2 keypoints
-     *                     of 2 views stored in @p vMatches.
+     * @param[in] Xws     \f$3 \times N\f$ matrix of \f$N\f$ triangulated 
+     *                    \f$3 \times 1\f$ world coordinates.
+     * @param[in] vIdxPts A vector of indices of valid triangulated points. 
+     *                    The index is the index of matched pair of 2 keypoints
+     *                    of 2 views stored in @p Tracker::mvMatches2Dto2D.
      */
     void buildInitialMap(const cv::Mat& Xws,
-                         const std::vector<cv::DMatch>& vMatches,
                          const std::vector<int>& vIdxPts) const;
+    /**
+     * @brief Track subsuquent frames after the map is initialized.
+     * @return Tracking state Tracker::State.
+     */
+    Tracker::State track();
+    /** 
+     * @brief Pose estimation after map is initialized. Currently use PnP
+     *        based on 3D-to-2D matches.
+     */
+    Tracker::State poseEstimation();
+    /// Triangulate new map points and update the map after pose estimation.
+    void updateMap();
+    /// Update visibility counter of all existed map points.
+    void updateMPtCntObs() const;
+    /** 
+     * @brief Triangulate new 3D points based on estimated pose and 
+     *        2D-to-2D matches.
+     * @param[in,out] Xws     \f$3 \times N\f$ matrix of \f$N\f$ triangulated 
+     *                        \f$3 \times 1\f$ world coordinates.
+     * @param[in,out] vIdxPts A vector of indices of valid triangulated points.
+     *                        The index is the index of matched pair of 2 
+     *                        keypoints of 2 views stored in
+     *                        @p Tracker::mvMatches2Dto2D.
+     */
+    void triangulate3DPts(cv::Mat& Xws, std::vector<int>& vIdxPts) const;
+    /**
+     * @brief Add new map points and fuse existed map points based on newly
+     *        triangulated 3D points.
+     * @param[in] Xws     \f$3 \times N\f$ matrix of \f$N\f$ triangulated 
+     *                    \f$3 \times 1\f$ world coordinates.
+     * @param[in] vIdxPts A vector of indices of valid triangulated points. 
+     *                    The index is the index of matched pair of 2 keypoints
+     *                    of 2 views stored in @p Tracker::mvMatches2Dto2D.
+     */
+    void fuseMPts(const cv::Mat& Xws, const std::vector<int>& vIdxPts) const;
 };
 
 } // namespace SLAM_demo

@@ -25,13 +25,16 @@ class Map;
  * @brief Core SLAM system class. Control all sub-modules in the system.
  */
 class System {
-public:
+public: // public data
     /// SLAM system mode.
     enum class Mode {
         MONOCULAR,
         STEREO,
         RGBD
     };
+    /// Index of current frame loaded into the SLAM system.
+    static unsigned nCurrentFrame;
+public: // public members
     /**
      * @brief Constructor for SLAM system class,
      * @param[in] eMode SLAM system mode (see System::Mode for details).

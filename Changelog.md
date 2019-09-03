@@ -1,7 +1,21 @@
 # Changelog & TODO-list
 
 ## TODO
-- Pose estimation after map is initialized (TODO)
+- Check how to improve number of consistent matches (same feature matched for 3
+  consecutive frames)
+- Store last k frames in Tracker class (maybe?)
+
+## v0.1.0
+- Update Tracker class design to remove redundant member function parameters
+- Implement feature matching scheme for 3D-to-2D case
+- Implement basic pose estimation scheme using PnP algorithm
+- Update map data after pose of current frame is computed
+  - Triangulate 3D points from 2D-to-2D matches
+  - Add new 3D points as map points and update data of existing map points
+  - Update related counters of all map points 
+  - Remove obselete map points
+- Fix wrong 3D point being added to the map when building initial map
+- Draw tracking results
 
 ## v0.0.5
 - Add pose display function
