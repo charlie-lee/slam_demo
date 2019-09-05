@@ -51,6 +51,10 @@ public: // public members
     void addCntObs(int n = 1);
     /// Update count of being matched by other points.
     void addCntMatches(int n = 1);
+    /// Check whether a map point is an outlier.
+    bool isOutlier() const { return mbOutlier; }
+    /// Set outlier flag.
+    void setOutlier(bool bOutlier) { mbOutlier = bOutlier; }
 private: // private data
     /// Inhomogeneous 3D world coordinate of the point.
     cv::Mat mX3D;
@@ -65,6 +69,8 @@ private: // private data
      *        point (2D/3D) after the system is initialized.
      */
     int mnCntMatches;
+    /// Whether the map point is an outlier.
+    bool mbOutlier;
 };
 
 } // namespace SLAM_demo

@@ -1,0 +1,48 @@
+%YAML:1.0
+
+# Sensor Data File for OpenCV
+
+###
+### Camera Parameters (cam 0)
+###
+
+# Camera general data
+Camera.model: pinhole
+Camera.fps: 20
+
+# Camera calibration parameters
+Camera.width: 640
+Camera.height: 480
+
+# Camera intrinsics (K)
+Camera.fx: 517.3
+Camera.fy: 516.5
+Camera.cx: 318.6
+Camera.cy: 255.3
+
+# Camera distortion data
+Camera.distortion_model: radial-tangential
+Camera.k1: 0.2624
+Camera.k2: -0.9531
+Camera.p1: -0.0054
+Camera.p2: 0.0026
+Camera.k3: 1.1633
+
+
+###
+### Feature Extraction Parameters ###
+###
+
+# Number of extracted features
+Feature.nFeatures: 1000
+
+# Scale factor of the iamge pyramid
+Feature.scaleFactor: 1.2
+
+# Number of octaves/levels of the image pyramid
+Feature.nLevels: 8
+
+
+###
+### Misc ###
+###

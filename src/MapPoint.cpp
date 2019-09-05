@@ -12,11 +12,11 @@
 namespace SLAM_demo {
 
 MapPoint::MapPoint() : mX3D(cv::Mat()), mDesc(cv::Mat()), mnIdxLastObsFrm(0),
-                       mnCntObs(0), mnCntMatches(0) {}
+                       mnCntObs(0), mnCntMatches(0), mbOutlier(false) {}
 
 MapPoint::MapPoint(const cv::Mat& X3D, const cv::Mat& desc, int nIdxFrm) :
     mX3D(X3D.clone()), mDesc(desc.clone()), mnIdxLastObsFrm(nIdxFrm),
-    mnCntObs(0), mnCntMatches(0) {}
+    mnCntObs(0), mnCntMatches(0), mbOutlier(false) {}
 
 float MapPoint::getMatch2ObsRatio() const
 {

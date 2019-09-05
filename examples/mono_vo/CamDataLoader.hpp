@@ -25,6 +25,9 @@ public:
      *
      * The constructor will read the dataset csv data file and
      * get timestamp and image filename info.
+     * The timestamp data unit is nano-second by default, leading
+     * to a default scale factor of 10^9 (1e9) to convert timestamp to
+     * the unit of second.
      *
      * The csv file should be in the following format:
      * - 2 Columns;
@@ -34,9 +37,12 @@ public:
      * @param[in] strImgPath  Input path of images to be loaded.
      * @param[in] strDataFile Input path of the csv data file containing
      *                        timestamp and image filename info.
+     * @param[in] tsScale     Scale factor of the timestamp data for its
+     *                        conversion to the unit of second.
      */
     CamDataLoader(const std::string& strImgPath,
-                  const std::string& strDataFile);
+                  const std::string& strDataFile,
+                  double tsScale = 1e9);
     /// Different views for monocular/stereo/RGB-D cases.
     enum class View {
         MONO,  ///< The single view for monocular case.

@@ -22,7 +22,8 @@ using std::string;
 using cv::Mat;
 
 CamDataLoader::CamDataLoader(const std::string& strImgPath,
-                             const std::string& strDataFile)
+                             const std::string& strDataFile,
+                             double tsScale)
 {
     ifstream ifs(strDataFile);
     string line;
@@ -31,7 +32,7 @@ CamDataLoader::CamDataLoader(const std::string& strImgPath,
         stringstream ss(line);
         string s;
         getline(ss, s, ','); // get timestamp info
-        double t = stod(s) / 1e9; // timestamp: ns -> s conversion
+        double t = stod(s) / tsScale; // timestamp: ns -> s conversion
         mvTimestamps.push_back(t);
         getline(ss, s); // get image filename
         mvstrImgs1.push_back(strImgPath + "/" + s);

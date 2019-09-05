@@ -58,6 +58,10 @@ public: // public members
      *       in System::Mode::MONOCULAR mode.
      */
     void trackImgsMono(const cv::Mat& img, double timestamp);
+    /// Get the vector index of the last pose recorded.
+    int getIdxLastPose() const { return mvTs.size() - 1; }
+    /// Get camera pose of a target frame relative to 1st frame.
+    CamPose getAbsPose(int nIdx) const { return mvTs[nIdx]; }
 private: // private data
     /// Tracking state.
     enum class State {
@@ -71,7 +75,7 @@ private: // private data
     /// Reprojection error computation scheme.
     enum class ReprojErrScheme {
         F, ///< Fundamental matrix as reprojection transformation.
-        H  ///< Homography as reprojection transformation.
+        H, ///< Homography as reprojection transformation.
     };
     System::Mode meMode; ///< SLAM system mode.
     State meState; ///< Tracking state.
@@ -195,7 +199,8 @@ private: // private member functions
      */
     ///@{
     /** 
-     * @brief Compute fundamental matrix F from previous frame to current frame.
+     * @brief Compute fundamental matrix F from previous frame (view 1) to 
+     *        current frame (view 2) based on 2D-to-2D matches.
      * @return Fundamental matrix F, or an empty matrix if computation failed.
      */
     cv::Mat computeFundamental() const;
@@ -321,8 +326,6 @@ private: // private member functions
                              const cv::KeyPoint& kpt1, const cv::KeyPoint& kpt2,
                              const CamPose& pose2) const;
     ///@}    
-    /// Get camera pose of a target frame relative to 1st frame.
-    CamPose getAbsPose(int nIdx) const { return mvTs[nIdx]; }
     /// Set camera pose of current frame relative to 1st frame.
     void setAbsPose(const CamPose& pose) { mvTs.push_back(pose); }
     /**
@@ -344,12 +347,13 @@ private: // private member functions
     /** 
      * @brief Pose estimation after map is initialized. Currently use PnP
      *        based on 3D-to-2D matches.
+     * @param[in] pose Initial guess of the pose for current frame.
      */
-    Tracker::State poseEstimation();
+    Tracker::State poseEstimation(const CamPose& pose);
     /// Triangulate new map points and update the map after pose estimation.
     void updateMap();
-    /// Update visibility counter of all existed map points.
-    void updateMPtCntObs() const;
+    /// Update visibility/consistency counter of all existed map points.
+    void updateMPtData() const;
     /** 
      * @brief Triangulate new 3D points based on estimated pose and 
      *        2D-to-2D matches.

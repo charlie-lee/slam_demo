@@ -1,14 +1,22 @@
 # Changelog & TODO-list
 
 ## TODO
-- Check how to improve number of consistent matches (same feature matched for 2
-  consecutive frames)
-- Check how to increase 3D-to-2D matches
 - Store last k frames in Tracker class (maybe?)
 
 ## Latest version
+
+## v0.2.0
 - Only update map if tracking is successful
 - Set looser conditions in good triangulated points checking procedure
+- Fix high reprojection error of triangulated points based on PnP result
+  - Should assume zero distortion coefficients for camera sensor as the keypoint
+    coordinates have already been undistorted
+- Set outlier flag for map points during pose estimation procedure using RANSAC
+- Set initial pose guess of that from the previous frame
+- Fix wrong map point counter data (matching consistency)
+- Map point fusion: only update feature descriptors
+- Adjust some system parameters
+- Dump trajectory to disk for evaluation (currently for TUM dataset only)
 
 ## v0.1.0
 - Update Tracker class design to remove redundant member function parameters

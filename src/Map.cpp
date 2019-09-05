@@ -19,8 +19,8 @@ namespace SLAM_demo {
 using std::vector;
 using std::shared_ptr;
 
-const float Map::TH_MIN_RATIO_MATCH_TO_OBS = 0.8f;
-const unsigned Map::TH_MAX_NUM_FRMS_LAST_SEEN = 20;
+const float Map::TH_MIN_RATIO_MATCH_TO_OBS = 0.3f;
+const unsigned Map::TH_MAX_NUM_FRMS_LAST_SEEN = 100;
 
 void Map::addMPt(const std::shared_ptr<MapPoint>& pMPt)
 {
@@ -61,6 +61,8 @@ void Map::removeMPts()
         } else if (System::nCurrentFrame >
                    pMPt->getIdxLastObsFrm() + TH_MAX_NUM_FRMS_LAST_SEEN) {
             // the map point should be seen not long before
+            removeMPt(pMPt);
+        } else if (pMPt->isOutlier()) {
             removeMPt(pMPt);
         }
     }

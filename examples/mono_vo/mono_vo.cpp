@@ -6,6 +6,7 @@
  */
 
 #include <iostream>
+#include <string>
 #include <vector>
 
 #include <opencv2/highgui.hpp>
@@ -32,8 +33,9 @@ int main(int argc, char** argv)
 {
     cout << "A Monocular Visual Odometry System." << endl;
 
-    if (argc != 4) {
-        cerr << "Usage: " << argv[0] << " cfgFile imgPath camDataFile" << endl;
+    if (argc < 4) {
+        cerr << "Usage: " << argv[0]
+             << " cfgFile imgPath camDataFile [timestampScale]" << endl;
         return 1;
     }
 
@@ -49,7 +51,12 @@ int main(int argc, char** argv)
     SLAM_demo::System SLAM(SLAM_demo::System::Mode::MONOCULAR);
 
     // parse and load camera-captured data
-    CamDataLoader cdl(argv[2], argv[3]);
+    double tsScale = 1e9; // timestamp scale for conversion to unit of second
+    if (argc == 5) {
+        std::string stsScale(argv[4]);
+        tsScale = stod(stsScale);
+    }
+    CamDataLoader cdl(argv[2], argv[3], tsScale);
 
     // load each frame and its corresponding timestamp into the SLAM system
     for (int ni = 0; ni < cdl.getNFrames(); ni++) {
@@ -63,7 +70,7 @@ int main(int argc, char** argv)
         vImgs.push_back(img);
         SLAM.trackImgs(vImgs, cdl.getTimestamp(ni));
     }
-
-    // TODO: dump SLAM results
+    // dump SLAM results
+    SLAM.dumpTrajectory();
     return 0;
 }

@@ -9,10 +9,11 @@
 
 #include <iostream>
 
+#include <opencv2/calib3d.hpp> // cv::Rodrigues()
 #include <opencv2/core.hpp>
 #include <opencv2/core/eigen.hpp> // cv::cv2eigen()
 #include <Eigen/Core>
-#include <Eigen/Geometry> // for Matrix3f::eulerAngles()
+#include <Eigen/Geometry> // for Matrix3f::eulerAngles(), Quaternion
 
 namespace SLAM_demo {
 
@@ -68,6 +69,21 @@ void CamPose::setPose(const cv::Mat& Rcw, const cv::Mat& tcw)
     setPoseInv();
 }
 
+cv::Mat CamPose::getRotationAngleAxis() const
+{
+    Mat RcwAA; // rotation in angle-axis representation
+    Mat Rcw = getRotation();
+    cv::Rodrigues(Rcw, RcwAA, cv::noArray());
+    return RcwAA;
+}
+
+//cv::Mat CamPose::getRotationInvAngleAxis() const
+//{
+//    Mat Rwc = getRotationInv();
+//    Mat RwcAA = cv::Rodrigues(Rcw, RcwAA. cv::noArray());
+//    return RwcAA;
+//}
+
 Eigen::Matrix<float, 3, 1> CamPose::getREulerAngleEigen() const
 {
     Eigen::Matrix<float, 3, 1> ea;
@@ -78,6 +94,13 @@ Eigen::Matrix<float, 3, 1> CamPose::getREulerAngleEigen() const
     // convert unit from radian to degree
     ea *= 180.f / M_PI;
     return ea;
+}
+
+Eigen::Quaternion<float> CamPose::getRQuatEigen() const
+{
+    Eigen::Matrix<float, 3, 3> R = getRotationEigen();
+    Eigen::Quaternionf q(R);
+    return q;
 }
 
 CamPose& CamPose::operator*(const CamPose& rhs)
@@ -91,12 +114,12 @@ CamPose& CamPose::operator*(const CamPose& rhs)
     return *this;
 }
 
-inline void CamPose::setRotation(const cv::Mat& Rcw)
+void CamPose::setRotation(const cv::Mat& Rcw)
 {
     Rcw.copyTo(mTcw.rowRange(0, 3).colRange(0, 3));
 }
 
-inline void CamPose::setTranslation(const cv::Mat& tcw)
+void CamPose::setTranslation(const cv::Mat& tcw)
 {
     tcw.copyTo(mTcw.rowRange(0, 3).col(3));
 }

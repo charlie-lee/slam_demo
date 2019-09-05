@@ -13,6 +13,7 @@
 #include <vector>
 
 #include <opencv2/core.hpp>
+#include "CamPose.hpp"
 
 namespace SLAM_demo {
 
@@ -46,11 +47,30 @@ public: // public members
      *                      timestamp info.
      * @param[in] timestamp The timestamp info.
      */
-    void trackImgs(const std::vector<cv::Mat>& vImgs, double timestamp) const;
+    void trackImgs(const std::vector<cv::Mat>& vImgs, double timestamp);
+    /**
+     * @brief Dump trajectory data to disk.
+     *
+     * For TUM dataset, the format of each pose is as follows:
+     * timestamp tx ty tz qx qy qz qw
+     *
+     * Default filename: trajectory.txt
+     * 
+     */
+    void dumpTrajectory() const;
 private: // private data
     Mode meMode; ///< System mode.
     std::shared_ptr<Tracker> mpTracker; ///< Pointer to tracker module.
     std::shared_ptr<Map> mpMap; ///< Pointer to the map.
+    /// Trajectory of the system.
+    std::vector<std::pair<double, CamPose>> mvTrajectory;
+private: // private members
+    /**
+     * @brief Save trajectory info of 1 timestamp to the system.
+     * @param[in] timestamp The timestamp info.
+     * @param[in] pose      Camera pose at the corresponding timestamp.
+     */
+    void saveTrajectory(double timestamp, const CamPose& pose);
 };
 
 } // namespace SLAM_demo

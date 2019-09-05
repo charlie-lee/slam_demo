@@ -50,7 +50,8 @@ cv::Mat Frame::coordCam2Img(const cv::Mat& Xc) const
     Mat x(2, 1, CV_32FC1);
     Mat K = Config::K();
     float invZc = 1.0f / Xc.at<float>(2);
-    x = invZc * K * Xc;
+    Mat x3D = invZc * K * Xc;
+    x3D.rowRange(0, 2).copyTo(x);
     return x;
 }
 

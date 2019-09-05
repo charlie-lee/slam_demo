@@ -56,9 +56,11 @@ public: // public members
     ///@{
     cv::Mat getPose() const { return mTcw; }
     cv::Mat getRotation() const { return mTcw.colRange(0, 3).rowRange(0, 3); }
+    cv::Mat getRotationAngleAxis() const;
     cv::Mat getTranslation() const { return mTcw.rowRange(0, 3).col(3); }
     cv::Mat getPoseInv() const { return mTwc; }
     cv::Mat getRotationInv() const { return mTwc.rowRange(0, 3).colRange(0, 3); }
+    //cv::Mat getRotationInvAngleAxis() const;
     /// Get \f$t_{wc}\f$, which is the camera origin in world coordinate system.
     cv::Mat getCamOrigin() const { return mTwc.rowRange(0, 3).col(3); }
     ///@}
@@ -68,6 +70,11 @@ public: // public members
      *         Unit: degree.
      */
     Eigen::Matrix<float, 3, 1> getREulerAngleEigen() const;
+    /**
+     * @brief  Get quaternion representation of rotation matrix \f$R_{cw}\f$
+     *         as \f$4 \times 1\f$ vector \f$(qw, qx, qy, qz)^T\f$. 
+     */
+    Eigen::Quaternion<float> getRQuatEigen() const;
     /// Pose multiplication.
     CamPose& operator*(const CamPose& rhs);
 private: // private data
