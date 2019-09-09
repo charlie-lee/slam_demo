@@ -664,8 +664,8 @@ bool Tracker::checkTriangulatedPt(const cv::Mat& Xw,
     float s = Config::scaleFactor();
     int o1 = kpt1.octave;
     int o2 = kpt2.octave;
-    float th1Reproj = std::pow(s, o1);// * TH_REPROJ_ERR_FACTOR;
-    float th2Reproj = std::pow(s, o2);// * TH_REPROJ_ERR_FACTOR;
+    float th1Reproj = std::pow(s, o1) * TH_REPROJ_ERR_FACTOR;
+    float th2Reproj = std::pow(s, o2) * TH_REPROJ_ERR_FACTOR;
     float err1Reproj = cv::norm(x1 - x1Reproj, cv::NORM_L2);
     float err2Reproj = cv::norm(x2 - x2Reproj, cv::NORM_L2);
     if (err1Reproj > th1Reproj || err2Reproj > th2Reproj) {
