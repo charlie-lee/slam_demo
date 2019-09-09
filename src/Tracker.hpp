@@ -24,23 +24,45 @@ class Map;
 /**
  * @class Tracker
  * @brief Track adjacent 2 frames for feature extraction and matching.
+ *
+ * The procedures in tracker class are as follows:
+ *
+ * For each incoming frame, do feature extraction, and then,
+ * 1. Do map initialization if the tracking state is being not initialized;
+ *    - Do 2D-to-2D feature matching between the latest 2 views;
+ *    - Compute fundamental matrix and homography between the 2 views;
+ *    - Recover initial pose for the 2nd view from the 2 transformations
+ *      computed in the previous step;
+ *    - If the pose recovery is successful, build initial map;
+ *    - Set tracking state to OK for the core tracking procedure.
+ * 2. Start tracking incoming frames after the tracking state becomes OK;
+ *    - Do 3D-to-2D feature matching between the map and the latest view;
+ *    - Estimate absolute pose using PnP given 3D-to-2D matches;
+ *    - Update the map:
+ *      - Do 2D-to-2D feature matching between the latest 2 views;
+ *      - Update map point data (various counters);
+ *      - Triangulate 3D points given 2D-to-2D matches;
+ *      - Fuse newly triangulated points into the current map;
+ *      - Remove redundant map points in the map.
+ * 3. Return to 1 and continue track next incoming frame.
+ *
+ * There's also an alternative tracking procedure after the tracking state
+ * becomes OK:
+ * - Do 3D-to-2D feature matching between the map and the latest view;
+ * - Estimate absolute pose using PnP given 3D-to-2D matches;
+ *   - Use pose of previous view as the initial guess;
+ * - Remove redundant map points in the map;
+ * - Do 2D-to-2D feature matching between the latest 2 views;
+ * - Triangulate 3D points given 2D-to-2D matches;
+ * - Fuse newly triangulated points into the current map;
+ * - Redo 3D-to-2D feature matching between the updated map and the latest view; 
+ * - Estimate absolute pose using PnP given 3D-to-2D matches for a second time;
+ *   - Use previously estimated pose as the initial guess;
+ * - Update map point data (various counters);
+ * - Remove redundant map points in the map.
  */
 class Tracker {
 public: // public data
-    /// A threshold in Lowe's ratio test for discarding wrong matches.
-    static const float TH_DIST;
-    /// Max ratio of reprojection error of F to that of H.
-    static const float TH_MAX_RATIO_FH;
-    /// Cosine of smallest appropriate parallax/angle between 2 views.
-    static const float TH_COS_PARALLAX;
-    /// Reprojection error factor for checking good triangulated points.
-    static const float TH_REPROJ_ERR_FACTOR;
-    /// For selecting best possible recovered pose.
-    static const float TH_POSE_SEL;
-    /// Minimum ratio of triangulated points to total keypoint matches,
-    static const float TH_MIN_RATIO_TRIANG_PTS;
-    /// Minimum number of 3D-to-2D matches for pose estimation using PnP.
-    static const int TH_MIN_MATCHES_3D_TO_2D;
     /// The 1st frame in the initialized SLAM system.
     static unsigned n1stFrame;
 public: // public members
@@ -77,6 +99,22 @@ private: // private data
         F, ///< Fundamental matrix as reprojection transformation.
         H, ///< Homography as reprojection transformation.
     };
+    /// A threshold in Lowe's ratio test for discarding wrong matches.
+    static const float TH_RATIO_DIST;
+    /// Maximum distance between 2 image points when they are matched.
+    static const float TH_MAX_DIST_MATCH;
+    /// Max ratio of reprojection error of F to that of H.
+    static const float TH_MAX_RATIO_FH;
+    /// Cosine of smallest appropriate parallax/angle between 2 views.
+    static const float TH_COS_PARALLAX;
+    /// Reprojection error factor for checking good triangulated points.
+    static const float TH_REPROJ_ERR_FACTOR;
+    /// For selecting best possible recovered pose.
+    static const float TH_POSE_SEL;
+    /// Minimum ratio of triangulated points to total keypoint matches,
+    static const float TH_MIN_RATIO_TRIANG_PTS;
+    /// Minimum number of 3D-to-2D matches for pose estimation using PnP.
+    static const int TH_MIN_MATCHES_3D_TO_2D;
     System::Mode meMode; ///< SLAM system mode.
     State meState; ///< Tracking state.
     bool mbFirstFrame; ///< Whether it is the 1st input frame to be processed.

@@ -67,6 +67,10 @@ public: // public members
     cv::Mat coordCam2Img(const cv::Mat& Xc) const;
     ///@}
 private: // private data
+    /// Number of blocks (sub-images) on X direction when extracting features.
+    static const int NUM_BLK_X;
+    /// Number of blocks (sub-images) on Y direction when extracting features.
+    static const int NUM_BLK_Y;
     double mTimestamp; ///< Timestamp info for the current frame.
     unsigned mnIdx; ///< Frame index.
     static unsigned nNextIdx; ///< Frame index for next frame.

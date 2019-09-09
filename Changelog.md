@@ -2,8 +2,15 @@
 
 ## TODO
 - Store last k frames in Tracker class (maybe?)
+- Find core issues in tracking procedure
+  - Check whether there are PnP issues? (try using non-RANSAC PnP)
 
 ## Latest version
+- Visualize 3D-to-2D matching result
+- Improve 3D-to-2D matching quality by imposing additional matching criteria
+  - Distance between reprojected image point in view 1 and image point in 
+    view 2 should be within a threshold
+- Implement block-based feature extraction scheme
 
 ## v0.2.0
 - Optimize tracking procedure

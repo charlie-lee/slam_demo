@@ -21,14 +21,6 @@ class MapPoint;
  * @brief Store the observed map of the SLAM system.
  */
 class Map {
-public: // public data
-    /**
-     * @brief Minimum match-to-observation ratio (ratio of the number of times 
-     *        being matched to the number of times being observed).
-     */
-    static const float TH_MIN_RATIO_MATCH_TO_OBS;
-    /// Maximum number of frames passed after the map point is seen.
-    static const unsigned TH_MAX_NUM_FRMS_LAST_SEEN;
 public: // public members
     /// Default constructor.
     Map() = default;
@@ -41,6 +33,13 @@ public: // public members
     /// Remove redundant map points from the map.
     void removeMPts();
 private: // private data
+    /**
+     * @brief Minimum match-to-observation ratio (ratio of the number of times 
+     *        being matched to the number of times being observed).
+     */
+    static const float TH_MIN_RATIO_MATCH_TO_OBS;
+    /// Maximum number of frames passed after the map point is seen.
+    static const unsigned TH_MAX_NUM_FRMS_LAST_SEEN;
     /// A set of map points.
     std::set<std::shared_ptr<MapPoint>> mspMPts;
 private: // private members

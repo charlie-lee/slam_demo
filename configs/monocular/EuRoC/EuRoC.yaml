@@ -35,7 +35,7 @@ Camera.p2: 1.76187114e-05
 # Number of extracted features
 Feature.nFeatures: 1000
 
-# Scale factor of the iamge pyramid
+# Scale factor of the image pyramid
 Feature.scaleFactor: 1.2
 
 # Number of octaves/levels of the image pyramid
