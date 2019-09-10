@@ -21,17 +21,19 @@ using cv::Mat;
 
 unsigned Frame::nNextIdx = 0;
 
-const int Frame::NUM_BLK_X = 3;
-const int Frame::NUM_BLK_Y = 3;
+const int Frame::NUM_BLK_X = 8;
+const int Frame::NUM_BLK_Y = 6;
+const int Frame::TH_EDGE = 31;
 
 Frame::Frame(const cv::Mat& img, double timestamp) :
     mTimestamp(timestamp), mnIdx(nNextIdx++)
 {
+    int numFeatScale = NUM_BLK_X * NUM_BLK_Y;
     // configure feature extractor
     mpFeatExtractor = cv::ORB::create(
-        Config::nFeatures() / (NUM_BLK_X * NUM_BLK_Y),
+        Config::nFeatures() / numFeatScale,
         Config::scaleFactor(), Config::nLevels(),
-        7, // edgeThreshold
+        TH_EDGE, // edgeThreshold
         0, 2, cv::ORB::HARRIS_SCORE,
         31, // patchSize
         20);
@@ -73,6 +75,10 @@ void Frame::extractFeatures(const cv::Mat& img)
     int nImgHeight = img.rows;
     int nBlkWidth = nImgWidth / NUM_BLK_X;
     int nBlkHeight = nImgHeight / NUM_BLK_Y;
+    // expand input image by 2*TH_EDGE
+    Mat imgFull;
+    cv::copyMakeBorder(img, imgFull, TH_EDGE, TH_EDGE, TH_EDGE, TH_EDGE,
+                       cv::BORDER_REFLECT_101);
     for (int i = 0; i < NUM_BLK_Y; ++i) {
         int nBlkTLY = nBlkHeight * i; // top-left y coord of a block
         if (i == NUM_BLK_Y - 1) {
@@ -84,8 +90,11 @@ void Frame::extractFeatures(const cv::Mat& img)
                 nBlkWidth = nImgWidth - (NUM_BLK_X - 1) * nBlkWidth;
             }
             // get image ROI of the target block
-            cv::Rect roi = cv::Rect(nBlkTLX, nBlkTLY, nBlkWidth, nBlkHeight);
-            Mat imgROI = Mat(img, roi);
+            int nW = nBlkWidth + 2*TH_EDGE;
+            int nH = nBlkHeight + 2*TH_EDGE;
+            // copy border if ROI exceeds image border
+            cv::Rect roi = cv::Rect(nBlkTLX, nBlkTLY, nW, nH);
+            Mat imgROI = imgFull(roi);
             // feature extraction
             vector<cv::KeyPoint> vKpts;
             Mat descs;
@@ -93,8 +102,8 @@ void Frame::extractFeatures(const cv::Mat& img)
                 imgROI, cv::noArray(), vKpts, descs);
             // map local keypoint coords to global image coords
             for (cv::KeyPoint& kpt : vKpts) {
-                kpt.pt.x += nBlkTLX;
-                kpt.pt.y += nBlkTLY;
+                kpt.pt.x += nBlkTLX - TH_EDGE;
+                kpt.pt.y += nBlkTLY - TH_EDGE;
             }
             // append features in the ROI to global containers
             mvKpts.insert(std::end(mvKpts), std::begin(vKpts), std::end(vKpts));

@@ -19,7 +19,7 @@ namespace SLAM_demo {
 using std::vector;
 using std::shared_ptr;
 
-const float Map::TH_MIN_RATIO_MATCH_TO_OBS = 0.2f;
+const float Map::TH_MIN_RATIO_MATCH_TO_OBS = 0.3f;
 const unsigned Map::TH_MAX_NUM_FRMS_LAST_SEEN = 20;
 
 void Map::addMPt(const std::shared_ptr<MapPoint>& pMPt)

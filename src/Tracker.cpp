@@ -38,7 +38,7 @@ using std::endl;
 
 // constants
 const float Tracker::TH_RATIO_DIST = 0.7f;
-const float Tracker::TH_MAX_DIST_MATCH = 64.0f;
+const float Tracker::TH_MAX_DIST_MATCH = 32.0f;
 const float Tracker::TH_MAX_RATIO_FH = 0.03f;
 const float Tracker::TH_COS_PARALLAX = 0.9999f;
 const float Tracker::TH_REPROJ_ERR_FACTOR = 8.0f;
@@ -53,8 +53,11 @@ Tracker::Tracker(System::Mode eMode, const std::shared_ptr<Map>& pMap) :
     mpMap(pMap), mpView1(nullptr), mpView2(nullptr)
 {
     // initialize feature matcher
-    mpFeatMatcher = cv::DescriptorMatcher::create(
-        cv::DescriptorMatcher::MatcherType::BRUTEFORCE_HAMMING);
+    //mpFeatMatcher = cv::DescriptorMatcher::create(
+    //    cv::DescriptorMatcher::MatcherType::BRUTEFORCE_HAMMING);
+    // FLANN-based matcher
+    mpFeatMatcher = make_shared<cv::FlannBasedMatcher>(
+        cv::makePtr<cv::flann::LshIndexParams>(12, 20, 2));
     // allocate space for vectors
     if (meMode == System::Mode::MONOCULAR) {
         mvImgsPrev.resize(1);
@@ -84,6 +87,10 @@ void Tracker::trackImgsMono(const cv::Mat& img, double timestamp)
     // initialize each frame
     shared_ptr<Frame> pFrameCur =
         make_shared<Frame>(Frame(imgCurGray, timestamp));
+
+    cout << "Extracted "
+         << pFrameCur->getKeyPoints().size() << " keypoint(s)" << endl;
+    
     // feature matching
     if (mbFirstFrame) {
         mvpFramesCur[0] = pFrameCur;
@@ -103,7 +110,6 @@ void Tracker::trackImgsMono(const cv::Mat& img, double timestamp)
         }
     }
     imgPrev = imgCur;
-
     cv::waitKey(1);
 }
 
@@ -173,6 +179,9 @@ void Tracker::matchFeatures2Dto2D()
     const vector<cv::KeyPoint>& vKpts2 = mpView2->getKeyPoints();
     mvMatches2Dto2D.reserve(vMatches.size());
     for (unsigned i = 0; i < vMatches.size(); ++i) {
+        if (vMatches[i].size() != 2) {
+            continue;
+        }
         if (vMatches[i][0].distance < TH_RATIO_DIST * vMatches[i][1].distance) {
             // filter out-of-border matches
             const cv::Point2f& pt1 = vKpts1[vMatches[i][0].queryIdx].pt;
@@ -218,7 +227,10 @@ void Tracker::matchFeatures3Dto2D()
     const vector<cv::KeyPoint>& vKpts2 = mpView2->getKeyPoints();
     mvMatches3Dto2D.reserve(vMatches.size());
     for (unsigned i = 0; i < vMatches.size(); ++i) {
-        if (vMatches[i][0].distance < TH_RATIO_DIST * vMatches[i][1].distance) {
+        if (vMatches[i].size() != 2) {
+            continue;
+        }
+        if (vMatches[i][0].distance < vMatches[i][1].distance) {
             // filter out-of-border matches
             const cv::Point2f& pt2 = vKpts2[vMatches[i][0].trainIdx].pt;
             if (!is2DPtInBorder(Mat(pt2))) { // only check current frame
@@ -490,6 +502,14 @@ Tracker::FHResult Tracker::selectFH(const cv::Mat& F21,
     // note: error_F is the mean distance between point and epipolar line
     // error_H = (1/N) * sigma_i(d(x_{1,i}, H_{21} x_{1,i})^2 +
     //                           d(x_{2,i}, H21^{-1} x_{2,i})^2)
+    if (F21.empty() && H21.empty()) {
+        return FHResult::NONE;
+    } else if (F21.empty()) {
+        return FHResult::H;
+    } else if (H21.empty()) {
+        return FHResult::F;
+    }
+    
     Mat F12, H12; // inverse matrix of H and F
     F12 = F21.t();
     H12 = H21.inv(cv::DECOMP_LU);
@@ -712,9 +732,9 @@ Tracker::State Tracker::track()
     
     // pose estimation (1st)
     eState = poseEstimation(mpView1->mPose);
-    // triangulate new map points and update the map
-    updateMap();
     if (eState == State::OK) {
+        // triangulate new map points and update the map
+        updateMap();
         cout << "Pose T_{" << mpView2->getFrameIdx() << "|"
              << Tracker::n1stFrame  << "}:" << endl
              << mpView2->mPose << endl;

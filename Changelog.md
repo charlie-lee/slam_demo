@@ -3,7 +3,11 @@
 ## TODO
 - Store last k frames in Tracker class (maybe?)
 - Find core issues in tracking procedure
-  - Check whether there are PnP issues? (try using non-RANSAC PnP)
+  - Check whether there are PnP issues? 
+    - Map point positions deviate a lot (noise in triangulation scheme)
+    - Some outliers in 3D-to-2D matches
+    - In some frames, too few distinct keypoints (many keypoints clustered around
+      a small local region)
 
 ## Latest version
 - Visualize 3D-to-2D matching result

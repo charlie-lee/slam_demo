@@ -71,6 +71,8 @@ private: // private data
     static const int NUM_BLK_X;
     /// Number of blocks (sub-images) on Y direction when extracting features.
     static const int NUM_BLK_Y;
+    /// Edge threshold for feature extractor.
+    static const int TH_EDGE;
     double mTimestamp; ///< Timestamp info for the current frame.
     unsigned mnIdx; ///< Frame index.
     static unsigned nNextIdx; ///< Frame index for next frame.
