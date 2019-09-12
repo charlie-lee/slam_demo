@@ -54,10 +54,21 @@ public: // public members
      * @return Matrix representation of pose-related data of type cv::Mat.
      */
     ///@{
+    CamPose getCamPoseInv() const { return CamPose(getPoseInv()); }
     cv::Mat getPose() const { return mTcw; }
     cv::Mat getRotation() const { return mTcw.colRange(0, 3).rowRange(0, 3); }
     cv::Mat getRotationAngleAxis() const;
     cv::Mat getTranslation() const { return mTcw.rowRange(0, 3).col(3); }
+    /** 
+     * @brief Get \f$3 \times 3\f$ skew-symmetric matrix \f$[t]_x\f$ based on 
+     *        \f$3 \times 1\f$ translation vector \f$t = (t_1, t_2, t_3)^T\f$.
+     * 
+     * \f[ [t]_x = \begin{bmatrix} 
+     *               0 & -t_3 & t_2 \\ t_3 & 0 & -t_1 \\ -t_2 & t_1 & 0
+     *             \end{bmatrix}
+     * \f]
+     */
+    cv::Mat getTranslationSS() const;
     cv::Mat getPoseInv() const { return mTwc; }
     cv::Mat getRotationInv() const { return mTwc.rowRange(0, 3).colRange(0, 3); }
     //cv::Mat getRotationInvAngleAxis() const;
@@ -75,8 +86,10 @@ public: // public members
      *         as \f$4 \times 1\f$ vector \f$(qw, qx, qy, qz)^T\f$. 
      */
     Eigen::Quaternion<float> getRQuatEigen() const;
-    /// Pose multiplication.
-    CamPose& operator*(const CamPose& rhs);
+    /// Pose multiplication & assignment.
+    CamPose& operator*=(const CamPose& rhs);
+    /// Pose multiplication.    
+    CamPose operator*(const CamPose& rhs) const;
 private: // private data
     /** 
      * @brief \f$3 \times 4\f$ camera pose \f$[R_{cw}|t_{cw}]\f$, i.e., the

@@ -3,9 +3,11 @@
 ## TODO
 - Store last k frames in Tracker class (?)
 - Find core issues in tracking procedure
-  - Core issue: feature matching result not robust enough -> fixed by using
+  - Core issue 1: feature matching result not robust enough -> fixed by using
     symmetric test instead of Lowe's ratio test
-  - Too few new good triangulated 3D points during tracking
+  - Core issue 2: too few new good triangulated 3D points during tracking
+    - Caused by wrong condition (parallax computation) for post-triangulation 
+      check -> fixed
 - Add essential pose & map optimization scheme (BA) (TODO)
 - Skip frames and estimate pose only on keyframes (?)
 
@@ -17,9 +19,12 @@
   - Distance between reprojected image point in view 1 and image point in 
     view 2 should be within a threshold
   - Use symmetric test instead of Lowe's ratio test to reject outlier matches
+    (Core issue 1)
 - Implement block-based feature extraction scheme
+- Add fundamental matrix computation based on known pose for post-triangulation
+  checking (epipolar constraint does not applied currently)
 - Bug fixes
-  - Fix parallax computation for triangulated points
+  - **Fix parallax computation for triangulated points (Core issue 2)**
 
 ## v0.2.0
 - Optimize tracking procedure

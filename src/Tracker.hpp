@@ -99,6 +99,8 @@ private: // private data
         F, ///< Fundamental matrix as reprojection transformation.
         H, ///< Homography as reprojection transformation.
     };
+    /// Whether to use Lowe's ratio test in feature matching scheme.
+    static const bool USE_LOWE_RATIO_TEST;
     /// A threshold in Lowe's ratio test for discarding wrong matches.
     static const float TH_RATIO_DIST;
     /// Maximum distance between 2 image points when they are matched.
@@ -413,6 +415,12 @@ private: // private member functions
      *                    of 2 views stored in @p Tracker::mvMatches2Dto2D.
      */
     void fuseMPts(const cv::Mat& Xws, const std::vector<int>& vIdxPts) const;
+    /** 
+     * @brief Compute fundamental matrix F21 of 2 views (from view 1 to view 2)
+     *        based on their relative  poses T1 & T2.
+     * @return Fundamental matrix F21.
+     */
+    cv::Mat computeFundamental(const CamPose& CP1, const CamPose& CP2) const;
 };
 
 } // namespace SLAM_demo

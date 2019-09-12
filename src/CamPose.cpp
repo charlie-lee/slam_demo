@@ -84,6 +84,19 @@ cv::Mat CamPose::getRotationAngleAxis() const
 //    return RwcAA;
 //}
 
+cv::Mat CamPose::getTranslationSS() const
+{
+    Mat tx = Mat::zeros(3, 3, CV_32FC1);
+    Mat t = getTranslation();
+    tx.at<float>(0, 1) = -t.at<float>(2);
+    tx.at<float>(0, 2) =  t.at<float>(1);
+    tx.at<float>(1, 2) = -t.at<float>(0);
+    tx.at<float>(1, 0) = -tx.at<float>(0, 1);
+    tx.at<float>(2, 0) = -tx.at<float>(0, 2);
+    tx.at<float>(2, 1) = -tx.at<float>(1, 2);
+    return tx;
+}
+
 Eigen::Matrix<float, 3, 1> CamPose::getREulerAngleEigen() const
 {
     Eigen::Matrix<float, 3, 1> ea;
@@ -103,7 +116,7 @@ Eigen::Quaternion<float> CamPose::getRQuatEigen() const
     return q;
 }
 
-CamPose& CamPose::operator*(const CamPose& rhs)
+CamPose& CamPose::operator*=(const CamPose& rhs)
 {
     Mat RcwL = getRotation();
     Mat tcwL = getTranslation();
@@ -112,6 +125,13 @@ CamPose& CamPose::operator*(const CamPose& rhs)
     // (4*4 matrix) T_L * T_R = [R_L*R_R, R_L*t_R + t_L; 0^T, 1] 
     setPose(RcwL*RcwR, RcwL*tcwR + tcwL);
     return *this;
+}
+
+CamPose CamPose::operator*(const CamPose& rhs) const
+{
+    CamPose ret = *this;
+    ret *= rhs;
+    return ret;
 }
 
 void CamPose::setRotation(const cv::Mat& Rcw)

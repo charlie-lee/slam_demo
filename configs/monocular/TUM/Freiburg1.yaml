@@ -43,7 +43,7 @@ Camera.k3: 0
 ###
 
 # Number of extracted features
-Feature.nFeatures: 1000
+Feature.nFeatures: 1500
 
 # Scale factor of the image pyramid
 Feature.scaleFactor: 2

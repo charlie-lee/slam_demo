@@ -36,12 +36,15 @@ using cv::Mat;
 using std::cout;
 using std::endl;
 
+#define TWO_PASS_TRACKING
+
 // constants
+const bool Tracker::USE_LOWE_RATIO_TEST = false;
 const float Tracker::TH_RATIO_DIST = 0.7f;
 const float Tracker::TH_MAX_DIST_MATCH = 50.0f;
-const float Tracker::TH_MAX_RATIO_FH = 0.3f;
+const float Tracker::TH_MAX_RATIO_FH = 0.5f;
 const float Tracker::TH_COS_PARALLAX = 0.9999f;
-const float Tracker::TH_REPROJ_ERR_FACTOR = 1.0f;
+const float Tracker::TH_REPROJ_ERR_FACTOR = 2.0f;
 const float Tracker::TH_POSE_SEL = 0.7f;
 const float Tracker::TH_MIN_RATIO_TRIANG_PTS = 0.9f;
 const int Tracker::TH_MIN_MATCHES_3D_TO_2D = 4;
@@ -53,12 +56,14 @@ Tracker::Tracker(System::Mode eMode, const std::shared_ptr<Map>& pMap) :
     mpMap(pMap), mpView1(nullptr), mpView2(nullptr)
 {
     // initialize feature matcher
-    //mpFeatMatcher = cv::DescriptorMatcher::create(
-    //    cv::DescriptorMatcher::MatcherType::BRUTEFORCE_HAMMING);
-    mpFeatMatcher = cv::BFMatcher::create(cv::NORM_HAMMING, true);
-    // FLANN-based matcher
-    //mpFeatMatcher = make_shared<cv::FlannBasedMatcher>(
-    //    cv::makePtr<cv::flann::LshIndexParams>(12, 20, 2));
+    if (USE_LOWE_RATIO_TEST) {
+        // FLANN-based matcher & use Lowe's ratio test
+        mpFeatMatcher = make_shared<cv::FlannBasedMatcher>(
+            cv::makePtr<cv::flann::LshIndexParams>(12, 20, 2));
+    } else {
+        // use symmetric test
+        mpFeatMatcher = cv::BFMatcher::create(cv::NORM_HAMMING, true);
+    }
     // allocate space for vectors
     if (meMode == System::Mode::MONOCULAR) {
         mvImgsPrev.resize(1);
@@ -170,7 +175,7 @@ Tracker::State Tracker::initializeMapMono()
 void Tracker::matchFeatures2Dto2D()
 {
     mvMatches2Dto2D.clear();
-    unsigned nBestMatches = 1;
+    unsigned nBestMatches = USE_LOWE_RATIO_TEST ? 2 : 1;
     vector<vector<cv::DMatch>> vMatches;
     mpFeatMatcher->knnMatch(mpView1->getFeatDescriptors(), // query
                             mpView2->getFeatDescriptors(), // train
@@ -211,7 +216,7 @@ void Tracker::matchFeatures2Dto2D()
 void Tracker::matchFeatures3Dto2D()
 {
     mvMatches3Dto2D.clear();
-    unsigned nBestMatches = 1;
+    unsigned nBestMatches = USE_LOWE_RATIO_TEST ? 2 : 1;
     // get descriptors from the map and view 2.
     int nMPts = mvpMPts.size();
     Mat descsView2 = mpView2->getFeatDescriptors();
@@ -233,7 +238,7 @@ void Tracker::matchFeatures3Dto2D()
     const vector<cv::KeyPoint>& vKpts2 = mpView2->getKeyPoints();
     mvMatches3Dto2D.reserve(vMatches.size());
     for (unsigned i = 0; i < vMatches.size(); ++i) {
-        if (vMatches[i].size() != 1) {
+        if (vMatches[i].size() != nBestMatches) {
             continue;
         }
         if (nBestMatches == 2 &&
@@ -283,7 +288,9 @@ void Tracker::displayFeatMatchResult(int viewPrev, int viewCur) const
         cv::drawMatches(
             imgPrevUnD, vKpts1, imgCurUnD, vKpts2, mvMatches2Dto2D, imgOut,
             cv::Scalar({255, 0, 0}), // color for matching line (BGR)
-            cv::Scalar({0, 255, 0})); // color for keypoint (BGR)
+            cv::Scalar({0, 255, 0}), // color for keypoint (BGR)
+            vector<char>(), // mask
+            cv::DrawMatchesFlags::DEFAULT);
         cv::imshow("Feature matches between previous/left (left) and "
                    "current/right (right) frame", imgOut);
     } else if (meState == State::OK || meState == State::LOST) {
@@ -302,7 +309,9 @@ void Tracker::displayFeatMatchResult(int viewPrev, int viewCur) const
         cv::drawMatches(
             imgPrevUnD, vKptMPts, imgCurUnD, vKpts2, mvMatches3Dto2D, imgOut,
             cv::Scalar({255, 0, 0}), // color for matching line (BGR)
-            cv::Scalar({0, 255, 0})); // color for keypoint (BGR)
+            cv::Scalar({0, 255, 0}), // color for keypoint (BGR)
+            vector<char>(), // mask
+            cv::DrawMatchesFlags::DEFAULT);
         cv::imshow("Feature matches between previous/left (left) and "
                    "current/right (right) frame", imgOut);
     }
@@ -700,6 +709,16 @@ bool Tracker::checkTriangulatedPt(const cv::Mat& Xw,
     if (err1Reproj > th1Reproj || err2Reproj > th2Reproj) {
         return false;
     }
+    // condition 5: the keypoint pair should meet epipolar constraint
+    //Mat F21 = computeFundamental(pose1, pose2);
+    //Mat F12 = F21.t();
+    //// mean square symmetric error
+    //Mat x1h = (cv::Mat_<float>(3, 1) << kpt1.pt.x, kpt1.pt.y, 1.f);
+    //Mat x2h = (cv::Mat_<float>(3, 1) << kpt2.pt.x, kpt2.pt.y, 1.f);
+    //float errorF2 = computeReprojErr(F21, F12, x1h, x2h, ReprojErrScheme::F);
+    //if (errorF2*2 > th1Reproj*th1Reproj + th2Reproj*th2Reproj) {
+    //    return false;
+    //}
     return true; // triangulated result is good if all conditions are met
 }
 
@@ -724,46 +743,7 @@ void Tracker::buildInitialMap(const cv::Mat& Xws,
     }
 }
 
-//Tracker::State Tracker::track()
-//{
-//    // input:
-//    // - mpView1 & mpView2 with keypoints & descriptors
-//    // - the map with map points and their descriptors
-//    State eState;
-//    // get all map points
-//    mvpMPts = mpMap->getAllMPts();
-//    cout << "Number of map points = " << mvpMPts.size() << endl;
-//    // feature matching between the map and view 2
-//    matchFeatures3Dto2D();
-//
-//    // temp test on display of feature matching result
-//    displayFeatMatchResult(0, 0);
-//    
-//    // pose estimation (1st)
-//    eState = poseEstimation(mpView1->mPose);
-//    if (eState == State::OK) {
-//        // triangulate new map points and update the map
-//        updateMap();
-//        cout << "Pose T_{" << mpView2->getFrameIdx() << "|"
-//             << Tracker::n1stFrame  << "}:" << endl
-//             << mpView2->mPose << endl;
-//        setAbsPose(mpView2->mPose);
-//    } else {
-//        setAbsPose(mpView1->mPose);
-//    }
-//
-//    float meanM2ORatio = 0.0f;
-//    mvpMPts = mpMap->getAllMPts();
-//    for (const shared_ptr<MapPoint>& pMPt : mvpMPts) {
-//        meanM2ORatio += pMPt->getMatch2ObsRatio();
-//    }
-//    meanM2ORatio /= mvpMPts.size();
-//    cout << "mean match-to-observe ratio for map points = "
-//         << meanM2ORatio * 100 << "%" << endl;
-//    
-//    return eState;
-//}
-
+#ifndef TWO_PASS_TRACKING
 Tracker::State Tracker::track()
 {
     // input:
@@ -773,7 +753,47 @@ Tracker::State Tracker::track()
     // get all map points
     mvpMPts = mpMap->getAllMPts();
     cout << "Number of map points = " << mvpMPts.size() << endl;
+    // feature matching between the map and view 2
+    matchFeatures3Dto2D();
+
+    // temp test on display of feature matching result
+    displayFeatMatchResult(0, 0);
     
+    // pose estimation (1st)
+    eState = poseEstimation(mpView1->mPose);
+    if (eState == State::OK) {
+        // triangulate new map points and update the map
+        updateMap();
+        cout << "Pose T_{" << mpView2->getFrameIdx() << "|"
+             << Tracker::n1stFrame  << "}:" << endl
+             << mpView2->mPose << endl;
+        setAbsPose(mpView2->mPose);
+    } else {
+        setAbsPose(mpView1->mPose);
+    }
+
+    float meanM2ORatio = 0.0f;
+    mvpMPts = mpMap->getAllMPts();
+    for (const shared_ptr<MapPoint>& pMPt : mvpMPts) {
+        meanM2ORatio += pMPt->getMatch2ObsRatio();
+    }
+    meanM2ORatio /= mvpMPts.size();
+    cout << "mean match-to-observe ratio for map points = "
+         << meanM2ORatio * 100 << "%" << endl;
+    
+    return eState;
+}
+#else
+Tracker::State Tracker::track()
+{
+    // input:
+    // - mpView1 & mpView2 with keypoints & descriptors
+    // - the map with map points and their descriptors
+    State eState;
+    
+    // get all map points
+    mvpMPts = mpMap->getAllMPts();
+    cout << "Number of map points = " << mvpMPts.size() << endl;
     // feature matching between the map and view 2
     matchFeatures3Dto2D();
     // pose estimation (1st)
@@ -823,6 +843,7 @@ Tracker::State Tracker::track()
     
     return eState;
 }
+#endif // TWO_PASS_TRACKING
 
 Tracker::State Tracker::poseEstimation(const CamPose& pose)
 {
@@ -1034,7 +1055,6 @@ void Tracker::fuseMPts(const cv::Mat& Xws,
             // (i.e. the descriptor from view 1)
             if(m2Dto2D < *pm3Dto2DSame) {
                 // update map point info using data in view 2
-                // TODO: check if there's many-to-one matches
                 pMPt->setX3D(Xws.col(vIdxPts[i]));
                 pMPt->setDesc(descs2.row(m2Dto2D.trainIdx));
             }
@@ -1047,6 +1067,21 @@ void Tracker::fuseMPts(const cv::Mat& Xws,
             mpMap->addMPt(pMPt);
         }
     }
+}
+
+cv::Mat Tracker::computeFundamental(const CamPose& CP1,
+                                    const CamPose& CP2) const
+{
+    Mat F21;
+    // T_{n|m} = T_{n|1} T_{1|m} = T_{n|1} T_{m|1}^{-1}
+    CamPose CP1inv = CP1.getCamPoseInv();
+    CamPose CP21 = CP2 * CP1inv;
+    // F21 = K2^{-T} [t21]_x R21 K1^{-1}
+    Mat Kinv = Config::K().inv();
+    Mat R21 = CP21.getRotation();
+    Mat t21x = CP21.getTranslationSS();
+    F21 = Kinv.t() * t21x * R21 * Kinv;
+    return F21;
 }
 
 } // namespace SLAM_demo
