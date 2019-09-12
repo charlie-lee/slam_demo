@@ -55,13 +55,14 @@ void System::trackImgs(const std::vector<cv::Mat>& vImgs, double timestamp)
 {
     // temp display
     cout << std::fixed << endl << "[Timestamp " << timestamp << "s]" << endl;
-    
+
     if (meMode == Mode::MONOCULAR) {
         mpTracker->trackImgsMono(vImgs[0], timestamp);
         nCurrentFrame++;
     } else {
         assert(0); // TODO: track images in other SLAM modes
     }
+
     int nIdx = mpTracker->getIdxLastPose();
     CamPose pose = mpTracker->getAbsPose(nIdx);
     saveTrajectory(timestamp, pose);

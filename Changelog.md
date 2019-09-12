@@ -1,20 +1,25 @@
 # Changelog & TODO-list
 
 ## TODO
-- Store last k frames in Tracker class (maybe?)
+- Store last k frames in Tracker class (?)
 - Find core issues in tracking procedure
-  - Check whether there are PnP issues? 
-    - Map point positions deviate a lot (noise in triangulation scheme)
-    - Some outliers in 3D-to-2D matches
-    - In some frames, too few distinct keypoints (many keypoints clustered around
-      a small local region)
+  - Core issue: feature matching result not robust enough -> fixed by using
+    symmetric test instead of Lowe's ratio test
+  - Too few new good triangulated 3D points during tracking
+- Add essential pose & map optimization scheme (BA) (TODO)
+- Skip frames and estimate pose only on keyframes (?)
 
 ## Latest version
+
+## v0.3.0
 - Visualize 3D-to-2D matching result
-- Improve 3D-to-2D matching quality by imposing additional matching criteria
+- Improve feature matching quality by imposing additional matching criteria
   - Distance between reprojected image point in view 1 and image point in 
     view 2 should be within a threshold
+  - Use symmetric test instead of Lowe's ratio test to reject outlier matches
 - Implement block-based feature extraction scheme
+- Bug fixes
+  - Fix parallax computation for triangulated points
 
 ## v0.2.0
 - Optimize tracking procedure

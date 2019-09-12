@@ -21,14 +21,14 @@ using cv::Mat;
 
 unsigned Frame::nNextIdx = 0;
 
-const int Frame::NUM_BLK_X = 8;
-const int Frame::NUM_BLK_Y = 6;
+const int Frame::NUM_BLK_X = 4;
+const int Frame::NUM_BLK_Y = 4;
 const int Frame::TH_EDGE = 31;
 
 Frame::Frame(const cv::Mat& img, double timestamp) :
     mTimestamp(timestamp), mnIdx(nNextIdx++)
 {
-    int numFeatScale = NUM_BLK_X * NUM_BLK_Y;
+    int numFeatScale = std::max(1, NUM_BLK_X * NUM_BLK_Y);
     // configure feature extractor
     mpFeatExtractor = cv::ORB::create(
         Config::nFeatures() / numFeatScale,
@@ -94,7 +94,7 @@ void Frame::extractFeatures(const cv::Mat& img)
             int nH = nBlkHeight + 2*TH_EDGE;
             // copy border if ROI exceeds image border
             cv::Rect roi = cv::Rect(nBlkTLX, nBlkTLY, nW, nH);
-            Mat imgROI = imgFull(roi);
+            Mat imgROI = imgFull(roi).clone();
             // feature extraction
             vector<cv::KeyPoint> vKpts;
             Mat descs;
