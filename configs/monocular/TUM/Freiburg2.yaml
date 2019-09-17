@@ -15,10 +15,10 @@ Camera.width: 640
 Camera.height: 480
 
 # Camera intrinsics (K)
-#Camera.fx: 517.3
-#Camera.fy: 516.5
-#Camera.cx: 318.6
-#Camera.cy: 255.3
+#Camera.fx: 520.9
+#Camera.fy: 521.0
+#Camera.cx: 325.1
+#Camera.cy: 249.7
 Camera.fx: 525.0
 Camera.fy: 525.0
 Camera.cx: 319.5
@@ -26,11 +26,11 @@ Camera.cy: 239.5
 
 # Camera distortion data
 Camera.distortion_model: radial-tangential
-#Camera.k1: 0.2624
-#Camera.k2: -0.9531
-#Camera.p1: -0.0054
-#Camera.p2: 0.0026
-#Camera.k3: 1.1633
+#Camera.k1: 0.2312
+#Camera.k2: -0.7849
+#Camera.p1: -0.0033
+#Camera.p2: -0.0001
+#Camera.k3: 0.9172
 Camera.k1: 0
 Camera.k2: 0
 Camera.p1: 0

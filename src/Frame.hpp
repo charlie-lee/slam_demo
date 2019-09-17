@@ -9,6 +9,7 @@
 #define FRAME_HPP
 
 #include <memory>
+#include <set>
 #include <vector>
 
 #include <opencv2/core.hpp>
@@ -16,6 +17,9 @@
 #include "CamPose.hpp"
 
 namespace SLAM_demo {
+
+// forward declarations
+class MapPoint;
 
 /**
  * @class Frame
@@ -66,6 +70,14 @@ public: // public members
      */
     cv::Mat coordCam2Img(const cv::Mat& Xc) const;
     ///@}
+    /** @brief Add observed map point data into current frame. */
+    void addObservation(const std::shared_ptr<MapPoint>& pMPt);
+    /** 
+     * @brief Get all observed map points (pointer) which are in the map. 
+     * @note The set of map points will be updated (remove map points that have 
+     *       already been removed from the map).
+     */
+    std::vector<std::shared_ptr<MapPoint>> getpMPtsObserved();
 private: // private data
     /// Number of blocks (sub-images) on X direction when extracting features.
     static const int NUM_BLK_X;
@@ -79,7 +91,9 @@ private: // private data
     std::shared_ptr<cv::Feature2D> mpFeatExtractor; ///< Feature extractor.
     std::vector<cv::KeyPoint> mvKpts; ///< Keypoint data of the current frame.
     /// Feature descriptors. Row \f$i\f$ for \f$i\f$th descriptor.
-    cv::Mat mDescs; 
+    cv::Mat mDescs;
+    /// Set of observed map points.
+    std::set<std::shared_ptr<MapPoint>> mspMPtsObs;
 private: // private member functions
     /// Extract features from the current frame.
     void extractFeatures(const cv::Mat& img);

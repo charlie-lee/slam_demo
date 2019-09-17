@@ -108,7 +108,6 @@ void Tracker::trackImgsMono(const cv::Mat& img, double timestamp)
         if (meState == State::NOT_INITIALIZED) {
             meState = initializeMap();
         } else if (meState == State::OK) {
-            // TODO: tracking scheme after map is initialized
             meState = track();
         } else if (meState == State::LOST) {
             // TODO: relocalization?
@@ -160,13 +159,12 @@ Tracker::State Tracker::initializeMapMono()
     //cout << "F21 = " << endl << F21 << endl << "H21 = " << endl << H21 << endl;
     // recover pose from F or H
     Mat Xw3Ds;
-    vector<int> vIdxPts;
-    if (recoverPoseFromFH(F21, H21, Xw3Ds, vIdxPts)) {
+    vector<int> vnIdxPts;
+    if (recoverPoseFromFH(F21, H21, Xw3Ds, vnIdxPts)) {
         mvTs.push_back(mpView2->mPose); // get pose T_{k+1|k}
         cout << "Number of triangulated points (good/total) = "
-             << vIdxPts.size() << "/" << Xw3Ds.cols << endl;
-        // TODO: initialize 3D map points by triangulating 2D keypoints
-        buildInitialMap(Xw3Ds, vIdxPts);
+             << vnIdxPts.size() << "/" << Xw3Ds.cols << endl;
+        buildInitialMap(Xw3Ds, vnIdxPts);
         return State::OK;
     }
     return State::NOT_INITIALIZED; 
@@ -368,7 +366,7 @@ cv::Mat Tracker::computeHomography() const
 }
 
 bool Tracker::recoverPoseFromFH(const cv::Mat& F21, const cv::Mat& H21,
-                                cv::Mat& Xw3Ds, std::vector<int>& vIdxGoodPts)
+                                cv::Mat& Xw3Ds, std::vector<int>& vnIdxGoodPts)
 {
     // select the better transformation from either F or H
     FHResult eResFH = selectFH(F21, H21);
@@ -423,11 +421,11 @@ bool Tracker::recoverPoseFromFH(const cv::Mat& F21, const cv::Mat& H21,
     vector<int> vnGoodPts(nSolutions, 0);
     vector<Mat> vXws(nSolutions); // triangulated 3D points
     // indices of good triangulated points for all solutions
-    vector<vector<int>> vvIdxPts(nSolutions);
+    vector<vector<int>> vvnIdxPts(nSolutions);
     int nMaxGoodPts = 0;
     int nIdxBestPose = -1;
     for (int i = 0; i < nSolutions; ++i) {
-        vvIdxPts[i].reserve(nMatches);
+        vvnIdxPts[i].reserve(nMatches);
         // maintain precision
         vR21s[i].convertTo(vR21s[i], CV_32FC1);
         vt21s[i].convertTo(vt21s[i], CV_32FC1);
@@ -456,7 +454,7 @@ bool Tracker::recoverPoseFromFH(const cv::Mat& F21, const cv::Mat& H21,
             const cv::KeyPoint& kpt1 = vKpts1[mvMatches2Dto2D[j].queryIdx];
             const cv::KeyPoint& kpt2 = vKpts2[mvMatches2Dto2D[j].trainIdx];
             if (checkTriangulatedPt(Xw, kpt1, kpt2, tmpPose)) {
-                vvIdxPts[i].push_back(j);
+                vvnIdxPts[i].push_back(j);
                 vnGoodPts[i]++;
             }
         }
@@ -481,7 +479,7 @@ bool Tracker::recoverPoseFromFH(const cv::Mat& F21, const cv::Mat& H21,
         // store pose & triangulated points
         mpView2->mPose.setPose(vR21s[nIdxBestPose], vt21s[nIdxBestPose]);
         vXws[nIdxBestPose].copyTo(Xw3Ds);
-        vIdxGoodPts = vvIdxPts[nIdxBestPose];
+        vnIdxGoodPts = vvnIdxPts[nIdxBestPose];
 
         // temp display
         for (unsigned i = 0; i < vnGoodPts.size(); ++i) {
@@ -495,15 +493,15 @@ bool Tracker::recoverPoseFromFH(const cv::Mat& F21, const cv::Mat& H21,
 
         // check reprojection error
         float errorRT = 0.0f;
-        for (unsigned i = 0; i < vIdxGoodPts.size(); ++i) {
-            int nIdxX = vIdxGoodPts[i];
+        for (unsigned i = 0; i < vnIdxGoodPts.size(); ++i) {
+            int nIdxX = vnIdxGoodPts[i];
             int nIdxx = nIdxX;
             Mat xReproj = mpView2->coordWorld2Img(Xw3Ds.col(nIdxX));
             Mat x = Mat(vPts2[nIdxx]);
             Mat diffx = xReproj - x;
             errorRT += diffx.dot(diffx);
         }
-        errorRT /= vIdxGoodPts.size();
+        errorRT /= vnIdxGoodPts.size();
         cout << "Mean square reprojection error for init = " << errorRT << endl;
         
         return true;
@@ -723,22 +721,28 @@ bool Tracker::checkTriangulatedPt(const cv::Mat& Xw,
 }
 
 void Tracker::buildInitialMap(const cv::Mat& Xws,
-                              const std::vector<int>& vIdxPts) const
+                              const std::vector<int>& vnIdxPts) const
 {
     // clear the map to build a new one
     mpMap->clear();
     // traverse all triangulated points
-    int nFrmIdx2 = mpView2->getFrameIdx();
+    int nIdxFrm2 = mpView2->getFrameIdx();
     Mat descs2 = mpView2->getFeatDescriptors();
-    for (unsigned i = 0; i < vIdxPts.size(); ++i) {
-        int nIdxDesc2 = mvMatches2Dto2D[vIdxPts[i]].trainIdx;
+    for (unsigned i = 0; i < vnIdxPts.size(); ++i) {
+        int nIdxKpt1 = mvMatches2Dto2D[vnIdxPts[i]].queryIdx;
+        int nIdxKpt2 = mvMatches2Dto2D[vnIdxPts[i]].trainIdx;
         // Xws have all triangulated points, here only select the valid ones
-        Mat Xw = Xws.col(vIdxPts[i]); // i-th column for i-th point
-        Mat desc2 = descs2.row(nIdxDesc2); // i-th row for i-th descriptor
+        Mat Xw = Xws.col(vnIdxPts[i]); // i-th column for i-th point
+        Mat desc2 = descs2.row(nIdxKpt2); // i-th row for i-th descriptor
+        shared_ptr<MapPoint> pMPt = make_shared<MapPoint>(Xw, nIdxFrm2);
+        // add observations for map point & frame
+        pMPt->addObservation(mpView1, nIdxKpt1);
+        pMPt->addObservation(mpView2, nIdxKpt2);
+        mpView1->addObservation(pMPt);
+        mpView2->addObservation(pMPt);
+        // update distinctive descriptor
+        pMPt->updateDescriptor();
         // add point into the map
-        // here just use descriptor of current frame
-        shared_ptr<MapPoint> pMPt =
-            make_shared<MapPoint>(MapPoint(Xw, desc2, nFrmIdx2));
         mpMap->addMPt(pMPt);
     }
 }
@@ -804,9 +808,9 @@ Tracker::State Tracker::track()
     matchFeatures2Dto2D();
     // triangulate new 3D points & fuse them into the map
     Mat Xws; // 3xN matrix containing N 3D points
-    vector<int> vIdxPts; // index of valid 3D points
-    triangulate3DPts(Xws, vIdxPts);
-    fuseMPts(Xws, vIdxPts);
+    vector<int> vnIdxPts; // index of valid 3D points
+    triangulate3DPts(Xws, vnIdxPts);
+    fuseMPts(Xws, vnIdxPts);
     
     // get all map points
     mvpMPts = mpMap->getAllMPts();
@@ -931,9 +935,9 @@ void Tracker::updateMap()
     updateMPtData();
     // triangulate new 3D points & fuse them into the map
     Mat Xws; // 3xN matrix containing N 3D points
-    vector<int> vIdxPts; // index of valid 3D points
-    triangulate3DPts(Xws, vIdxPts);
-    fuseMPts(Xws, vIdxPts);
+    vector<int> vnIdxPts; // index of valid 3D points
+    triangulate3DPts(Xws, vnIdxPts);
+    fuseMPts(Xws, vnIdxPts);
     // remove redundant map points
     mpMap->removeMPts();
 }
@@ -972,7 +976,11 @@ void Tracker::updateMPtData() const
     for (unsigned i = 0; i < mvMatches3Dto2D.size(); ++i) {
         const cv::DMatch& m3Dto2D = mvMatches3Dto2D[i];
         shared_ptr<MapPoint> pMPt = mvpMPts[m3Dto2D.queryIdx];
+        int nIdxKpt2 = m3Dto2D.trainIdx;
         pMPt->addCntMatches(1);
+        pMPt->addObservation(mpView2, nIdxKpt2);
+        mpView2->addObservation(pMPt);
+        pMPt->updateDescriptor();
         // temp: find consistent matches from last 2 frames
         //for (cv::DMatch* pm2Dto2D : spMatches2Dto2D) {
         //    if (m3Dto2D.trainIdx == pm2Dto2D->trainIdx) {
@@ -986,7 +994,7 @@ void Tracker::updateMPtData() const
     //     << cntMatch << "/" << mvMatches3Dto2D.size() << endl;
 }
 
-void Tracker::triangulate3DPts(cv::Mat& Xws, std::vector<int>& vIdxPts) const
+void Tracker::triangulate3DPts(cv::Mat& Xws, std::vector<int>& vnIdxPts) const
 {
     // get all 2D-to-2D matches
     const vector<cv::KeyPoint>& vKpts1 = mpView1->getKeyPoints();
@@ -1013,15 +1021,15 @@ void Tracker::triangulate3DPts(cv::Mat& Xws, std::vector<int>& vIdxPts) const
         const cv::KeyPoint& kpt1 = vKpts1[mvMatches2Dto2D[i].queryIdx];
         const cv::KeyPoint& kpt2 = vKpts2[mvMatches2Dto2D[i].trainIdx];
         if (checkTriangulatedPt(Xws.col(i), kpt1, kpt2, mpView2->mPose)) {
-            vIdxPts.push_back(i);
+            vnIdxPts.push_back(i);
         }
     }
-    cout << "New triangulated good points: " << vIdxPts.size() << "/"
+    cout << "New triangulated good points: " << vnIdxPts.size() << "/"
          << nMatches << endl;
 }
 
 void Tracker::fuseMPts(const cv::Mat& Xws,
-                       const std::vector<int>& vIdxPts) const
+                       const std::vector<int>& vnIdxPts) const
 {
     Mat descs2 = mpView2->getFeatDescriptors();
     // set of pointers to 3D-to-2D matches
@@ -1031,8 +1039,8 @@ void Tracker::fuseMPts(const cv::Mat& Xws,
         spMatches3Dto2D.insert(pm3Dto2D);
     }
     // traverse all valid triangulated points
-    for (unsigned i = 0; i < vIdxPts.size(); ++i) {
-        const cv::DMatch& m2Dto2D = mvMatches2Dto2D[vIdxPts[i]];
+    for (unsigned i = 0; i < vnIdxPts.size(); ++i) {
+        const cv::DMatch& m2Dto2D = mvMatches2Dto2D[vnIdxPts[i]];
         // find same landmark from 3D-to-2D matches
         bool bSameLandMark = false;
         cv::DMatch* pm3Dto2DSame = nullptr;
@@ -1048,6 +1056,7 @@ void Tracker::fuseMPts(const cv::Mat& Xws,
             }
         }
         // same landmark: fuse new data into existing map point
+        // TODO: improve fusion procedure
         if (bSameLandMark) {
             shared_ptr<MapPoint> pMPt = mvpMPts[pm3Dto2DSame->queryIdx];
             // descriptor in view 2 is better matched (smaller distance)
@@ -1055,15 +1064,25 @@ void Tracker::fuseMPts(const cv::Mat& Xws,
             // (i.e. the descriptor from view 1)
             if(m2Dto2D < *pm3Dto2DSame) {
                 // update map point info using data in view 2
-                pMPt->setX3D(Xws.col(vIdxPts[i]));
-                pMPt->setDesc(descs2.row(m2Dto2D.trainIdx));
+                pMPt->setX3D(Xws.col(vnIdxPts[i]));
+                //pMPt->setDesc(descs2.row(m2Dto2D.trainIdx));
             }
             spMatches3Dto2D.erase(pm3Dto2DSame);
-        } else { // new landmark: add 3D point and its descriptor to the map
-            Mat Xw = Xws.col(vIdxPts[i]);
-            Mat desc2 = descs2.row(m2Dto2D.trainIdx);
-            shared_ptr<MapPoint> pMPt = make_shared<MapPoint>(
-                MapPoint(Xw, desc2, mpView2->getFrameIdx()));
+        } else { // new landmark: add 3D point data to the map
+            int nIdxFrm2 = mpView2->getFrameIdx();
+            int nIdxKpt1 = m2Dto2D.queryIdx;
+            int nIdxKpt2 = m2Dto2D.trainIdx;
+            Mat Xw = Xws.col(vnIdxPts[i]);
+            Mat desc2 = descs2.row(nIdxKpt2);
+            shared_ptr<MapPoint> pMPt = make_shared<MapPoint>(Xw, nIdxFrm2);
+            // add observations for map point & frame
+            pMPt->addObservation(mpView1, nIdxKpt1);
+            pMPt->addObservation(mpView2, nIdxKpt2);
+            mpView1->addObservation(pMPt);
+            mpView2->addObservation(pMPt);
+            // update distinctive descriptor
+            pMPt->updateDescriptor();
+            // add point into the map
             mpMap->addMPt(pMPt);
         }
     }

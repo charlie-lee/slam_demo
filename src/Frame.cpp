@@ -13,6 +13,7 @@
 #include <opencv2/features2d.hpp>
 #include <opencv2/calib3d.hpp> // cv::undistortPoints()
 #include "Config.hpp"
+#include "MapPoint.hpp"
 
 namespace SLAM_demo {
 
@@ -28,15 +29,16 @@ const int Frame::TH_EDGE = 31;
 Frame::Frame(const cv::Mat& img, double timestamp) :
     mTimestamp(timestamp), mnIdx(nNextIdx++)
 {
-    int numFeatScale = std::max(1, NUM_BLK_X * NUM_BLK_Y);
+    int numFeatScale = std::min(Config::nFeatures(),
+                                std::max(1, NUM_BLK_X * NUM_BLK_Y));
     // configure feature extractor
     mpFeatExtractor = cv::ORB::create(
-        Config::nFeatures() / numFeatScale,
+        Config::nFeatures() / numFeatScale, // [2, nFeatures]
         Config::scaleFactor(), Config::nLevels(),
         TH_EDGE, // edgeThreshold
-        0, 2, cv::ORB::HARRIS_SCORE,
+        0, 2, cv::ORB::FAST_SCORE,
         31, // patchSize
-        20);
+        20); // FAST threshold
     extractFeatures(img);
 }
 
@@ -64,6 +66,29 @@ cv::Mat Frame::coordCam2Img(const cv::Mat& Xc) const
     Mat x3D = invZc * K * Xc;
     x3D.rowRange(0, 2).copyTo(x);
     return x;
+}
+
+void Frame::addObservation(const std::shared_ptr<MapPoint>& pMPt)
+{
+    mspMPtsObs.insert(pMPt);
+}
+
+std::vector<std::shared_ptr<MapPoint>> Frame::getpMPtsObserved()
+{
+    vector<std::shared_ptr<MapPoint>> vMPtsObs;
+    vMPtsObs.reserve(mspMPtsObs.size());
+    for (const std::shared_ptr<MapPoint>& pMPt : mspMPtsObs) {
+        if (pMPt) {
+            vMPtsObs.push_back(pMPt);
+        }
+    }
+
+    // update map point set (necessary?)
+    mspMPtsObs.clear();
+    mspMPtsObs = std::set<std::shared_ptr<MapPoint>>(
+        vMPtsObs.begin(), vMPtsObs.end());
+    
+    return vMPtsObs;
 }
 
 void Frame::extractFeatures(const cv::Mat& img)
@@ -95,11 +120,24 @@ void Frame::extractFeatures(const cv::Mat& img)
             // copy border if ROI exceeds image border
             cv::Rect roi = cv::Rect(nBlkTLX, nBlkTLY, nW, nH);
             Mat imgROI = imgFull(roi).clone();
-            // feature extraction
+            // feature extraction (1-2 passes)
             vector<cv::KeyPoint> vKpts;
             Mat descs;
-            mpFeatExtractor->detectAndCompute(
-                imgROI, cv::noArray(), vKpts, descs);
+            //mpFeatExtractor->detectAndCompute(
+            //    imgROI, cv::noArray(), vKpts, descs);
+            // re-extract features using half FAST threhold
+            // if there are not enough features
+            std::shared_ptr<cv::ORB> pORB =
+                std::dynamic_pointer_cast<cv::ORB>(mpFeatExtractor);
+            int thFAST = pORB->getFastThreshold();
+            int thFASTtmp = thFAST;
+            while (vKpts.empty() && thFASTtmp > 0) {
+                pORB->detectAndCompute(
+                    imgROI, cv::noArray(), vKpts, descs);
+                thFASTtmp /= 2;
+                pORB->setFastThreshold(thFASTtmp);
+            }
+            pORB->setFastThreshold(thFAST);
             // map local keypoint coords to global image coords
             for (cv::KeyPoint& kpt : vKpts) {
                 kpt.pt.x += nBlkTLX - TH_EDGE;

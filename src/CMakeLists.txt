@@ -7,6 +7,7 @@ add_library(${PROJECT_NAME} SHARED
   CamPose.cpp
   MapPoint.cpp
   Map.cpp
+  Optimizer.cpp
   )
 
 target_link_libraries(${PROJECT_NAME}

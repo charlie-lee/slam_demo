@@ -1,15 +1,15 @@
 # set minimum CMake version
-cmake_minimum_required(VERSION 3.8...3.14)
+cmake_minimum_required(VERSION 3.8...3.15)
 
 # set cmake policy
-if(${CMAKE_VERSION} VERSION_LESS 3.14)
+if(${CMAKE_VERSION} VERSION_LESS 3.15)
   cmake_policy(VERSION ${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION})
 endif()
 
 
 # set up top-level project
 project(slam_demo
-  VERSION 0.3.0
+  VERSION 0.3.1
   DESCRIPTION "SLAM demo"
   LANGUAGES CXX)
 

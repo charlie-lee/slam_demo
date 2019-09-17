@@ -254,16 +254,17 @@ private: // private member functions
      *        or homography H.
      * @param[in]     F21
      * @param[in]     H21
-     * @param[in,out] Xw3Ds       \f$3 \times N\f$ matrix of \f$N\f$ triangulated 
-     *                            \f$3 \times 1\f$ world coordinates.
-     * @param[in,out] vIdxGoodPts A vector of indices of valid 
-     *                            triangulated points. The index is the index of
-     *                            matched pair of 2 keypoints of 2 views stored 
-     *                            in @p mvMatches.
+     * @param[in,out] Xw3Ds        \f$3 \times N\f$ matrix of \f$N\f$ 
+     *                             triangulated \f$3 \times 1\f$ world 
+     *                             coordinates.
+     * @param[in,out] vnIdxGoodPts A vector of indices of valid triangulated 
+     *                             points. The index is the index of matched
+     *                             pair of 2 keypoints of 2 views stored in
+     *                             @p mvMatches.
      * @return True if pose recovery is successful.
      */
     bool recoverPoseFromFH(const cv::Mat& F21, const cv::Mat& H21,
-                           cv::Mat& Xw3Ds, std::vector<int>& vIdxGoodPts);
+                           cv::Mat& Xw3Ds, std::vector<int>& vnIdxGoodPts);
     /**
      * @brief Select the better transformation of 2D-to-2D point matches
      *        from fundamental matrix F and homography H.
@@ -371,14 +372,14 @@ private: // private member functions
     /**
      * @brief Build initial map from triangulated \f$3 \times 1\f$ world 
      *        coordinates.
-     * @param[in] Xws     \f$3 \times N\f$ matrix of \f$N\f$ triangulated 
-     *                    \f$3 \times 1\f$ world coordinates.
-     * @param[in] vIdxPts A vector of indices of valid triangulated points. 
-     *                    The index is the index of matched pair of 2 keypoints
-     *                    of 2 views stored in @p Tracker::mvMatches2Dto2D.
+     * @param[in] Xws      \f$3 \times N\f$ matrix of \f$N\f$ triangulated 
+     *                     \f$3 \times 1\f$ world coordinates.
+     * @param[in] vnIdxPts A vector of indices of valid triangulated points. 
+     *                     The index is the index of matched pair of 2 keypoints
+     *                     of 2 views stored in @p Tracker::mvMatches2Dto2D.
      */
     void buildInitialMap(const cv::Mat& Xws,
-                         const std::vector<int>& vIdxPts) const;
+                         const std::vector<int>& vnIdxPts) const;
     /**
      * @brief Track subsuquent frames after the map is initialized.
      * @return Tracking state Tracker::State.
@@ -397,24 +398,24 @@ private: // private member functions
     /** 
      * @brief Triangulate new 3D points based on estimated pose and 
      *        2D-to-2D matches.
-     * @param[in,out] Xws     \f$3 \times N\f$ matrix of \f$N\f$ triangulated 
-     *                        \f$3 \times 1\f$ world coordinates.
-     * @param[in,out] vIdxPts A vector of indices of valid triangulated points.
-     *                        The index is the index of matched pair of 2 
-     *                        keypoints of 2 views stored in
-     *                        @p Tracker::mvMatches2Dto2D.
+     * @param[in,out] Xws      \f$3 \times N\f$ matrix of \f$N\f$ triangulated 
+     *                         \f$3 \times 1\f$ world coordinates.
+     * @param[in,out] vnIdxPts A vector of indices of valid triangulated points.
+     *                         The index is the index of matched pair of 2 
+     *                         keypoints of 2 views stored in
+     *                         @p Tracker::mvMatches2Dto2D.
      */
-    void triangulate3DPts(cv::Mat& Xws, std::vector<int>& vIdxPts) const;
+    void triangulate3DPts(cv::Mat& Xws, std::vector<int>& vnIdxPts) const;
     /**
      * @brief Add new map points and fuse existed map points based on newly
      *        triangulated 3D points.
-     * @param[in] Xws     \f$3 \times N\f$ matrix of \f$N\f$ triangulated 
-     *                    \f$3 \times 1\f$ world coordinates.
-     * @param[in] vIdxPts A vector of indices of valid triangulated points. 
-     *                    The index is the index of matched pair of 2 keypoints
-     *                    of 2 views stored in @p Tracker::mvMatches2Dto2D.
+     * @param[in] Xws      \f$3 \times N\f$ matrix of \f$N\f$ triangulated 
+     *                     \f$3 \times 1\f$ world coordinates.
+     * @param[in] vnIdxPts A vector of indices of valid triangulated points. 
+     *                     The index is the index of matched pair of 2 keypoints
+     *                     of 2 views stored in @p Tracker::mvMatches2Dto2D.
      */
-    void fuseMPts(const cv::Mat& Xws, const std::vector<int>& vIdxPts) const;
+    void fuseMPts(const cv::Mat& Xws, const std::vector<int>& vnIdxPts) const;
     /** 
      * @brief Compute fundamental matrix F21 of 2 views (from view 1 to view 2)
      *        based on their relative  poses T1 & T2.

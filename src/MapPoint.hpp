@@ -8,9 +8,14 @@
 #ifndef MAPPOINT_HPP
 #define MAPPOINT_HPP
 
+#include <map>
+
 #include <opencv2/core.hpp>
 
 namespace SLAM_demo {
+
+// forward declarations
+class Frame;
 
 /**
  * @class MapPoint
@@ -21,21 +26,26 @@ public: // public members
     /// Default constructor: store empty data.
     MapPoint();
     /**
+     * @brief Construct map point with input world coordinate.
+     * @param[in] X3D 3D world coordinate as a \f$3 \times 1\f$ matrix.
+     * @param[in] nIdxFrm Index of the frame that observed the point.
+     */
+    MapPoint(const cv::Mat& X3D, int nIdxFrm);
+    /** (OBSOLETE)
      * @brief Construct map point with input coordinate and descriptor.
      * @param[in] X3D     3D world coordinate as a \f$3 \times 1\f$ matrix.
      * @param[in] desc    Descriptor of the map point.
      * @param[in] nIdxFrm Index of the frame that observed the point.
      */
     MapPoint(const cv::Mat& X3D, const cv::Mat& desc, int nIdxFrm);
-    /**
-     * @name Class Getter/Setters
-     * @brief Basic getters/setters for read/update various info on the point.
-     */
-    ///@{
     /// Get 3D world coordinate.
     cv::Mat getX3D() const { return mX3D; }
-    /// Get descriptor of the point.
+    /// Get most distinctive descriptor of the point.
     cv::Mat getDesc() const { return mDesc; }
+    /// Get descriptor from a frame.
+    cv::Mat getDesc(const std::shared_ptr<Frame>& pFrame) const;
+    /// Get keypoint data from a frame.
+    cv::KeyPoint getKpt(const std::shared_ptr<Frame>& pFrame) const;
     /// Get index of the latest frame that observed the point.
     int getIdxLastObsFrm() const { return mnIdxLastObsFrm; }
     /// Get match-to-observation ratio.
@@ -46,7 +56,6 @@ public: // public members
     void setDesc(const cv::Mat& desc) { mDesc = desc.clone(); }
     /// Update index of the latest frame that observed the point.
     void setIdxLastObsFrm(int idx) { mnIdxLastObsFrm = idx; }
-    ///@}
     /// Update count of being observed by input frames.
     void addCntObs(int n = 1);
     /// Update count of being matched by other points.
@@ -55,10 +64,19 @@ public: // public members
     bool isOutlier() const { return mbOutlier; }
     /// Set outlier flag.
     void setOutlier(bool bOutlier) { mbOutlier = bOutlier; }
+    /**
+     * @brief Add new observation data for the map point.
+     * @param[in] pFrame  Pointer to the frame that observes the map point.
+     * @param[in] nIdxKpt Index of the keypoint extracted from the frame.
+     */
+    void addObservation(const std::shared_ptr<Frame>& pFrame, int nIdxKpt);
+    void updateDescriptor();
 private: // private data
     /// Inhomogeneous 3D world coordinate of the point.
     cv::Mat mX3D;
-    /// Best descriptor of the point.
+    /// Observation data (pointer to frame, index of the observed keypoint).
+    std::map<std::shared_ptr<Frame>, int> mObses;
+    /// Best descriptor of the point. (OBSOLETE)
     cv::Mat mDesc;
     /// Index of the latest frame by which the point is observed.
     int mnIdxLastObsFrm;

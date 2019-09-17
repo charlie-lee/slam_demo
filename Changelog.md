@@ -1,17 +1,21 @@
 # Changelog & TODO-list
 
 ## TODO
-- Store last k frames in Tracker class (?)
-- Find core issues in tracking procedure
-  - Core issue 1: feature matching result not robust enough -> fixed by using
-    symmetric test instead of Lowe's ratio test
-  - Core issue 2: too few new good triangulated 3D points during tracking
-    - Caused by wrong condition (parallax computation) for post-triangulation 
-      check -> fixed
+- Store last k frames in Tracker class for BA (?)
 - Add essential pose & map optimization scheme (BA) (TODO)
-- Skip frames and estimate pose only on keyframes (?)
+- Update map point fusion procedure (TODO)
 
 ## Latest version
+- Update design of MapPoint & Frame class for bundle adjustment support
+  - Update MapPoint class
+    - Update constructor interface
+    - Implement addObservation({pFrame, nIdxKpt})
+    - Implement getKpt({pFrame, nIdxKpt})
+    - Implement getDesc({pFrame, nIdxKpt})
+  - Update Frame class
+    - Implement getObservedMapPoints() (return a set of map points)
+- Update feature extraction scheme: try to find at least 1 keypoint for each
+  image block
 
 ## v0.3.0
 - Visualize 3D-to-2D matching result
