@@ -82,18 +82,15 @@ std::vector<std::shared_ptr<MapPoint>> Frame::getpMPtsObserved()
             vMPtsObs.push_back(pMPt);
         }
     }
-
     // update map point set (necessary?)
     mspMPtsObs.clear();
     mspMPtsObs = std::set<std::shared_ptr<MapPoint>>(
         vMPtsObs.begin(), vMPtsObs.end());
-    
     return vMPtsObs;
 }
 
 void Frame::extractFeatures(const cv::Mat& img)
 {
-    //mpFeatExtractor->detectAndCompute(img, cv::noArray(), mvKpts, mDescs);
     // block-based feature extraction
     mvKpts.reserve(Config::nFeatures());
     int nImgWidth = img.cols;
@@ -120,7 +117,8 @@ void Frame::extractFeatures(const cv::Mat& img)
             // copy border if ROI exceeds image border
             cv::Rect roi = cv::Rect(nBlkTLX, nBlkTLY, nW, nH);
             Mat imgROI = imgFull(roi).clone();
-            // feature extraction (1-2 passes)
+            
+            // feature extraction (multi passes)
             vector<cv::KeyPoint> vKpts;
             Mat descs;
             //mpFeatExtractor->detectAndCompute(
@@ -137,7 +135,8 @@ void Frame::extractFeatures(const cv::Mat& img)
                 thFASTtmp /= 2;
                 pORB->setFastThreshold(thFASTtmp);
             }
-            pORB->setFastThreshold(thFAST);
+            pORB->setFastThreshold(thFAST); // restore FAST threhold value
+            
             // map local keypoint coords to global image coords
             for (cv::KeyPoint& kpt : vKpts) {
                 kpt.pt.x += nBlkTLX - TH_EDGE;
@@ -154,7 +153,7 @@ void Frame::extractFeatures(const cv::Mat& img)
     }
     // undistort keypoint coordinates
     undistortKpts();
- }
+}
 
 void Frame::undistortKpts()
 {

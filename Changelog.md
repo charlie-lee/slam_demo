@@ -2,10 +2,22 @@
 
 ## TODO
 - Store last k frames in Tracker class for BA (?)
-- Add essential pose & map optimization scheme (BA) (TODO)
+- Add keyframe selection scheme (add KeyFrame class) (TODO)
 - Update map point fusion procedure (TODO)
 
 ## Latest version
+
+## v0.4.0
+- Integrate g2o library into the project
+- Revamp matching result display scheme for more intuitive representation
+- Add global bundle adjustment scheme (seems broken!)
+- Add pose optimization scheme
+- Add single-frame bundle adjustment scheme
+- Update pose information in Tracker after BA is done for final 
+  trajectory dump
+- Restore map point descriptor update scheme for map point fusion scheme
+
+## v0.3.1
 - Update design of MapPoint & Frame class for bundle adjustment support
   - Update MapPoint class
     - Update constructor interface

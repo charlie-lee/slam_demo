@@ -8,6 +8,7 @@
 #ifndef SYSTEM_HPP
 #define SYSTEM_HPP
 
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -31,7 +32,12 @@ public: // public data
     enum class Mode {
         MONOCULAR,
         STEREO,
-        RGBD
+        RGBD,
+    };
+    /// Trajectory dump mode.
+    enum class DumpMode {
+        REAL_TIME, ///< Real time trajectory.
+        OPTIMIZED, ///< Optimized trajectory.
     };
     /// Index of current frame loaded into the SLAM system.
     static unsigned nCurrentFrame;
@@ -49,28 +55,39 @@ public: // public members
      */
     void trackImgs(const std::vector<cv::Mat>& vImgs, double timestamp);
     /**
-     * @brief Dump trajectory data to disk.
+     * @name Dump trajectory data to disk.
      *
      * For TUM dataset, the format of each pose is as follows:
      * timestamp tx ty tz qx qy qz qw
      *
-     * Default filename: trajectory.txt
-     * 
+     * @param[in] eMode Dump mode defined in System::DumpMode.
+     *
+     * @note Default filename: trajectoryRT.txt for DumpMode::REAL_TIME,
+     *       and trajectoryOpt.txt for DumpMode::OPTIMIZED.
      */
-    void dumpTrajectory() const;
+    void dumpTrajectory(DumpMode eMode);
 private: // private data
     Mode meMode; ///< System mode.
     std::shared_ptr<Tracker> mpTracker; ///< Pointer to tracker module.
     std::shared_ptr<Map> mpMap; ///< Pointer to the map.
-    /// Trajectory of the system.
-    std::vector<std::pair<double, CamPose>> mvTrajectory;
+    /// Real-time trajectory of the system.
+    std::map<double, CamPose> mmTrajectoryRT;
+    /// Optimized trajectory of the system.
+    std::map<double, CamPose> mmTrajectoryOpt;
 private: // private members
     /**
-     * @brief Save trajectory info of 1 timestamp to the system.
+     * @brief Save real time trajectory info of 1 timestamp to the system.
      * @param[in] timestamp The timestamp info.
      * @param[in] pose      Camera pose at the corresponding timestamp.
      */
-    void saveTrajectory(double timestamp, const CamPose& pose);
+    void saveTrajectoryRT(double timestamp, const CamPose& pose);
+    /** 
+     * @brief Save optimized trajectory info to the system.
+     * @param[in] bFuseRestData Whether to fuse rest poses into the system.
+     *                          It is true only when the SLAM operation is 
+     *                          finished.
+     */
+    void saveTrajectoryOpt(bool bFuseRestData);
 };
 
 } // namespace SLAM_demo

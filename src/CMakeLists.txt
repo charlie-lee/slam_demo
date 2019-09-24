@@ -13,10 +13,16 @@ add_library(${PROJECT_NAME} SHARED
 target_link_libraries(${PROJECT_NAME}
   ${OpenCV_LIBS} # OpenCV 4.0+
   Eigen3::Eigen # Eigen3 3.3+
+  # g2o-related libs
+  g2o_core
+  g2o_solver_cholmod
+  g2o_types_sba
   )
 
 target_compile_options(${PROJECT_NAME} PRIVATE
-  "$<$<CONFIG:DEBUG>:${DEBUG_OPTIONS}>")
+  "$<$<CONFIG:DEBUG>:${DEBUG_OPTIONS}>" # compile options in debug mode
+  "-march=native" # essential for running g2o (on virtual machine?)
+  ) 
 
 set_target_properties(${PROJECT_NAME}
   PROPERTIES

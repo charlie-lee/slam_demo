@@ -24,6 +24,7 @@ set(DEBUG_OPTIONS "-Wall" "-Wextra" "-Wshadow" "-pedantic" "-Wnon-virtual-dtor")
 # custom OpenCV version
 #set(OpenCV_VER 3.4.5)
 
+list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake_modules)
 
 # declare dependencies (must be called after project() is called!!!)
 # OpenCV for vision algorithms
@@ -33,6 +34,8 @@ find_package(OpenCV 4.0 REQUIRED)
 #  PATHS "~/Workspace/c++/opencv/opencv-${OpenCV_VER}/build")
 # Eigen3 for pose representations
 find_package(Eigen3 3.3 REQUIRED)
+# g2o for bundle adjustment
+find_package(G2O REQUIRED)
 # doxygen for documentation
 find_package(Doxygen QUIET
   REQUIRED COMPONENTS dot)
@@ -51,17 +54,17 @@ if(${DOXYGEN_FOUND})
   set(DOXYGEN_EXTRACT_ALL YES)
   set(DOXYGEN_EXTRACT_STATIC YES) # documenting static funcs
   set(DOXYGEN_EXTRACT_PRIVATE YES) # extract private members
-  set(DOXYGEN_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/doc)
+  set(DOXYGEN_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/doc)
   #    - math-related options
   set(DOXYGEN_USE_MATHJAX YES)
   set(DOXYGEN_MATHJAX_EXTENSIONS "TeX/AMSmath" "TeX/AMSsymbols")
   #set(DOXYGEN_EXTRA_PACKAGES amsmath)
   #    - README integration
-  set(DOXYGEN_USE_MDFILE_AS_MAINPAGE "${CMAKE_SOURCE_DIR}/README.md")
+  set(DOXYGEN_USE_MDFILE_AS_MAINPAGE "${PROJECT_SOURCE_DIR}/README.md")
   # 2) call cmake function to add doc
   doxygen_add_docs(doc
-    ${CMAKE_SOURCE_DIR}/README.md
-    ${CMAKE_SOURCE_DIR}/src
-    ${CMAKE_SOURCE_DIR}/examples
+    ${PROJECT_SOURCE_DIR}/README.md
+    ${PROJECT_SOURCE_DIR}/src
+    ${PROJECT_SOURCE_DIR}/examples
     )
 endif()

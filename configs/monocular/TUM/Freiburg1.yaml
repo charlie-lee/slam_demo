@@ -46,10 +46,10 @@ Camera.k3: 0
 Feature.nFeatures: 1000
 
 # Scale factor of the image pyramid
-Feature.scaleFactor: 2
+Feature.scaleFactor: 1.2
 
 # Number of octaves/levels of the image pyramid
-Feature.nLevels: 5
+Feature.nLevels: 8
 
 
 ###

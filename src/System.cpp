@@ -10,7 +10,9 @@
 #include <iostream>
 #include <iomanip> // std::setprecision()
 #include <fstream>
+#include <map>
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -18,6 +20,7 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry> // for Eigen::Quaternion
 #include "CamPose.hpp"
+#include "Frame.hpp"
 #include "Map.hpp"
 #include "Tracker.hpp"
 
@@ -26,6 +29,9 @@ namespace SLAM_demo {
 using std::cout;
 using std::endl;
 using std::make_shared;
+using std::map;
+using std::set;
+using std::shared_ptr;
 using std::string;
 using std::vector;
 
@@ -63,16 +69,31 @@ void System::trackImgs(const std::vector<cv::Mat>& vImgs, double timestamp)
         assert(0); // TODO: track images in other SLAM modes
     }
 
+    // save trajectory (real time)
     int nIdx = mpTracker->getIdxLastPose();
     CamPose pose = mpTracker->getAbsPose(nIdx);
-    saveTrajectory(timestamp, pose);
+    saveTrajectoryRT(timestamp, pose);
+    // save trajectory (final optimized)
+    bool bFuseRestData = false;
+    saveTrajectoryOpt(bFuseRestData);
 }
 
-void System::dumpTrajectory() const
+void System::dumpTrajectory(DumpMode eMode)
 {
+    // add rest poses to the optimized trajectory
+    std::ofstream ofs;
+    const map<double, CamPose>* pTrajectory;
+    if (eMode == DumpMode::REAL_TIME) {
+        ofs.open("trajectoryRT.txt");
+        pTrajectory = &mmTrajectoryRT;
+    } else if (eMode == DumpMode::OPTIMIZED) {
+        ofs.open("trajectoryOpt.txt");
+        bool bFuseRestData = true;
+        saveTrajectoryOpt(bFuseRestData);
+        pTrajectory = &mmTrajectoryOpt;
+    }
     // format: timestamp tx ty tz qx qy qz qw
-    std::ofstream ofs("trajectory.txt");
-    for (const auto pair : mvTrajectory) {
+    for (const auto& pair : *pTrajectory) {
         const double& ts = pair.first;
         const CamPose& pose = pair.second;
         cv::Mat tcw = pose.getTranslation();
@@ -90,9 +111,28 @@ void System::dumpTrajectory() const
     }
 }
 
-void System::saveTrajectory(double timestamp, const CamPose& pose)
+void System::saveTrajectoryRT(double timestamp, const CamPose& pose)
 {
-    mvTrajectory.push_back(std::make_pair(timestamp, pose));
+    mmTrajectoryRT.insert({timestamp, pose});
+}
+
+void System::saveTrajectoryOpt(bool bFuseRestData)
+{
+    set<shared_ptr<Frame>>* pspFrames;
+    vector<shared_ptr<Frame>> vpRFrames = mpMap->getAllFrames();
+    set<shared_ptr<Frame>> spRFrames(vpRFrames.begin(), vpRFrames.end());
+    set<shared_ptr<Frame>> spFramesOpt = mpMap->transferFramesOpt();
+    if (bFuseRestData) {
+        // add rest poses to the optimized trajectory
+        pspFrames = &spRFrames;
+    } else {
+        pspFrames = &spFramesOpt;
+    }
+    for (const auto& pFrame : *pspFrames) {
+        double timestamp = pFrame->getTimestamp();
+        CamPose pose = pFrame->mPose;
+        mmTrajectoryOpt.insert({timestamp, pose});
+    }
 }
 
 } // namespace SLAM_demo

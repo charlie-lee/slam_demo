@@ -47,6 +47,8 @@ public: // public members
     cv::Mat getFeatDescriptors() const { return mDescs; }
     /// Get frame index of current frame.
     unsigned getFrameIdx() const { return mnIdx; }
+    /// Get timestamp info of the frame.
+    double getTimestamp() const { return mTimestamp; }
     /**
      * @name Coordinate Conversion given Camera Extrinsics and Intrinsics
      * @brief Coordinate conversion among world/cam/image coordinate system.

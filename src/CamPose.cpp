@@ -49,7 +49,7 @@ CamPose::CamPose(const CamPose& pose)
     mTwc = pose.mTwc;
 }
 
-inline CamPose& CamPose::operator=(const CamPose& pose)
+CamPose& CamPose::operator=(const CamPose& pose)
 {
     mTcw = pose.mTcw;
     mTwc = pose.mTwc;

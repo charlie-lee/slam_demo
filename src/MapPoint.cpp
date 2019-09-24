@@ -11,11 +11,15 @@
 #include <map>
 #include <memory>
 #include <utility> // std::make_pair()
+#include <vector>
 
 #include <opencv2/core.hpp>
 #include "Frame.hpp"
 
 namespace SLAM_demo {
+
+using std::shared_ptr;
+using std::vector;
 
 MapPoint::MapPoint() : mX3D(cv::Mat()), mDesc(cv::Mat()), mnIdxLastObsFrm(0),
                        mnCntObs(0), mnCntMatches(0), mbOutlier(false) {}
@@ -23,26 +27,36 @@ MapPoint::MapPoint() : mX3D(cv::Mat()), mDesc(cv::Mat()), mnIdxLastObsFrm(0),
 MapPoint::MapPoint(const cv::Mat& X3D, int nIdxFrm) :
     mX3D(X3D.clone()),
     mDesc(cv::Mat()), mnIdxLastObsFrm(nIdxFrm),
-    mnCntObs(0), mnCntMatches(0), mbOutlier(false) {}
+    mnCntObs(1), mnCntMatches(1), mbOutlier(false) {}
 
 MapPoint::MapPoint(const cv::Mat& X3D, const cv::Mat& desc, int nIdxFrm) :
     mX3D(X3D.clone()), mDesc(desc.clone()), mnIdxLastObsFrm(nIdxFrm),
-    mnCntObs(0), mnCntMatches(0), mbOutlier(false) {}
+    mnCntObs(1), mnCntMatches(1), mbOutlier(false) {}
 
 cv::Mat MapPoint::getDesc(const std::shared_ptr<Frame>& pFrame) const
 {
-    auto it = mObses.find(pFrame);
-    assert(it != mObses.end());
+    auto it = mmObses.find(pFrame);
+    assert(it != mmObses.end());
     cv::Mat descs = pFrame->getFeatDescriptors();
     return descs.row(it->second);
 }
 
 cv::KeyPoint MapPoint::getKpt(const std::shared_ptr<Frame>& pFrame) const
 {
-    auto it = mObses.find(pFrame);
-    assert(it != mObses.end());
-    std::vector<cv::KeyPoint> vKpts = pFrame->getKeyPoints();
+    auto it = mmObses.find(pFrame);
+    assert(it != mmObses.end());
+    vector<cv::KeyPoint> vKpts = pFrame->getKeyPoints();
     return vKpts[it->second];
+}
+
+std::vector<std::shared_ptr<Frame>> MapPoint::getRelatedFrames() const
+{
+    vector<shared_ptr<Frame>> vpRelatedFrames;
+    vpRelatedFrames.reserve(mmObses.size());
+    for (auto cit = mmObses.cbegin(); cit != mmObses.cend(); ++cit) {
+        vpRelatedFrames.push_back(cit->first);
+    }
+    return vpRelatedFrames;
 }
 
 float MapPoint::getMatch2ObsRatio() const
@@ -66,14 +80,14 @@ void MapPoint::addCntMatches(int n)
 
 void MapPoint::addObservation(const std::shared_ptr<Frame>& pFrame, int nIdxKpt)
 {
-    mObses.insert(std::make_pair(pFrame, nIdxKpt));
+    mmObses.insert(std::make_pair(pFrame, nIdxKpt));
 }
 
 void MapPoint::updateDescriptor()
 {
     float maxResponse = - std::numeric_limits<float>::max();
-    std::shared_ptr<Frame> pFrameBest = nullptr;
-    for (auto it = mObses.begin(); it != mObses.end(); ++it) {
+    shared_ptr<Frame> pFrameBest = nullptr;
+    for (auto it = mmObses.begin(); it != mmObses.end(); ++it) {
         // get keypoint & descriptor data
         cv::KeyPoint kpt = getKpt(it->first);
         cv::Mat desc = getDesc(it->first);

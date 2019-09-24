@@ -46,8 +46,10 @@ public: // public members
     cv::Mat getDesc(const std::shared_ptr<Frame>& pFrame) const;
     /// Get keypoint data from a frame.
     cv::KeyPoint getKpt(const std::shared_ptr<Frame>& pFrame) const;
+    /// Get all related frames that observed it.
+    std::vector<std::shared_ptr<Frame>> getRelatedFrames() const;
     /// Get index of the latest frame that observed the point.
-    int getIdxLastObsFrm() const { return mnIdxLastObsFrm; }
+    unsigned getIdxLastObsFrm() const { return mnIdxLastObsFrm; }
     /// Get match-to-observation ratio.
     float getMatch2ObsRatio() const;
     /// Update 3D world coordinate of the point.
@@ -75,11 +77,11 @@ private: // private data
     /// Inhomogeneous 3D world coordinate of the point.
     cv::Mat mX3D;
     /// Observation data (pointer to frame, index of the observed keypoint).
-    std::map<std::shared_ptr<Frame>, int> mObses;
+    std::map<std::shared_ptr<Frame>, int> mmObses;
     /// Best descriptor of the point. (OBSOLETE)
     cv::Mat mDesc;
     /// Index of the latest frame by which the point is observed.
-    int mnIdxLastObsFrm;
+    unsigned mnIdxLastObsFrm;
     /// Number of times by which the point is observed by input frames.
     int mnCntObs;
     /** 

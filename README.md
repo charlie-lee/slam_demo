@@ -5,15 +5,21 @@ A Simultaneous Localization and Mapping (SLAM) demo application.
 ## Dependencies
 - [OpenCV](https://opencv.org/)
 - [Eigen](http://eigen.tuxfamily.org)
+- [g2o](https://github.com/RainerKuemmerle/g2o) & its dependencies
 - [Doxygen](http://www.doxygen.nl/) (optional)
 
 ## Build Programs & Documentations
-1. Build CMake files
+1. Build thirdparty library *g2o*
+   - `mkdir thirdparty/g2o/build && cd thirdparty/g2o/build`
+   - `cmake ..`
+   - `make`
+   - `cd -`
+2. Build CMake files
    - `mkdir build && cd build`
    - `cmake ..`
-2. Build Programs
+3. Build Programs
    - `make`
-3. Build Documentations with Doxygen (optional)
+4. Build Documentations with Doxygen (optional)
    - `make doc`
 
 ## Build Tags
@@ -27,5 +33,6 @@ A Simultaneous Localization and Mapping (SLAM) demo application.
    - `gtags`
 
 ## Run Examples
-1. mono_vo
-   - `mono_vo path/to/cfgFile.yaml path/to/imgPath path/to/camDataFile.csv`
+1. mono_vo: monocular visual odometry demo
+   - `mono_vo path/to/cfgFile.yaml path/to/imgPath path/to/camDataFile.csv 
+      scale_factor`

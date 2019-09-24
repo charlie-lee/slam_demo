@@ -6,6 +6,7 @@
  */
 
 #include <iostream>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -17,6 +18,8 @@
 using std::cerr;
 using std::cout;
 using std::endl;
+using std::make_shared;
+using std::shared_ptr;
 using std::vector;
 
 /**
@@ -48,7 +51,8 @@ int main(int argc, char** argv)
     cout << cfg << endl;
 
     // initialize the SLAM system
-    SLAM_demo::System SLAM(SLAM_demo::System::Mode::MONOCULAR);
+    shared_ptr<SLAM_demo::System> pSLAM = make_shared<SLAM_demo::System>(
+        SLAM_demo::System::Mode::MONOCULAR);
 
     // parse and load camera-captured data
     double tsScale = 1e9; // timestamp scale for conversion to unit of second
@@ -68,9 +72,10 @@ int main(int argc, char** argv)
         vector<cv::Mat> vImgs;
         vImgs.reserve(1);
         vImgs.push_back(img);
-        SLAM.trackImgs(vImgs, cdl.getTimestamp(ni));
+        pSLAM->trackImgs(vImgs, cdl.getTimestamp(ni));
     }
-    // dump SLAM results
-    SLAM.dumpTrajectory();
+    // dump SLAM results (both real-time and final-optimized)
+    pSLAM->dumpTrajectory(SLAM_demo::System::DumpMode::REAL_TIME);
+    pSLAM->dumpTrajectory(SLAM_demo::System::DumpMode::OPTIMIZED);
     return 0;
 }
