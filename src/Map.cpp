@@ -21,8 +21,8 @@ using std::set;
 using std::shared_ptr;
 using std::vector;
 
-const float Map::TH_MIN_RATIO_MATCH_TO_OBS = 0.0f;
-const unsigned Map::TH_MAX_NUM_FRMS_LAST_SEEN = 1000;
+const float Map::TH_MIN_RATIO_MATCH_TO_OBS = 0.3f;
+const unsigned Map::TH_MAX_NUM_FRMS_LAST_SEEN = 20;
 
 void Map::addMPt(const std::shared_ptr<MapPoint>& pMPt)
 {

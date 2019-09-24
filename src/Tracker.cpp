@@ -116,7 +116,7 @@ void Tracker::trackImgsMono(const cv::Mat& img, double timestamp)
         }
     }
     imgPrev = imgCur;
-    cv::waitKey(1);
+    cv::waitKey(0);
 }
 
 cv::Mat Tracker::rgb2Gray(const cv::Mat& img) const
