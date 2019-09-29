@@ -393,8 +393,12 @@ private: // private member functions
     Tracker::State poseEstimation(const CamPose& pose);
     /// Triangulate new map points and update the map after pose estimation.
     void updateMap();
-    /// Update visibility/consistency counter of all existed map points.
-    void updateMPtData() const;
+    /// Update visibility counter of all existed map points for current view.
+    void updateMPtVisibleData() const;
+    /// Update observation data of all matched map points for current view.
+    void updateMPtObsData() const;
+    /// Reset observation data of all matched map points for current view.
+    void resetMPtObsData() const;
     /** 
      * @brief Triangulate new 3D points based on estimated pose and 
      *        2D-to-2D matches.

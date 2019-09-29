@@ -42,13 +42,13 @@ using std::endl;
 // constants
 const bool Tracker::USE_LOWE_RATIO_TEST = false;
 const float Tracker::TH_RATIO_DIST = 0.7f;
-const float Tracker::TH_MAX_DIST_MATCH = 50.0f;
-const float Tracker::TH_MAX_RATIO_FH = 0.3f;
+const float Tracker::TH_MAX_DIST_MATCH = 64.0f;
+const float Tracker::TH_MAX_RATIO_FH = 0.5f;
 const float Tracker::TH_COS_PARALLAX = 0.9999f;
 const float Tracker::TH_REPROJ_ERR_FACTOR = 8.0f;
 const float Tracker::TH_POSE_SEL = 0.7f;
-const float Tracker::TH_MIN_RATIO_TRIANG_PTS = 0.9f;
-const int Tracker::TH_MIN_MATCHES_3D_TO_2D = 20;
+const float Tracker::TH_MIN_RATIO_TRIANG_PTS = 0.5f;
+const int Tracker::TH_MIN_MATCHES_3D_TO_2D = 100;
 // other data
 unsigned Tracker::n1stFrame = 0;
 
@@ -102,7 +102,6 @@ void Tracker::trackImgsMono(const cv::Mat& img, double timestamp)
     if (mbFirstFrame) {
         mvpFramesCur[0] = pFrameCur;
         mbFirstFrame = false;
-        setAbsPose(pFrameCur->mPose);
     } else {
         mpView1 = mvpFramesPrev[0] = mvpFramesCur[0];
         mpView2 = mvpFramesCur[0] = pFrameCur;
@@ -116,7 +115,7 @@ void Tracker::trackImgsMono(const cv::Mat& img, double timestamp)
         }
     }
     imgPrev = imgCur;
-    cv::waitKey(0);
+    cv::waitKey(1);
 }
 
 cv::Mat Tracker::rgb2Gray(const cv::Mat& img) const
@@ -137,7 +136,7 @@ Tracker::State Tracker::initializeMap()
     // clear all poses and add an initial pose T_{k|k} = [I|0]
     // where k is the 1st frame in a initialized SLAM system.
     mvTs.clear();
-    mvTs.push_back(CamPose());
+    setAbsPose(CamPose());
     Tracker::n1stFrame = mpView1->getFrameIdx();
     if (meMode == System::Mode::MONOCULAR) {
         return initializeMapMono();
@@ -171,7 +170,7 @@ Tracker::State Tracker::initializeMapMono()
         
         // optimize both pose & map data
         shared_ptr<Optimizer> pOpt = make_shared<Optimizer>(mpMap);
-        pOpt->globalBundleAdjustment(20, true);
+        pOpt->globalBundleAdjustment(0, 10, true);
         
         return State::OK;
     }
@@ -221,9 +220,13 @@ void Tracker::matchFeatures2Dto2D()
 
 void Tracker::matchFeatures3Dto2D()
 {
+    // reset frame observation data and match data
+    resetMPtObsData();
     mvMatches3Dto2D.clear();
+
     // get all map points
     mvpMPts = mpMap->getAllMPts();
+    // prepare feature descriptors
     unsigned nBestMatches = USE_LOWE_RATIO_TEST ? 2 : 1;
     // get descriptors from the map and view 2.
     int nMPts = mvpMPts.size();
@@ -271,6 +274,9 @@ void Tracker::matchFeatures3Dto2D()
         }
         mvMatches3Dto2D.push_back(vMatches[i][0]);
     }
+    
+    // update map point observation data based on current 3D-to-2D match result
+    updateMPtObsData();
 }
 
 inline bool Tracker::is2DPtInBorder(const cv::Mat& pt) const
@@ -332,20 +338,20 @@ void Tracker::displayFeatMatchResult(int viewPrev, int viewCur) const
         cv::cvtColor(imgOut, imgOut, cv::COLOR_GRAY2BGR);
     }
     // draw markers on keypoints
-    for (const auto& kpt : vKpts1) {
-        if (is2DPtInBorder(Mat(kpt.pt))) {
-            cv::drawMarker(imgOut, kpt.pt,
-                           cv::Scalar(255, 0, 0), // marker color
-                           cv::MARKER_DIAMOND, // marker shape
-                           5); // marker size
-        }
-    }
-    for (const auto& kpt : vKpts2) {
-        if (is2DPtInBorder(Mat(kpt.pt))) {
-            cv::drawMarker(imgOut, kpt.pt, cv::Scalar(0, 255, 0),
-                           cv::MARKER_SQUARE, 5);
-        }
-    }
+    //for (const auto& kpt : vKpts1) {
+    //    if (is2DPtInBorder(Mat(kpt.pt))) {
+    //        cv::drawMarker(imgOut, kpt.pt,
+    //                       cv::Scalar(127, 127, 0), // marker color
+    //                       cv::MARKER_DIAMOND, // marker shape
+    //                       5); // marker size
+    //    }
+    //}
+    //for (const auto& kpt : vKpts2) {
+    //    if (is2DPtInBorder(Mat(kpt.pt))) {
+    //        cv::drawMarker(imgOut, kpt.pt, cv::Scalar(255, 0, 0),
+    //                       cv::MARKER_SQUARE, 5);
+    //    }
+    //}
     // draw arrowed lines from keypoints in view 1 to view 2 on matches
     for (unsigned i = 0; i < pvMatches->size(); ++i) {
         const cv::KeyPoint& kpt1 = vKpts1[(*pvMatches)[i].queryIdx];
@@ -773,7 +779,6 @@ void Tracker::buildInitialMap(const cv::Mat& Xws,
     // clear the map to build a new one
     mpMap->clear();
     // traverse all triangulated points
-    int nIdxFrm2 = mpView2->getFrameIdx();
     Mat descs2 = mpView2->getFeatDescriptors();
     for (unsigned i = 0; i < vnIdxPts.size(); ++i) {
         int nIdxKpt1 = mvMatches2Dto2D[vnIdxPts[i]].queryIdx;
@@ -781,7 +786,7 @@ void Tracker::buildInitialMap(const cv::Mat& Xws,
         // Xws have all triangulated points, here only select the valid ones
         Mat Xw = Xws.col(vnIdxPts[i]); // i-th column for i-th point
         Mat desc2 = descs2.row(nIdxKpt2); // i-th row for i-th descriptor
-        shared_ptr<MapPoint> pMPt = make_shared<MapPoint>(Xw, nIdxFrm2);
+        shared_ptr<MapPoint> pMPt = make_shared<MapPoint>(mpMap, Xw);
         // add observations for map point & frame
         pMPt->addObservation(mpView1, nIdxKpt1);
         pMPt->addObservation(mpView2, nIdxKpt2);
@@ -791,8 +796,6 @@ void Tracker::buildInitialMap(const cv::Mat& Xws,
         pMPt->updateDescriptor();
         // add point into the map & update data of related frames
         mpMap->addMPt(pMPt);
-        mpMap->updateFrameData(mpView1, 1);
-        mpMap->updateFrameData(mpView2, 1);
     }
 }
 
@@ -818,11 +821,11 @@ Tracker::State Tracker::track()
     // feature matching between view 1 & 2 for more correspondences
     matchFeatures2Dto2D();
     // update visibility counter of all existed map points
-    updateMPtData();
+    updateMPtVisibleData();
     
     // pose optimization
-    shared_ptr<Optimizer> pOpt = make_shared<Optimizer>(mpMap);
-    pOpt->poseOptimization(mpView2);
+    //shared_ptr<Optimizer> pOpt = make_shared<Optimizer>(mpMap);
+    //pOpt->poseOptimization(mpView2);
 
     // triangulate new 3D points & fuse them into the map
     Mat Xws; // 3xN matrix containing N 3D points
@@ -832,13 +835,11 @@ Tracker::State Tracker::track()
     // remove redundant map points
     mpMap->removeMPts();
 
-    // do single-frame BA when there're new triangulated points
-    if (!vnIdxPts.empty()) {
-        pOpt->frameBundleAdjustment(20, true);
-    }
+    // do single-frame BA (skip if new map points are triangulated)
+    //pOpt->frameBundleAdjustment(20, true);
     // global BA every N frames
     //if (System::nCurrentFrame % 20 == 0) {
-    //    pOpt->globalBundleAdjustment(20, true);
+    //pOpt->globalBundleAdjustment(5, 20, true);
     //}
     
     // temp test on display of feature matching result
@@ -853,14 +854,14 @@ Tracker::State Tracker::track()
         setAbsPose(mpView1->mPose);
     }
 
-    float meanM2ORatio = 0.0f;
+    float meanO2VRatio = 0.0f;
     mvpMPts = mpMap->getAllMPts();
     for (const shared_ptr<MapPoint>& pMPt : mvpMPts) {
-        meanM2ORatio += pMPt->getMatch2ObsRatio();
+        meanO2VRatio += pMPt->getObs2VisibleRatio();
     }
-    meanM2ORatio /= mvpMPts.size();
-    cout << "mean match-to-observe ratio for map points = "
-         << meanM2ORatio * 100 << "%" << endl;
+    meanO2VRatio /= mvpMPts.size();
+    cout << "mean observe-to-visible ratio for map points = "
+         << meanO2VRatio * 100 << "%" << endl;
     
     return eState;
 }
@@ -870,17 +871,24 @@ Tracker::State Tracker::track()
     // input:
     // - mpView1 & mpView2 with keypoints & descriptors
     // - the map with map points and their descriptors
-    State eState;
+    State eState = State::OK;
     
     // get all map points
     mvpMPts = mpMap->getAllMPts();
     cout << "Number of map points = " << mvpMPts.size() << endl;
+    
     // feature matching between the map and view 2
     matchFeatures3Dto2D();
+
     // pose estimation (1st)
     poseEstimation(mpView1->mPose);
-    // remove redundant map points
-    mpMap->removeMPts();
+    
+    // only optimize pose
+    shared_ptr<Optimizer> pOpt = make_shared<Optimizer>(mpMap);
+    int nInliers = pOpt->poseOptimization(mpView2);
+    cout << "Inliers/Total matches (pose BA): " << nInliers << "/"
+         << mvMatches3Dto2D.size() << endl;
+    
     // feature matching between view 1 & 2 for more correspondences
     matchFeatures2Dto2D();
     // triangulate new 3D points & fuse them into the map
@@ -889,53 +897,53 @@ Tracker::State Tracker::track()
     triangulate3DPts(Xws, vnIdxPts);
     fuseMPts(Xws, vnIdxPts);
     
-    // get all map points
-    //mvpMPts = mpMap->getAllMPts();
     // feature matching between the map and view 2
     matchFeatures3Dto2D();
 
     // pose estimation (2nd)
-    eState = poseEstimation(mpView1->mPose);
+    /*eState = */poseEstimation(mpView2->mPose);
 
     // update visibility counter of all existed map points
-    updateMPtData();
+    updateMPtVisibleData();
+    
+    // only optimize pose
+    nInliers = pOpt->poseOptimization(mpView2);
+    cout << "Inliers/Total matches (pose BA, 2nd): " << nInliers << "/"
+         << mvMatches3Dto2D.size() << endl;
+
     // remove redundant map points
     mpMap->removeMPts();
-    
-    // optimize both pose & map data
-    shared_ptr<Optimizer> pOpt = make_shared<Optimizer>(mpMap);
-    pOpt->poseOptimization(mpView2);
 
-    // do single-frame BA when there're new triangulated points
-    if (!vnIdxPts.empty()) {
-        pOpt->frameBundleAdjustment(20, true);
-    }
+    // do single-frame BA (skip if new map points are triangulated)
+    //pOpt->frameBundleAdjustment(10, true);
     // global BA every N frames
-    //if (System::nCurrentFrame % 20 == 0) {
-    //    pOpt->globalBundleAdjustment(20, true);
-    //}
-    
+    //if ((System::nCurrentFrame - n1stFrame + 1) % 10 == 0) {
+        pOpt->globalBundleAdjustment(5, 10, true);
+//}
+
     // temp test on display of feature matching result
     displayFeatMatchResult(0, 0);
 
-    
-    if (eState == State::OK) {
+    if (mvMatches3Dto2D.size() > 20) {
         cout << "Pose T_{" << mpView2->getFrameIdx() << "|"
              << Tracker::n1stFrame  << "}:" << endl
              << mpView2->mPose << endl;
         setAbsPose(mpView2->mPose);
-    } else {
+    } else if (mvMatches3Dto2D.size() > 10 ) {
+        mpView2->mPose = mpView1->mPose;
         setAbsPose(mpView1->mPose);
+    } else {
+        eState = State::NOT_INITIALIZED;
     }
 
-    float meanM2ORatio = 0.0f;
+    float meanO2VRatio = 0.0f;
     mvpMPts = mpMap->getAllMPts();
     for (const shared_ptr<MapPoint>& pMPt : mvpMPts) {
-        meanM2ORatio += pMPt->getMatch2ObsRatio();
+        meanO2VRatio += pMPt->getObs2VisibleRatio();
     }
-    meanM2ORatio /= mvpMPts.size();
-    cout << "mean match-to-observe ratio for map points = "
-         << meanM2ORatio * 100 << "%" << endl;
+    meanO2VRatio /= mvpMPts.size();
+    cout << "mean observe-to-visible ratio for map points = "
+         << meanO2VRatio * 100 << "%" << endl;
     
     return eState;
 }
@@ -948,7 +956,7 @@ Tracker::State Tracker::poseEstimation(const CamPose& pose)
     // give up pose estimation if number of matches is too low
     // currently restart map initialization scheme
     if (nMatches < TH_MIN_MATCHES_3D_TO_2D) {
-        //return State::NOT_INITIALIZED;
+        mpView2->mPose = mpView1->mPose;
         return State::LOST;
     }
     // get input 3D and 2D points for PnP
@@ -977,10 +985,8 @@ Tracker::State Tracker::poseEstimation(const CamPose& pose)
     // have already been undistorted
     bool bIsPoseEstimated = 
         solvePnPRansac(X3Ds, x2Ds, Config::K(), cv::noArray(),
-                       RcwAA, tcw, true, 100, thReprojErr, 0.99, idxInliers,
+                       RcwAA, tcw, true, 300, thReprojErr, 0.999, idxInliers,
                        cv::SOLVEPNP_ITERATIVE);
-        //solvePnP(X3Ds, x2Ds, Config::K(), cv::noArray(),
-        //         RcwAA, tcw, true, cv::SOLVEPNP_ITERATIVE);
     if (bIsPoseEstimated) {
         Mat Rcw; // 3x3 rotation matrix
         cv::Rodrigues(RcwAA, Rcw, cv::noArray());
@@ -1005,11 +1011,11 @@ Tracker::State Tracker::poseEstimation(const CamPose& pose)
             Mat xReproj = mpView2->coordWorld2Img(X3Ds.row(i).t());
             Mat x = x2Ds.row(i).t();
             Mat diffx = xReproj - x;
-            errorRT += diffx.dot(diffx);            
+            errorRT += diffx.dot(diffx);
         }
         errorRT /= nMatches;
         cout << "Mean square reprojection error for PnP = " << errorRT << endl;
-        cout << "inliers/total 3D-to-2D matches: "
+        cout << "Inliers/total 3D-to-2D matches: "
              << idxInliers.rows << "/" << nMatches << endl;
 
         return State::OK;
@@ -1025,7 +1031,7 @@ void Tracker::updateMap()
     // feature matching between view 1 & 2 for more correspondences
     matchFeatures2Dto2D();
     // update visibility counter of all existed map points
-    updateMPtData();
+    updateMPtVisibleData();
     // triangulate new 3D points & fuse them into the map
     Mat Xws; // 3xN matrix containing N 3D points
     vector<int> vnIdxPts; // index of valid 3D points
@@ -1035,12 +1041,18 @@ void Tracker::updateMap()
     mpMap->removeMPts();
 }
 
-void Tracker::updateMPtData() const
+void Tracker::updateMPtVisibleData() const
 {
+    int nMPts = mvpMPts.size();
     // update map point visibility data
-    for (const shared_ptr<MapPoint>& pMPt : mvpMPts) {
+    for (int i = 0; i < nMPts; ++i) {
+        const shared_ptr<MapPoint>& pMPt = mvpMPts[i];
         // already removed from the map
         if (!pMPt) {
+            continue;
+        }
+        // visibility data already updated
+        if (pMPt->getIdxLastObsFrm() == mpView2->getFrameIdx()) {
             continue;
         }
         Mat Xc = mpView2->coordWorld2Cam(pMPt->getX3D());
@@ -1055,19 +1067,40 @@ void Tracker::updateMPtData() const
             continue;
         }
         // regard the map point as visible if passing all the tests
-        pMPt->addCntObs(1);
+        pMPt->addCntVisible(1);
         pMPt->setIdxLastObsFrm(mpView2->getFrameIdx());
     }
+    // update observation data
     for (unsigned i = 0; i < mvMatches3Dto2D.size(); ++i) {
         const cv::DMatch& m3Dto2D = mvMatches3Dto2D[i];
-        shared_ptr<MapPoint> pMPt = mvpMPts[m3Dto2D.queryIdx];
-        int nIdxKpt2 = m3Dto2D.trainIdx;
-        pMPt->addCntMatches(1);
-        pMPt->addObservation(mpView2, nIdxKpt2);
-        mpView2->addObservation(pMPt);
-        //pMPt->updateDescriptor();
-        mpMap->updateFrameData(mpView2, 1);
+        unsigned nIdxMPt = m3Dto2D.queryIdx;
+        shared_ptr<MapPoint> pMPt = mvpMPts[nIdxMPt];
+        // only update data for visible map points (discard potential
+        // wrong matches)
+        if (pMPt->getIdxLastObsFrm() == mpView2->getFrameIdx()) {
+            pMPt->updateDescriptor();
+        }
     }
+}
+
+void Tracker::updateMPtObsData() const
+{
+    for (auto& m3Dto2D : mvMatches3Dto2D) {
+        unsigned nIdxMPt = m3Dto2D.queryIdx;
+        unsigned nIdxKpt = m3Dto2D.trainIdx;
+        shared_ptr<MapPoint> pMPt = mvpMPts[nIdxMPt];
+        mpView2->addObservation(pMPt);
+        pMPt->addObservation(mpView2, nIdxKpt);
+    }
+}
+
+void Tracker::resetMPtObsData() const
+{
+    vector<shared_ptr<MapPoint>> vpMPts = mpView2->getpMPtsObserved();
+    for (auto& pMPt : vpMPts) {
+        pMPt->removeObservation(mpView2);
+    }
+    mpView2->resetObservation();    
 }
 
 void Tracker::triangulate3DPts(cv::Mat& Xws, std::vector<int>& vnIdxPts) const
@@ -1141,27 +1174,24 @@ void Tracker::fuseMPts(const cv::Mat& Xws,
             if(m2Dto2D < *pm3Dto2DSame) {
                 // update map point info using data in view 2
                 //pMPt->setX3D(Xws.col(vnIdxPts[i]));
-                pMPt->setDesc(descs2.row(m2Dto2D.trainIdx));
+                //pMPt->setDesc(descs2.row(m2Dto2D.trainIdx));
             }
             spMatches3Dto2D.erase(pm3Dto2DSame);
         } else { // new landmark: add 3D point data to the map
-            int nIdxFrm2 = mpView2->getFrameIdx();
             int nIdxKpt1 = m2Dto2D.queryIdx;
             int nIdxKpt2 = m2Dto2D.trainIdx;
             Mat Xw = Xws.col(vnIdxPts[i]);
             Mat desc2 = descs2.row(nIdxKpt2);
-            shared_ptr<MapPoint> pMPt = make_shared<MapPoint>(Xw, nIdxFrm2);
+            shared_ptr<MapPoint> pMPt = make_shared<MapPoint>(mpMap, Xw);
             // add observations for map point & frame
             pMPt->addObservation(mpView1, nIdxKpt1);
-            pMPt->addObservation(mpView2, nIdxKpt2);
+            //pMPt->addObservation(mpView2, nIdxKpt2);
             mpView1->addObservation(pMPt);
-            mpView2->addObservation(pMPt);
+            //mpView2->addObservation(pMPt);
             // update distinctive descriptor
             pMPt->updateDescriptor();
             // add point into the map & update data of related frames
             mpMap->addMPt(pMPt);
-            mpMap->updateFrameData(mpView1, 1);
-            mpMap->updateFrameData(mpView2, 1);
         }
     }
 }

@@ -7,6 +7,17 @@
 
 ## Latest version
 
+## v0.4.1
+- Force update map point descriptor to be the latest extracted one
+- Update single-frame BA scheme: optimize all observed map points instead of
+  only newly triangulated ones
+- Add support for windowed BA for global BA function
+- Reset trajectory if the system is re-initialized
+- Bug fixes:
+  - Fix observe-to-visible ratio computation
+  - Fix ROI computation for block feature extraction scheme
+  - Fix memory leak for Frame objects after outlier map points are removed
+
 ## v0.4.0
 - Integrate g2o library into the project
 - Revamp matching result display scheme for more intuitive representation

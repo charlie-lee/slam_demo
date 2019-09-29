@@ -74,6 +74,7 @@ public: // public members
     ///@}
     /** @brief Add observed map point data into current frame. */
     void addObservation(const std::shared_ptr<MapPoint>& pMPt);
+    void resetObservation() { mspMPtsObs.clear(); }
     /** 
      * @brief Get all observed map points (pointer) which are in the map. 
      * @note The set of map points will be updated (remove map points that have 

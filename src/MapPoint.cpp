@@ -15,23 +15,23 @@
 
 #include <opencv2/core.hpp>
 #include "Frame.hpp"
+#include "Map.hpp"
+#include "System.hpp"
 
 namespace SLAM_demo {
 
 using std::shared_ptr;
 using std::vector;
 
-MapPoint::MapPoint() : mX3D(cv::Mat()), mDesc(cv::Mat()), mnIdxLastObsFrm(0),
-                       mnCntObs(0), mnCntMatches(0), mbOutlier(false) {}
+MapPoint::MapPoint() :
+    mpMap(nullptr), mX3D(cv::Mat()),
+    mDesc(cv::Mat()), mnIdxLastObsFrm(0),
+    mnCntVisible(0), mnCntObs(0), mbOutlier(false) {}
 
-MapPoint::MapPoint(const cv::Mat& X3D, int nIdxFrm) :
-    mX3D(X3D.clone()),
-    mDesc(cv::Mat()), mnIdxLastObsFrm(nIdxFrm),
-    mnCntObs(1), mnCntMatches(1), mbOutlier(false) {}
-
-MapPoint::MapPoint(const cv::Mat& X3D, const cv::Mat& desc, int nIdxFrm) :
-    mX3D(X3D.clone()), mDesc(desc.clone()), mnIdxLastObsFrm(nIdxFrm),
-    mnCntObs(1), mnCntMatches(1), mbOutlier(false) {}
+MapPoint::MapPoint(const std::shared_ptr<Map>& pMap, const cv::Mat& X3D) :
+    mpMap(pMap), mX3D(X3D.clone()),
+    mDesc(cv::Mat()), mnIdxLastObsFrm(System::nCurrentFrame),
+    mnCntVisible(2), mnCntObs(0), mbOutlier(false) {}
 
 cv::Mat MapPoint::getDesc(const std::shared_ptr<Frame>& pFrame) const
 {
@@ -59,28 +59,37 @@ std::vector<std::shared_ptr<Frame>> MapPoint::getRelatedFrames() const
     return vpRelatedFrames;
 }
 
-float MapPoint::getMatch2ObsRatio() const
+float MapPoint::getObs2VisibleRatio() const
 {
-    if (mnCntObs == 0) {
+    if (mnCntVisible == 0) {
         return 0.f;
     } else {
-        return static_cast<float>(mnCntMatches) / mnCntObs;
+        return static_cast<float>(mnCntObs) / mnCntVisible;
     }
 }
 
-void MapPoint::addCntObs(int n)
+void MapPoint::addCntVisible(int n)
 {
-    mnCntObs += n;
-}
-
-void MapPoint::addCntMatches(int n)
-{
-    mnCntMatches += n;
+    mnCntVisible += n;
 }
 
 void MapPoint::addObservation(const std::shared_ptr<Frame>& pFrame, int nIdxKpt)
 {
+    // add observation count only once for each frame
+    if (!isObservedBy(pFrame)) {
+        addCntObs(1);
+        mpMap->updateFrameData(pFrame, 1);
+    }
     mmObses.insert(std::make_pair(pFrame, nIdxKpt));
+}
+
+void MapPoint::removeObservation(const std::shared_ptr<Frame>& pFrame)
+{
+    if (isObservedBy(pFrame)) {
+        addCntObs(-1);
+        mpMap->updateFrameData(pFrame, -1);
+        mmObses.erase(pFrame);
+    }
 }
 
 void MapPoint::updateDescriptor()
@@ -97,6 +106,16 @@ void MapPoint::updateDescriptor()
         }
     }
     mDesc = getDesc(pFrameBest);
+}
+
+bool MapPoint::isObservedBy(const std::shared_ptr<Frame>& pFrame) const
+{
+    return (mmObses.find(pFrame) != mmObses.end());
+}
+
+void MapPoint::addCntObs(int n)
+{
+    mnCntObs += n;
 }
 
 } // namespace SLAM_demo

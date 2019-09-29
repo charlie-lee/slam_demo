@@ -32,6 +32,8 @@ public: // public members
     std::vector<std::shared_ptr<MapPoint>> getAllMPts() const;
     /// Get all related frames from the map.
     std::vector<std::shared_ptr<Frame>> getAllFrames() const;
+    /// Get last N frames. If N <= 0, return all related frames.
+    std::vector<std::shared_ptr<Frame>> getLastNFrames(unsigned nFrames) const;
     /** 
      * @brief Update map point count data of a related frame, and remove 
      *        redundant frame with no observed map point.
@@ -51,10 +53,10 @@ public: // public members
     std::set<std::shared_ptr<Frame>> transferFramesOpt();
 private: // private data
     /**
-     * @brief Minimum match-to-observation ratio (ratio of the number of times 
+     * @brief Minimum observe-to-visible ratio (ratio of the number of times
      *        being matched to the number of times being observed).
      */
-    static const float TH_MIN_RATIO_MATCH_TO_OBS;
+    static const float TH_MIN_RATIO_OBS_TO_VISIBLE;
     /// Maximum number of frames passed after the map point is seen.
     static const unsigned TH_MAX_NUM_FRMS_LAST_SEEN;
     /// A set of map points.

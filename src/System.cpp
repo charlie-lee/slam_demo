@@ -71,11 +71,26 @@ void System::trackImgs(const std::vector<cv::Mat>& vImgs, double timestamp)
 
     // save trajectory (real time)
     int nIdx = mpTracker->getIdxLastPose();
-    CamPose pose = mpTracker->getAbsPose(nIdx);
-    saveTrajectoryRT(timestamp, pose);
-    // save trajectory (final optimized)
-    bool bFuseRestData = false;
-    saveTrajectoryOpt(bFuseRestData);
+    // just initialized
+    if (nIdx == 1) { //
+        // reset trajectory
+        mmTrajectoryRT.clear();
+        mmTrajectoryOpt.clear();
+        saveTrajectoryRT(timestamp, CamPose());
+    }
+    
+    if (nIdx > 0) {
+        // already initialized
+        CamPose pose = mpTracker->getAbsPose(nIdx);
+        saveTrajectoryRT(timestamp, pose);
+        // save trajectory (final optimized)
+        bool bFuseRestData = false;
+        saveTrajectoryOpt(bFuseRestData);
+    } else {
+        // reset trajectory
+        mmTrajectoryRT.clear();
+        mmTrajectoryOpt.clear();
+    }
 }
 
 void System::dumpTrajectory(DumpMode eMode)
@@ -98,7 +113,7 @@ void System::dumpTrajectory(DumpMode eMode)
         const CamPose& pose = pair.second;
         cv::Mat tcw = pose.getTranslation();
         Eigen::Quaternion<float> qRcw = pose.getRQuatEigen();
-        ofs << std::fixed << std::setprecision(4)
+        ofs << std::fixed << std::setprecision(8)
             << ts << " "
             << tcw.at<float>(0) << " "
             << tcw.at<float>(1) << " "

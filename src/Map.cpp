@@ -21,8 +21,8 @@ using std::set;
 using std::shared_ptr;
 using std::vector;
 
-const float Map::TH_MIN_RATIO_MATCH_TO_OBS = 0.3f;
-const unsigned Map::TH_MAX_NUM_FRMS_LAST_SEEN = 20;
+const float Map::TH_MIN_RATIO_OBS_TO_VISIBLE = 0.25f;
+const unsigned Map::TH_MAX_NUM_FRMS_LAST_SEEN = 100;
 
 void Map::addMPt(const std::shared_ptr<MapPoint>& pMPt)
 {
@@ -47,6 +47,26 @@ std::vector<std::shared_ptr<Frame>> Map::getAllFrames() const
     vpFrames.reserve(mmRFrames.size());
     for (auto cit = mmRFrames.cbegin(); cit != mmRFrames.cend(); ++cit) {
         vpFrames.push_back(cit->first);
+    }
+    return vpFrames;
+}
+
+std::vector<std::shared_ptr<Frame>> Map::getLastNFrames(unsigned nFrames) const
+{
+    // get all frames if the number of frames is too small or too large
+    if (nFrames == 0 || nFrames >= mmRFrames.size()) {
+        return getAllFrames();
+    }
+    vector<shared_ptr<Frame>> vpFrames;
+    vpFrames.reserve(nFrames);
+    // get all frames in another map and sort them by frame index
+    std::map<unsigned, shared_ptr<Frame>> mpFrames;
+    for (auto it = mmRFrames.begin(); it != mmRFrames.end(); ++it) {
+        mpFrames.insert({it->first->getFrameIdx(), it->first});
+    }
+    // get last N frames
+    for (auto it = mpFrames.rbegin(); it != mpFrames.rend(); ++it) {
+        vpFrames.push_back(it->second);
     }
     return vpFrames;
 }
@@ -84,10 +104,10 @@ void Map::removeMPts()
         if (!pMPt) {
             continue;
         }
-        float m2oRatio = pMPt->getMatch2ObsRatio();
-        if (m2oRatio > 0 && m2oRatio < TH_MIN_RATIO_MATCH_TO_OBS) {
+        float o2vRatio = pMPt->getObs2VisibleRatio();
+        if (o2vRatio < TH_MIN_RATIO_OBS_TO_VISIBLE) {
             // discard low quality map points that has low
-            // match-to-observe ratio            
+            // observe-to-visible ratio
             removeMPt(pMPt);
         } else if (System::nCurrentFrame >
                    pMPt->getIdxLastObsFrm() + TH_MAX_NUM_FRMS_LAST_SEEN) {

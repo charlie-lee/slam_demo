@@ -16,7 +16,8 @@
 #include <g2o/core/optimization_algorithm_levenberg.h>
 #include <g2o/core/robust_kernel_impl.h> // g2o::RobustKernelHuber, ...
 #include <g2o/core/solver.h>
-#include <g2o/solvers/cholmod/linear_solver_cholmod.h> // for global BA
+//#include <g2o/solvers/cholmod/linear_solver_cholmod.h> // for global BA
+#include <g2o/solvers/csparse/linear_solver_csparse.h> // for global BA
 #include <g2o/solvers/dense/linear_solver_dense.h> // for pose optimization
 //#include <g2o/solvers/eigen/linear_solver_eigen.h>
 #include <g2o/types/sba/types_six_dof_expmap.h> // g2o::EdgeSE3ProjectXYZ, ...
@@ -39,12 +40,13 @@ using cv::Mat;
 
 Optimizer::Optimizer(const std::shared_ptr<Map>& pMap) : mpMap(pMap) {}
 
-void Optimizer::globalBundleAdjustment(int nIter, bool bRobust) const
+void Optimizer::globalBundleAdjustment(unsigned nFrames, int nIter,
+                                       bool bRobust) const
 {
     // set definition of solver
     g2o::BlockSolver_6_3::LinearSolverType* pLinearSolver;
     pLinearSolver =
-        new g2o::LinearSolverCholmod<g2o::BlockSolver_6_3::PoseMatrixType>();
+        new g2o::LinearSolverCSparse<g2o::BlockSolver_6_3::PoseMatrixType>();
     g2o::BlockSolver_6_3* pBlkSolver;
     pBlkSolver = new g2o::BlockSolver_6_3(pLinearSolver);
     g2o::OptimizationAlgorithmLevenberg* pSolverLM;
@@ -55,7 +57,7 @@ void Optimizer::globalBundleAdjustment(int nIter, bool bRobust) const
     optimizer.setAlgorithm(pSolverLM);
     
     // add vertices: poses
-    vector<shared_ptr<Frame>> vpFrames = mpMap->getAllFrames();
+    vector<shared_ptr<Frame>> vpFrames = mpMap->getLastNFrames(nFrames);
     unsigned idxFMax = 0;
     for (const auto& pFrame : vpFrames) {
         g2o::VertexSE3Expmap* pVSE3 = new g2o::VertexSE3Expmap();
@@ -65,7 +67,6 @@ void Optimizer::globalBundleAdjustment(int nIter, bool bRobust) const
         pVSE3->setId(idxF);
         bool bFixed = idxF == Tracker::n1stFrame;
         pVSE3->setFixed(bFixed);
-        
         optimizer.addVertex(pVSE3);
         if (idxF > idxFMax) {
             idxFMax = idxF;
@@ -73,6 +74,7 @@ void Optimizer::globalBundleAdjustment(int nIter, bool bRobust) const
     }
     // add vertices: map points, and add edges for each map point
     vector<shared_ptr<MapPoint>> vpMPts = mpMap->getAllMPts();
+    vector<bool> vbMPtOptimized(vpMPts.size(), true);
     int nMPts = vpMPts.size();
     for (int i = 0; i < nMPts; ++i) {
         const shared_ptr<MapPoint>& pMPt = vpMPts[i];
@@ -83,9 +85,16 @@ void Optimizer::globalBundleAdjustment(int nIter, bool bRobust) const
         optimizer.addVertex(pVPt);
         
         // add edges
-        vector<shared_ptr<Frame>> vpFramesMPt = pMPt->getRelatedFrames();
+        vector<shared_ptr<Frame>> vpFramesMPt = (nFrames == 0) ?
+            pMPt->getRelatedFrames() : vpFrames;
+        bool bHasEdge = false; // check whether the vertec has edges
         for (const auto& pFrame : vpFramesMPt) {
-            // is it necessary to check whether the frame is valid?
+            // check whether the map point is observed by the target frame
+            if (!pMPt->isObservedBy(pFrame)) {
+                continue;
+            }
+            // form an edge
+            bHasEdge = true;
             cv::KeyPoint kpt = pMPt->getKpt(pFrame);
             Eigen::Matrix<double, 2, 1> obs;
             obs << kpt.pt.x, kpt.pt.y;
@@ -118,6 +127,10 @@ void Optimizer::globalBundleAdjustment(int nIter, bool bRobust) const
             
             optimizer.addEdge(pEdge);
         }
+        if (!bHasEdge) {
+            optimizer.removeVertex(pVPt);
+            vbMPtOptimized[i] = false;
+        }
     }
     
     // optimize
@@ -134,12 +147,18 @@ void Optimizer::globalBundleAdjustment(int nIter, bool bRobust) const
     }
     // map point data update via vpMPts
     for (int i = 0; i < nMPts; ++i) {
-        shared_ptr<MapPoint>& pMPt = vpMPts[i];
-        g2o::VertexSBAPointXYZ* pVPt = dynamic_cast<g2o::VertexSBAPointXYZ*>(
-            optimizer.vertex(idxFMax + 1 + i));
-        Eigen::Vector3d X = pVPt->estimate();
-        pMPt->setX3D(Vector3d2cvMat(X));
+        if (vbMPtOptimized[i]) {
+            shared_ptr<MapPoint>& pMPt = vpMPts[i];
+            g2o::VertexSBAPointXYZ* pVPt = dynamic_cast<
+                g2o::VertexSBAPointXYZ*>(optimizer.vertex(idxFMax + 1 + i));
+            Eigen::Vector3d X = pVPt->estimate();
+            pMPt->setX3D(Vector3d2cvMat(X));
+        }
     }
+
+    // clean up resources
+    optimizer.clear();
+    optimizer.clearParameters();
 }
 
 void Optimizer::frameBundleAdjustment(int nIter, bool bRobust) const
@@ -147,110 +166,100 @@ void Optimizer::frameBundleAdjustment(int nIter, bool bRobust) const
     // set definition of solver
     g2o::BlockSolver_6_3::LinearSolverType* pLinearSolver;
     pLinearSolver =
-        new g2o::LinearSolverCholmod<g2o::BlockSolver_6_3::PoseMatrixType>();
+        new g2o::LinearSolverCSparse<g2o::BlockSolver_6_3::PoseMatrixType>();
     g2o::BlockSolver_6_3* pBlkSolver;
     pBlkSolver = new g2o::BlockSolver_6_3(pLinearSolver);
     g2o::OptimizationAlgorithmLevenberg* pSolverLM;
     pSolverLM = new g2o::OptimizationAlgorithmLevenberg(pBlkSolver);
     // configure optimizer
     g2o::SparseOptimizer optimizer;
-    optimizer.setVerbose(true);
+    optimizer.setVerbose(false);
     optimizer.setAlgorithm(pSolverLM);
-    
+
     // add vertices: poses
-    vector<shared_ptr<Frame>> vpFrames = mpMap->getAllFrames();
-    unsigned idxFMax = 0;
-    for (const auto& pFrame : vpFrames) {
-        g2o::VertexSE3Expmap* pVSE3 = new g2o::VertexSE3Expmap();
-        Mat Tcw = pFrame->mPose.getPose();
-        unsigned idxF = pFrame->getFrameIdx();
-        pVSE3->setEstimate(cvMat2SE3Quat(Tcw));
-        pVSE3->setId(idxF);
-        bool bFixed = idxF != System::nCurrentFrame;
-        pVSE3->setFixed(bFixed);
-        optimizer.addVertex(pVSE3);
-        if (idxF > idxFMax) {
-            idxFMax = idxF;
-        }
+    vector<shared_ptr<Frame>> vpFrames = mpMap->getLastNFrames(1);
+    shared_ptr<Frame>& pFrame = vpFrames[0];
+    g2o::VertexSE3Expmap* pVSE3 = new g2o::VertexSE3Expmap();
+    Mat Tcw = pFrame->mPose.getPose();
+    unsigned idxF = pFrame->getFrameIdx();
+    // no new pose for optimization
+    if (idxF != System::nCurrentFrame) {
+        return;
     }
+    pVSE3->setEstimate(cvMat2SE3Quat(Tcw));
+    pVSE3->setId(0);
+    optimizer.addVertex(pVSE3);
+    
     // add vertices: map points, and add edges for each map point
-    vector<shared_ptr<MapPoint>> vpMPts = mpMap->getAllMPts();
+    vector<shared_ptr<MapPoint>> vpMPts = pFrame->getpMPtsObserved();
     int nMPts = vpMPts.size();
     for (int i = 0; i < nMPts; ++i) {
         const shared_ptr<MapPoint>& pMPt = vpMPts[i];
         g2o::VertexSBAPointXYZ* pVPt = new g2o::VertexSBAPointXYZ();
         pVPt->setEstimate(cvMat2Vector3d(pMPt->getX3D()));
-        pVPt->setId(idxFMax + 1 + i);
-        pVPt->setMarginalized(true); // why?? (to decrease the size of Hessian?)
-        // set map point vertex as fixed if it is not newly triangulated
-        vector<shared_ptr<Frame>> vpRFrames = pMPt->getRelatedFrames();
-        bool bFixed = !(pMPt->getIdxLastObsFrm() == System::nCurrentFrame &&
-                        vpRFrames.size() == 2);
-        pVPt->setFixed(bFixed);
+        pVPt->setId(1 + i);
+        pVPt->setMarginalized(true);
         optimizer.addVertex(pVPt);
         
         // add edges
-        vector<shared_ptr<Frame>> vpFramesMPt = pMPt->getRelatedFrames();
-        for (const auto& pFrame : vpFramesMPt) {
-            // is it necessary to check whether the frame is valid?
-            cv::KeyPoint kpt = pMPt->getKpt(pFrame);
-            Eigen::Matrix<double, 2, 1> obs;
-            obs << kpt.pt.x, kpt.pt.y;
-            g2o::EdgeSE3ProjectXYZ* pEdge = new g2o::EdgeSE3ProjectXYZ();
-            // vertex 0: map point
-            pEdge->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex*>(
-                                 pVPt));
-            // vertex 1: pose
-            pEdge->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex*>(
-                                 optimizer.vertex(pFrame->getFrameIdx())));
-            pEdge->setMeasurement(obs);
-            // set element in information matrix (value = 1 / sigma^2)
-            float sigma = std::pow(Config::scaleFactor(), kpt.octave);
-            float invSigma2 = 1.0f / (sigma * sigma);
-            pEdge->setInformation(Eigen::Matrix2d::Identity() * invSigma2);
-            // set robust kernel
-            if (bRobust) {
-                g2o::RobustKernelHuber* pRK = new g2o::RobustKernelHuber();
-                pEdge->setRobustKernel(pRK);
-                // rho(x) = x^2 if |x| < delta else 2*delta*|x| - delta^2
-                pRK->setDelta(sigma);
-            }
-            // set cam intrinsics
-            pEdge->fx = Config::fx();
-            pEdge->fy = Config::fy();
-            pEdge->cx = Config::cx();
-            pEdge->cy = Config::cy();
-            // ?
-            pEdge->setParameterId(0, 0);
-            
-            optimizer.addEdge(pEdge);
+        cv::KeyPoint kpt = pMPt->getKpt(pFrame);
+        Eigen::Matrix<double, 2, 1> obs;
+        obs << kpt.pt.x, kpt.pt.y;
+        g2o::EdgeSE3ProjectXYZ* pEdge = new g2o::EdgeSE3ProjectXYZ();
+        // vertex 0: map point
+        pEdge->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex*>(
+                             pVPt));
+        // vertex 1: pose
+        pEdge->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex*>(
+                             pVSE3));
+        pEdge->setMeasurement(obs);
+        // set element in information matrix (value = 1 / sigma^2)
+        float sigma = std::pow(Config::scaleFactor(), kpt.octave);
+        float invSigma2 = 1.0f / (sigma * sigma);
+        pEdge->setInformation(Eigen::Matrix2d::Identity() * invSigma2);
+        // set robust kernel
+        if (bRobust) {
+            g2o::RobustKernelHuber* pRK = new g2o::RobustKernelHuber();
+            pEdge->setRobustKernel(pRK);
+            // rho(x) = x^2 if |x| < delta else 2*delta*|x| - delta^2
+            pRK->setDelta(sigma);
         }
+        // set cam intrinsics
+        pEdge->fx = Config::fx();
+        pEdge->fy = Config::fy();
+        pEdge->cx = Config::cx();
+        pEdge->cy = Config::cy();
+        pEdge->setParameterId(0, 0); // ?
+
+        optimizer.addEdge(pEdge);
     }
-    
+
     // optimize
     optimizer.initializeOptimization();
     optimizer.optimize(nIter);
     
     // update results back to the frames/map
     // pose update via vpFrames
-    for (const auto& pFrame : vpFrames) {
-        g2o::VertexSE3Expmap* pVSE3 = dynamic_cast<g2o::VertexSE3Expmap*>(
-            optimizer.vertex(pFrame->getFrameIdx()));
-        g2o::SE3Quat T = pVSE3->estimate();
-        pFrame->mPose.setPose(SE3Quat2cvMat(T));
-    }
+    g2o::SE3Quat T = pVSE3->estimate();
+    pFrame->mPose.setPose(SE3Quat2cvMat(T));
     // map point data update via vpMPts
     for (int i = 0; i < nMPts; ++i) {
         shared_ptr<MapPoint>& pMPt = vpMPts[i];
         g2o::VertexSBAPointXYZ* pVPt = dynamic_cast<g2o::VertexSBAPointXYZ*>(
-            optimizer.vertex(idxFMax + 1 + i));
+            optimizer.vertex(1 + i));
         Eigen::Vector3d X = pVPt->estimate();
         pMPt->setX3D(Vector3d2cvMat(X));
     }    
+
+    // clean up resources
+    optimizer.clear();
+    optimizer.clearParameters();
 }
 
-void Optimizer::poseOptimization(const std::shared_ptr<Frame>& pFrame) const
+int Optimizer::poseOptimization(const std::shared_ptr<Frame>& pFrame) const
 {
+    // count the number of map point outliers after optimization
+    int nInliers = 0;
     // set definition of solver
     g2o::BlockSolver_6_3::LinearSolverType* pLinearSolver;
     pLinearSolver =
@@ -308,11 +317,15 @@ void Optimizer::poseOptimization(const std::shared_ptr<Frame>& pFrame) const
         // ?
         pEdge->setParameterId(0, 0);
         vpEdges.push_back(pEdge);
+        // only optimize outliers at the last iteration
+        if (pMPt->isOutlier()) {
+            pEdge->setLevel(1);
+        }
         optimizer.addEdge(pEdge);
     }
-    
+
     // optimize (multi-pass?)
-    int nIt = 4;
+    int nIt = 3;
     for (int it = 0; it < nIt; ++it) {
         //pVSE3->setEstimate(cvMat2SE3Quat(Tcw));
         optimizer.initializeOptimization(0); // only optimize level 0 edges
@@ -329,7 +342,7 @@ void Optimizer::poseOptimization(const std::shared_ptr<Frame>& pFrame) const
                 float chi2 = pEdge->chi2();
                 cv::KeyPoint kpt = pMPt->getKpt(pFrame);
                 float sigma = std::pow(Config::scaleFactor(), kpt.octave);
-                if (chi2 > sigma*sigma) {
+                if (chi2 > 5.991 || !pEdge->isDepthPositive()) {
                     pEdge->setLevel(1);
                 } else {
                     pEdge->setLevel(0);
@@ -337,7 +350,7 @@ void Optimizer::poseOptimization(const std::shared_ptr<Frame>& pFrame) const
             }
         }
     }
-    
+
     // update optimized pose and map point outlier status
     for (int i = 0; i < nMPts; ++i) {
         auto& pMPt = vpMPts[i];
@@ -345,14 +358,21 @@ void Optimizer::poseOptimization(const std::shared_ptr<Frame>& pFrame) const
         float chi2 = pEdge->chi2();
         cv::KeyPoint kpt = pMPt->getKpt(pFrame);
         float sigma = std::pow(Config::scaleFactor(), kpt.octave);
-        if (chi2 > sigma*sigma) {
+        if (chi2 > 5.991 || !pEdge->isDepthPositive()) {
             pMPt->setOutlier(true);
         } else {
             pMPt->setOutlier(false);
+            nInliers++;
         }
     }
     g2o::SE3Quat T = pVSE3->estimate();
     pFrame->mPose.setPose(SE3Quat2cvMat(T));
+
+    // clean up resources
+    optimizer.clear();
+    optimizer.clearParameters();
+
+    return nInliers;
 }
 
 g2o::SE3Quat Optimizer::cvMat2SE3Quat(const cv::Mat& Tcw) const

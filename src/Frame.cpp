@@ -24,7 +24,7 @@ unsigned Frame::nNextIdx = 0;
 
 const int Frame::NUM_BLK_X = 4;
 const int Frame::NUM_BLK_Y = 4;
-const int Frame::TH_EDGE = 31;
+const int Frame::TH_EDGE = 17;
 
 Frame::Frame(const cv::Mat& img, double timestamp) :
     mTimestamp(timestamp), mnIdx(nNextIdx++)
@@ -36,7 +36,7 @@ Frame::Frame(const cv::Mat& img, double timestamp) :
         Config::nFeatures() / numFeatScale, // [2, nFeatures]
         Config::scaleFactor(), Config::nLevels(),
         TH_EDGE, // edgeThreshold
-        0, 2, cv::ORB::FAST_SCORE,
+        0, 2, cv::ORB::HARRIS_SCORE,
         31, // patchSize
         20); // FAST threshold
     extractFeatures(img);
@@ -95,13 +95,13 @@ void Frame::extractFeatures(const cv::Mat& img)
     mvKpts.reserve(Config::nFeatures());
     int nImgWidth = img.cols;
     int nImgHeight = img.rows;
-    int nBlkWidth = nImgWidth / NUM_BLK_X;
-    int nBlkHeight = nImgHeight / NUM_BLK_Y;
     // expand input image by 2*TH_EDGE
     Mat imgFull;
     cv::copyMakeBorder(img, imgFull, TH_EDGE, TH_EDGE, TH_EDGE, TH_EDGE,
                        cv::BORDER_REFLECT_101);
+    int nBlkHeight = nImgHeight / NUM_BLK_Y;
     for (int i = 0; i < NUM_BLK_Y; ++i) {
+        int nBlkWidth = nImgWidth / NUM_BLK_X;
         int nBlkTLY = nBlkHeight * i; // top-left y coord of a block
         if (i == NUM_BLK_Y - 1) {
             nBlkHeight = nImgHeight - (NUM_BLK_Y - 1) * nBlkHeight;
@@ -129,10 +129,10 @@ void Frame::extractFeatures(const cv::Mat& img)
                 std::dynamic_pointer_cast<cv::ORB>(mpFeatExtractor);
             int thFAST = pORB->getFastThreshold();
             int thFASTtmp = thFAST;
-            while (vKpts.empty() && thFASTtmp > 0) {
+            while (vKpts.empty() && thFASTtmp > 10) {
                 pORB->detectAndCompute(
                     imgROI, cv::noArray(), vKpts, descs);
-                thFASTtmp /= 2;
+                thFASTtmp -= 5;
                 pORB->setFastThreshold(thFASTtmp);
             }
             pORB->setFastThreshold(thFAST); // restore FAST threhold value

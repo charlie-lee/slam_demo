@@ -16,6 +16,7 @@ target_link_libraries(${PROJECT_NAME}
   # g2o-related libs
   g2o_core
   g2o_solver_cholmod
+  g2o_solver_csparse
   g2o_types_sba
   )
 

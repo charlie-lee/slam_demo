@@ -29,12 +29,31 @@ public: // public members
     Optimizer(const std::shared_ptr<Map>& pMap);
     /**
      * @brief Global bundle adjustment for pose & map data optimization.
+     * @param[in] nFrames Number of recent frames as input to global BA scheme.
+     *                    Optimize all avaiable frames if nFrames == 0.
      * @param[in] nIter   Number of iterations for the optimization scheme.
      * @param[in] bRobust Whether or not to use robust kernel.
      */
-    void globalBundleAdjustment(int nIter = 20, bool bRobust = true) const;
+    void globalBundleAdjustment(unsigned nFrames = 0, int nIter = 20,
+                                bool bRobust = true) const;
+    /**
+     * @brief Single-frame bundle adjustment for pose & new map point 
+     *        data optimization.
+     * @param[in] nIter   Number of iterations for the optimization scheme.
+     * @param[in] bRobust Whether or not to use robust kernel.
+     * @note Only the new pose and all observed map points are being
+     *       optimized. If there're no new triangulated map points avaible,
+     *       the optimization scheme will be skipped.
+     */
     void frameBundleAdjustment(int nIter = 20, bool bRobust = true) const;
-    void poseOptimization(const std::shared_ptr<Frame>& pFrame) const;
+    /**
+     * @brief Pose optimization scheme using BA.
+     * @param[in] pFrame Pointer to the frame where the corresponding pose 
+     *                   will be optimized.
+     * @return Number of map point inliers after the optimization.
+     * @note In this BA scheme, only the pose is optimized.
+     */
+    int poseOptimization(const std::shared_ptr<Frame>& pFrame) const;
 private: // private data
     /// Pointer to the map.
     std::shared_ptr<Map> mpMap;
