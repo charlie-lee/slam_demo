@@ -342,7 +342,7 @@ int Optimizer::poseOptimization(const std::shared_ptr<Frame>& pFrame) const
                 float chi2 = pEdge->chi2();
                 cv::KeyPoint kpt = pMPt->getKpt(pFrame);
                 float sigma = std::pow(Config::scaleFactor(), kpt.octave);
-                if (chi2 > 5.991 || !pEdge->isDepthPositive()) {
+                if (chi2 > sigma*sigma * 9.0f || !pEdge->isDepthPositive()) {
                     pEdge->setLevel(1);
                 } else {
                     pEdge->setLevel(0);
@@ -358,7 +358,7 @@ int Optimizer::poseOptimization(const std::shared_ptr<Frame>& pFrame) const
         float chi2 = pEdge->chi2();
         cv::KeyPoint kpt = pMPt->getKpt(pFrame);
         float sigma = std::pow(Config::scaleFactor(), kpt.octave);
-        if (chi2 > 5.991 || !pEdge->isDepthPositive()) {
+        if (chi2 > sigma*sigma * 9.0f || !pEdge->isDepthPositive()) {
             pMPt->setOutlier(true);
         } else {
             pMPt->setOutlier(false);
