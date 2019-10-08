@@ -37,8 +37,6 @@ using cv::Mat;
 using std::cout;
 using std::endl;
 
-//#define TWO_PASS_TRACKING
-
 // constants
 const bool Tracker::USE_LOWE_RATIO_TEST = false;
 const float Tracker::TH_RATIO_DIST = 0.7f;
@@ -48,7 +46,7 @@ const float Tracker::TH_COS_PARALLAX = 0.9999f;
 const float Tracker::TH_REPROJ_ERR_FACTOR = 1.0f;
 const float Tracker::TH_POSE_SEL = 0.7f;
 const float Tracker::TH_MIN_RATIO_TRIANG_PTS = 0.5f;
-const int Tracker::TH_MIN_MATCHES_3D_TO_2D = 100;
+const int Tracker::TH_MIN_MATCHES_3D_TO_2D = 50;
 // other data
 unsigned Tracker::n1stFrame = 0;
 
@@ -798,73 +796,6 @@ void Tracker::buildInitialMap(const cv::Mat& Xws,
     }
 }
 
-//#ifndef TWO_PASS_TRACKING
-//Tracker::State Tracker::track()
-//{
-//    // input:
-//    // - mpView1 & mpView2 with keypoints & descriptors
-//    // - the map with map points and their descriptors
-//    State eState;
-//    // get all map points
-//    mvpMPts = mpMap->getAllMPts();
-//    cout << "Number of map points = " << mvpMPts.size() << endl;
-//    // feature matching between the map and view 2
-//    matchFeatures3Dto2D();
-//
-//    // pose estimation
-//    eState = poseEstimation(mpView1->mPose);
-//    
-//    // triangulate new map points and update the map
-//    //updateMap();
-//    
-//    // feature matching between view 1 & 2 for more correspondences
-//    matchFeatures2Dto2D();
-//    // update visibility counter of all existed map points
-//    updateMPtVisibleData();
-//    
-//    // pose optimization
-//    //shared_ptr<Optimizer> pOpt = make_shared<Optimizer>(mpMap);
-//    //pOpt->poseOptimization(mpView2);
-//
-//    // triangulate new 3D points & fuse them into the map
-//    Mat Xws; // 3xN matrix containing N 3D points
-//    vector<int> vnIdxPts; // index of valid 3D points
-//    triangulate3DPts(Xws, vnIdxPts);
-//    fuseMPts(Xws, vnIdxPts);
-//    // remove redundant map points
-//    mpMap->removeMPts();
-//
-//    // do single-frame BA (skip if new map points are triangulated)
-//    //pOpt->frameBundleAdjustment(20, true);
-//    // global BA every N frames
-//    //if (System::nCurrentFrame % 20 == 0) {
-//    //pOpt->globalBundleAdjustment(5, 20, true);
-//    //}
-//    
-//    // temp test on display of feature matching result
-//    displayFeatMatchResult(0, 0);
-//    
-//    if (eState == State::OK) {
-//        cout << "Pose T_{" << mpView2->getFrameIdx() << "|"
-//             << Tracker::n1stFrame  << "}:" << endl
-//             << mpView2->mPose << endl;
-//        setAbsPose(mpView2->mPose);
-//    } else {
-//        setAbsPose(mpView1->mPose);
-//    }
-//
-//    float meanO2VRatio = 0.0f;
-//    mvpMPts = mpMap->getAllMPts();
-//    for (const shared_ptr<MapPoint>& pMPt : mvpMPts) {
-//        meanO2VRatio += pMPt->getObs2VisibleRatio();
-//    }
-//    meanO2VRatio /= mvpMPts.size();
-//    cout << "mean observe-to-visible ratio for map points = "
-//         << meanO2VRatio * 100 << "%" << endl;
-//    
-//    return eState;
-//}
-//#else
 Tracker::State Tracker::track()
 {
     // input:
@@ -885,10 +816,11 @@ Tracker::State Tracker::track()
     // only optimize pose
     shared_ptr<Optimizer> pOpt = make_shared<Optimizer>(mpMap);
     //int nInliers = pOpt->poseOptimization(mpView2);
+    pOpt->poseOptimization(mpView2);
     //cout << "Inliers/Total matches (pose BA): " << nInliers << "/"
     //     << mvMatches3Dto2D.size() << endl;
 
-    pOpt->frameBundleAdjustment(5, true);
+    //pOpt->frameBundleAdjustment(10, true);
     
     // feature matching between view 1 & 2 for more correspondences
     matchFeatures2Dto2D();
@@ -904,7 +836,7 @@ Tracker::State Tracker::track()
     // pose estimation (2nd)
     //eState = poseEstimation(mpView2->mPose);
 
-    pOpt->frameBundleAdjustment(5, true);
+    pOpt->frameBundleAdjustment(10, true);
 
     // update visibility counter of all existed map points
     updateMPtVisibleData();
@@ -920,9 +852,9 @@ Tracker::State Tracker::track()
     // do single-frame BA (skip if new map points are triangulated)
     //pOpt->frameBundleAdjustment(10, true);
     // global BA every N frames
-    if ((System::nCurrentFrame - n1stFrame + 1) % 5 == 0) {
-        pOpt->globalBundleAdjustment(5, 5, true);
-    }
+    //if ((System::nCurrentFrame - n1stFrame + 1) % 5 == 0) {
+    //    pOpt->globalBundleAdjustment(5, 5, true);
+    //}
 
     // temp test on display of feature matching result
     displayFeatMatchResult(0, 0);
@@ -932,7 +864,7 @@ Tracker::State Tracker::track()
              << Tracker::n1stFrame  << "}:" << endl
              << mpView2->mPose << endl;
         setAbsPose(mpView2->mPose);
-    } else if (mvMatches3Dto2D.size() > 10 ) {
+    } else if (mvMatches3Dto2D.size() > 10) {
         mpView2->mPose = mpView1->mPose;
         setAbsPose(mpView1->mPose);
     } else {
@@ -950,7 +882,6 @@ Tracker::State Tracker::track()
     
     return eState;
 }
-//#endif // TWO_PASS_TRACKING
 
 Tracker::State Tracker::poseEstimation(const CamPose& pose)
 {

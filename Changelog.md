@@ -6,6 +6,7 @@
 - Update map point fusion procedure (TODO)
 
 ## Latest version
+- Revise tracking procedure
 
 ## v0.4.1
 - Force update map point descriptor to be the latest extracted one

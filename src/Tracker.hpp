@@ -38,28 +38,19 @@ class Map;
  * 2. Start tracking incoming frames after the tracking state becomes OK;
  *    - Do 3D-to-2D feature matching between the map and the latest view;
  *    - Estimate absolute pose using PnP given 3D-to-2D matches;
- *    - Update the map:
- *      - Do 2D-to-2D feature matching between the latest 2 views;
- *      - Update map point data (various counters);
- *      - Triangulate 3D points given 2D-to-2D matches;
- *      - Fuse newly triangulated points into the current map;
- *      - Remove redundant map points in the map.
- * 3. Return to 1 and continue track next incoming frame.
- *
- * There's also an alternative tracking procedure after the tracking state
- * becomes OK:
- * - Do 3D-to-2D feature matching between the map and the latest view;
- * - Estimate absolute pose using PnP given 3D-to-2D matches;
- *   - Use pose of previous view as the initial guess;
- * - Remove redundant map points in the map;
- * - Do 2D-to-2D feature matching between the latest 2 views;
- * - Triangulate 3D points given 2D-to-2D matches;
- * - Fuse newly triangulated points into the current map;
- * - Redo 3D-to-2D feature matching between the updated map and the latest view; 
- * - Estimate absolute pose using PnP given 3D-to-2D matches for a second time;
- *   - Use previously estimated pose as the initial guess;
- * - Update map point data (various counters);
- * - Remove redundant map points in the map.
+ *      - Use pose of previous view as the initial guess;
+ *    - Do 2D-to-2D feature matching between the latest 2 views;
+ *    - Triangulate 3D points given 2D-to-2D matches;
+ *    - Fuse newly triangulated points into the current map;
+ *    - Redo 3D-to-2D feature matching between the updated map and the 
+ *      latest view; 
+ *    - Estimate absolute pose using PnP given 3D-to-2D matches for again;
+ *      - Use previously estimated pose as the initial guess;
+ *    - Update map point data (various counters);
+ *    - Remove redundant map points in the map;
+ * 3. Return to 1 and continue track next incoming frame:
+ *    - If the tracking failed consecutively for some frames, re-initialize
+ *      the system.
  */
 class Tracker {
 public: // public data
