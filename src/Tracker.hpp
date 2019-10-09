@@ -54,6 +54,13 @@ class Map;
  */
 class Tracker {
 public: // public data
+    /// Tracking state.
+    enum class State {
+        /// Map is not initialized. Using 2D-2D matches for pose estimation.
+        NOT_INITIALIZED, 
+        OK, ///< Tracking is successful for a new incoming frame.
+        LOST ///< Tracking is unsuccessful.
+    };
     /// The 1st frame in the initialized SLAM system.
     static unsigned n1stFrame;
 public: // public members
@@ -71,18 +78,15 @@ public: // public members
      *       in System::Mode::MONOCULAR mode.
      */
     void trackImgsMono(const cv::Mat& img, double timestamp);
+    /// Get state of the tracker.
+    Tracker::State getState() const { return meState; }
+    /// Set state of the tracker.
+    void setState(Tracker::State eState) { meState = eState; }
     /// Get the vector index of the last pose recorded.
     int getIdxLastPose() const { return mvTs.size() - 1; }
     /// Get camera pose of a target frame relative to 1st frame.
     CamPose getAbsPose(int nIdx) const { return mvTs[nIdx]; }
 private: // private data
-    /// Tracking state.
-    enum class State {
-        /// Map is not initialized. Using 2D-2D matches for pose estimation.
-        NOT_INITIALIZED, 
-        OK, ///< Tracking is successful for a new incoming frame.
-        LOST ///< Tracking is unsuccessful.
-    };
     /// Selection result of the better transformation from F and H.
     enum class FHResult {F, H, NONE /**< Neither H nor F is appropriate. */};
     /// Reprojection error computation scheme.
@@ -100,7 +104,7 @@ private: // private data
     static const float TH_MAX_RATIO_FH;
     /// Cosine of smallest appropriate parallax/angle between 2 views.
     static const float TH_COS_PARALLAX;
-    /// Reprojection error factor for checking good triangulated points.
+    /// Reprojection error factor for RANSAC PnP scheme.
     static const float TH_REPROJ_ERR_FACTOR;
     /// For selecting best possible recovered pose.
     static const float TH_POSE_SEL;
@@ -380,10 +384,9 @@ private: // private member functions
      * @brief Pose estimation after map is initialized. Currently use PnP
      *        based on 3D-to-2D matches.
      * @param[in] pose Initial guess of the pose for current frame.
+     * @return Number of inlier 3D-to-2D matches.
      */
-    Tracker::State poseEstimation(const CamPose& pose);
-    /// Triangulate new map points and update the map after pose estimation.
-    void updateMap();
+    int poseEstimation(const CamPose& pose);
     /// Update visibility counter of all existed map points for current view.
     void updateMPtVisibleData() const;
     /// Update observation data of all matched map points for current view.

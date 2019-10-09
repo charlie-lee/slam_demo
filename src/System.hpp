@@ -41,6 +41,10 @@ public: // public data
     };
     /// Index of current frame loaded into the SLAM system.
     static unsigned nCurrentFrame;
+    /// Number of consecutively lost frames.
+    static unsigned nLostFrames;
+    /// Maxisum number of lost frames allowed in the system.
+    const static unsigned TH_MAX_LOST_FRAMES;    
 public: // public members
     /**
      * @brief Constructor for SLAM system class,
@@ -66,6 +70,8 @@ public: // public members
      *       and trajectoryOpt.txt for DumpMode::OPTIMIZED.
      */
     void dumpTrajectory(DumpMode eMode);
+    /// System reset.
+    void reset();    
 private: // private data
     Mode meMode; ///< System mode.
     std::shared_ptr<Tracker> mpTracker; ///< Pointer to tracker module.

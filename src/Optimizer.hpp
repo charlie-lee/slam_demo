@@ -45,7 +45,8 @@ public: // public members
      *       optimized. If there're no new triangulated map points avaible,
      *       the optimization scheme will be skipped.
      */
-    void frameBundleAdjustment(int nIter = 20, bool bRobust = true) const;
+    void frameBundleAdjustment(unsigned nFrames = 1, int nIter = 20,
+                               bool bRobust = true) const;
     /**
      * @brief Pose optimization scheme using BA.
      * @param[in] pFrame Pointer to the frame where the corresponding pose 

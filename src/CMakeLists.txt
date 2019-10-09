@@ -22,6 +22,7 @@ target_link_libraries(${PROJECT_NAME}
 
 target_compile_options(${PROJECT_NAME} PRIVATE
   "$<$<CONFIG:DEBUG>:${DEBUG_OPTIONS}>" # compile options in debug mode
+  "$<$<CONFIG:RELEASE>:${RELEASE_OPTIONS}>" # release mode
   "-march=native" # essential for running g2o (on virtual machine?)
   ) 
 

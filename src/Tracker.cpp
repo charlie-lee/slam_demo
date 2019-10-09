@@ -43,10 +43,10 @@ const float Tracker::TH_RATIO_DIST = 0.7f;
 const float Tracker::TH_MAX_DIST_MATCH = 64.0f;
 const float Tracker::TH_MAX_RATIO_FH = 0.5f;
 const float Tracker::TH_COS_PARALLAX = 0.9999f;
-const float Tracker::TH_REPROJ_ERR_FACTOR = 1.0f;
-const float Tracker::TH_POSE_SEL = 0.7f;
+const float Tracker::TH_REPROJ_ERR_FACTOR = 4.0f;
+const float Tracker::TH_POSE_SEL = 0.5f;
 const float Tracker::TH_MIN_RATIO_TRIANG_PTS = 0.5f;
-const int Tracker::TH_MIN_MATCHES_3D_TO_2D = 50;
+const int Tracker::TH_MIN_MATCHES_3D_TO_2D = 30;
 // other data
 unsigned Tracker::n1stFrame = 0;
 
@@ -95,11 +95,13 @@ void Tracker::trackImgsMono(const cv::Mat& img, double timestamp)
 
     cout << "Extracted "
          << pFrameCur->getKeyPoints().size() << " keypoint(s)" << endl;
+    cout << mpMap->getAllFrames().size() << " frames in map" << endl;
     
     // feature matching
     if (mbFirstFrame) {
         mvpFramesCur[0] = pFrameCur;
         mbFirstFrame = false;
+        meState = State::NOT_INITIALIZED;
     } else {
         mpView1 = mvpFramesPrev[0] = mvpFramesCur[0];
         mpView2 = mvpFramesCur[0] = pFrameCur;
@@ -108,8 +110,8 @@ void Tracker::trackImgsMono(const cv::Mat& img, double timestamp)
         } else if (meState == State::OK) {
             meState = track();
         } else if (meState == State::LOST) {
-            // TODO: relocalization?
             meState = track();
+            System::nLostFrames++;
         }
     }
     imgPrev = imgCur;
@@ -750,8 +752,8 @@ bool Tracker::checkTriangulatedPt(const cv::Mat& Xw,
     float s = Config::scaleFactor();
     int o1 = kpt1.octave;
     int o2 = kpt2.octave;
-    float th1Reproj = std::pow(s, o1) * TH_REPROJ_ERR_FACTOR;
-    float th2Reproj = std::pow(s, o2) * TH_REPROJ_ERR_FACTOR;
+    float th1Reproj = std::pow(s, o1);
+    float th2Reproj = std::pow(s, o2);
     float err1Reproj = cv::norm(x1 - x1Reproj, cv::NORM_L2);
     float err2Reproj = cv::norm(x2 - x2Reproj, cv::NORM_L2);
     if (err1Reproj > th1Reproj || err2Reproj > th2Reproj) {
@@ -801,7 +803,9 @@ Tracker::State Tracker::track()
     // input:
     // - mpView1 & mpView2 with keypoints & descriptors
     // - the map with map points and their descriptors
-    State eState = State::OK;
+    State eState = State::OK; 
+    shared_ptr<Optimizer> pOpt = make_shared<Optimizer>(mpMap); // optimizer
+    int nInliers; // map point inliers
     
     // get all map points
     mvpMPts = mpMap->getAllMPts();
@@ -811,16 +815,16 @@ Tracker::State Tracker::track()
     matchFeatures3Dto2D();
 
     // pose estimation (1st)
-    poseEstimation(mpView1->mPose);
-    
-    // only optimize pose
-    shared_ptr<Optimizer> pOpt = make_shared<Optimizer>(mpMap);
-    //int nInliers = pOpt->poseOptimization(mpView2);
-    pOpt->poseOptimization(mpView2);
-    //cout << "Inliers/Total matches (pose BA): " << nInliers << "/"
-    //     << mvMatches3Dto2D.size() << endl;
+    nInliers = poseEstimation(mpView1->mPose);
+    cout << "Inliers/total 3D-to-2D matches (RANSAC PnP): "
+         << nInliers << "/" << mvMatches3Dto2D.size() << endl;
 
-    //pOpt->frameBundleAdjustment(10, true);
+    // only optimize pose
+    nInliers = pOpt->poseOptimization(mpView2);
+    cout << "Inliers/Total matches (pose BA): " << nInliers << "/"
+         << mvMatches3Dto2D.size() << endl;
+
+    //pOpt->frameBundleAdjustment(1, 5, true);
     
     // feature matching between view 1 & 2 for more correspondences
     matchFeatures2Dto2D();
@@ -834,41 +838,46 @@ Tracker::State Tracker::track()
     matchFeatures3Dto2D();
 
     // pose estimation (2nd)
-    //eState = poseEstimation(mpView2->mPose);
-
-    pOpt->frameBundleAdjustment(10, true);
-
-    // update visibility counter of all existed map points
-    updateMPtVisibleData();
+    //nInliers = poseEstimation(mpView2->mPose);
+    //cout << "Inliers/total 3D-to-2D matches (RANSAC PnP, 2nd): "
+    //     << nInliers << "/" << mvMatches3Dto2D.size() << endl;
     
     // only optimize pose
     //nInliers = pOpt->poseOptimization(mpView2);
     //cout << "Inliers/Total matches (pose BA, 2nd): " << nInliers << "/"
     //     << mvMatches3Dto2D.size() << endl;
 
+    pOpt->frameBundleAdjustment(1, 5, true);
+    //pOpt->globalBundleAdjustment(5, 5, true);
+
+    // global BA every N frames
+    //if ((System::nCurrentFrame - n1stFrame + 1) % 20 == 0) {
+    //    pOpt->globalBundleAdjustment(20, 5, true);
+    //} else {
+    //    pOpt->frameBundleAdjustment(1, 5, true);
+    //}
+
+    // update visibility counter of all existed map points
+    updateMPtVisibleData();
+    
     // remove redundant map points
     mpMap->removeMPts();
-
-    // do single-frame BA (skip if new map points are triangulated)
-    //pOpt->frameBundleAdjustment(10, true);
-    // global BA every N frames
-    //if ((System::nCurrentFrame - n1stFrame + 1) % 5 == 0) {
-    //    pOpt->globalBundleAdjustment(5, 5, true);
-    //}
 
     // temp test on display of feature matching result
     displayFeatMatchResult(0, 0);
 
-    if (mvMatches3Dto2D.size() > 20) {
+    cout << mvMatches3Dto2D.size() << " matches after triangulation" << endl;
+
+    if (mvMatches3Dto2D.size() > 10) {
         cout << "Pose T_{" << mpView2->getFrameIdx() << "|"
              << Tracker::n1stFrame  << "}:" << endl
              << mpView2->mPose << endl;
         setAbsPose(mpView2->mPose);
-    } else if (mvMatches3Dto2D.size() > 10) {
+        eState = State::OK;
+    } else {
         mpView2->mPose = mpView1->mPose;
         setAbsPose(mpView1->mPose);
-    } else {
-        eState = State::NOT_INITIALIZED;
+        eState = State::LOST;
     }
 
     float meanO2VRatio = 0.0f;
@@ -883,7 +892,7 @@ Tracker::State Tracker::track()
     return eState;
 }
 
-Tracker::State Tracker::poseEstimation(const CamPose& pose)
+int Tracker::poseEstimation(const CamPose& pose)
 {
     // get all 3D points and corresponding 2D keypoints
     int nMatches = mvMatches3Dto2D.size();
@@ -891,7 +900,7 @@ Tracker::State Tracker::poseEstimation(const CamPose& pose)
     // currently restart map initialization scheme
     if (nMatches < TH_MIN_MATCHES_3D_TO_2D) {
         mpView2->mPose = mpView1->mPose;
-        return State::LOST;
+        return 0;
     }
     // get input 3D and 2D points for PnP
     Mat X3Ds(nMatches, 3, CV_32FC1);
@@ -920,7 +929,7 @@ Tracker::State Tracker::poseEstimation(const CamPose& pose)
     bool bIsPoseEstimated = 
         solvePnPRansac(X3Ds, x2Ds, Config::K(), cv::noArray(),
                        RcwAA, tcw, true, 100, thReprojErr, 0.99, idxInliers,
-                       cv::SOLVEPNP_EPNP);
+                       cv::SOLVEPNP_ITERATIVE);
     if (bIsPoseEstimated) {
         Mat Rcw; // 3x3 rotation matrix
         cv::Rodrigues(RcwAA, Rcw, cv::noArray());
@@ -948,31 +957,18 @@ Tracker::State Tracker::poseEstimation(const CamPose& pose)
             errorRT += diffx.dot(diffx);
         }
         errorRT /= nMatches;
+        if (errorRT > TH_REPROJ_ERR_FACTOR*TH_REPROJ_ERR_FACTOR * 4.0f) {
+            mpView2->mPose = mpView1->mPose;
+            return 0;
+        }
         cout << "Mean square reprojection error for PnP = " << errorRT << endl;
-        cout << "Inliers/total 3D-to-2D matches: "
-             << idxInliers.rows << "/" << nMatches << endl;
 
-        return State::OK;
+        return idxInliers.rows;
     } else {
         mpView2->mPose = mpView1->mPose;
-        return State::LOST;
+        return 0;
     }
-    return State::LOST;
-}
-
-void Tracker::updateMap()
-{
-    // feature matching between view 1 & 2 for more correspondences
-    matchFeatures2Dto2D();
-    // update visibility counter of all existed map points
-    updateMPtVisibleData();
-    // triangulate new 3D points & fuse them into the map
-    Mat Xws; // 3xN matrix containing N 3D points
-    vector<int> vnIdxPts; // index of valid 3D points
-    triangulate3DPts(Xws, vnIdxPts);
-    fuseMPts(Xws, vnIdxPts);
-    // remove redundant map points
-    mpMap->removeMPts();
+    return 0;
 }
 
 void Tracker::updateMPtVisibleData() const

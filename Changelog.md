@@ -1,12 +1,16 @@
 # Changelog & TODO-list
 
 ## TODO
-- Store last k frames in Tracker class for BA (?)
 - Add keyframe selection scheme (add KeyFrame class) (TODO)
 - Update map point fusion procedure (TODO)
 
-## Latest version
+## Latest Version
+
+## v0.4.2
 - Revise tracking procedure
+- Add outlier removal for global BA (currently disabled)
+- Modify single-frame BA to have multiple pose nodes in the optimization graph
+  (all but the pose of current frame are fixed)
 
 ## v0.4.1
 - Force update map point descriptor to be the latest extracted one

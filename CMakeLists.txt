@@ -9,7 +9,7 @@ endif()
 
 # set up top-level project
 project(slam_demo
-  VERSION 0.4.1
+  VERSION 0.4.2
   DESCRIPTION "SLAM demo"
   LANGUAGES CXX)
 
@@ -21,6 +21,8 @@ project(slam_demo
 # -Wnon-virtual-dtor: warn the user if a class with virtual functions has
 #   a non-virtual destructor. This can lead to hard to track down memory errors.
 set(DEBUG_OPTIONS "-Wall" "-Wextra" "-Wshadow" "-pedantic" "-Wnon-virtual-dtor")
+set(RELEASE_OPTIONS "-Wall" "-Wextra" "-Wshadow" "-pedantic" "-Wnon-virtual-dtor"
+  "-O3")
 # custom OpenCV version
 #set(OpenCV_VER 3.4.5)
 

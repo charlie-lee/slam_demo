@@ -36,6 +36,8 @@ using std::string;
 using std::vector;
 
 unsigned System::nCurrentFrame = 0;
+unsigned System::nLostFrames = 0;
+const unsigned System::TH_MAX_LOST_FRAMES = 5;
 
 System::System(Mode eMode) : meMode(eMode)
 {
@@ -69,28 +71,47 @@ void System::trackImgs(const std::vector<cv::Mat>& vImgs, double timestamp)
         assert(0); // TODO: track images in other SLAM modes
     }
 
-    // save trajectory (real time)
-    int nIdx = mpTracker->getIdxLastPose();
-    // just initialized
-    if (nIdx == 1) { //
-        // reset trajectory
-        mmTrajectoryRT.clear();
-        mmTrajectoryOpt.clear();
+    Tracker::State eState = mpTracker->getState();
+    if (eState == Tracker::State::NOT_INITIALIZED) {
+        reset(); // reset system if it is not initialized
         saveTrajectoryRT(timestamp, CamPose());
-    }
-    
-    if (nIdx > 0) {
+    } else if (eState == Tracker::State::OK) {
+        // save trajectory (real time)
+        int nIdx = mpTracker->getIdxLastPose();
         // already initialized
         CamPose pose = mpTracker->getAbsPose(nIdx);
         saveTrajectoryRT(timestamp, pose);
         // save trajectory (final optimized)
         bool bFuseRestData = false;
         saveTrajectoryOpt(bFuseRestData);
-    } else {
-        // reset trajectory
-        mmTrajectoryRT.clear();
-        mmTrajectoryOpt.clear();
+    } else if (eState == Tracker::State::LOST) {
+        if (System::nLostFrames > System::TH_MAX_LOST_FRAMES) {
+            mpTracker->setState(Tracker::State::NOT_INITIALIZED);
+        }            
     }
+    
+    // save trajectory (real time)
+    //int nIdx = mpTracker->getIdxLastPose();
+    //// just initialized
+    //if (nIdx == 1) { //
+    //    // reset trajectory
+    //    mmTrajectoryRT.clear();
+    //    mmTrajectoryOpt.clear();
+    //    saveTrajectoryRT(timestamp, CamPose());
+    //}
+    //
+    //if (nIdx > 0) {
+    //    // already initialized
+    //    CamPose pose = mpTracker->getAbsPose(nIdx);
+    //    saveTrajectoryRT(timestamp, pose);
+    //    // save trajectory (final optimized)
+    //    bool bFuseRestData = false;
+    //    saveTrajectoryOpt(bFuseRestData);
+    //} else {
+    //    // reset trajectory
+    //    mmTrajectoryRT.clear();
+    //    mmTrajectoryOpt.clear();
+    //}
 }
 
 void System::dumpTrajectory(DumpMode eMode)
@@ -124,6 +145,17 @@ void System::dumpTrajectory(DumpMode eMode)
             << qRcw.w() << " "
             << endl;
     }
+}
+
+void System::reset()
+{
+    // clear map
+    mpMap->clear();
+    // clear saved trajectory
+    mmTrajectoryRT.clear();
+    mmTrajectoryOpt.clear();
+    // reset lost frame counter
+    System::nLostFrames = 0;
 }
 
 void System::saveTrajectoryRT(double timestamp, const CamPose& pose)

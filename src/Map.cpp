@@ -22,7 +22,7 @@ using std::shared_ptr;
 using std::vector;
 
 const float Map::TH_MIN_RATIO_OBS_TO_VISIBLE = 0.8f;
-const unsigned Map::TH_MAX_NUM_FRMS_LAST_SEEN = 10;
+const unsigned Map::TH_MAX_NUM_FRMS_LAST_SEEN = 20;
 
 void Map::addMPt(const std::shared_ptr<MapPoint>& pMPt)
 {
