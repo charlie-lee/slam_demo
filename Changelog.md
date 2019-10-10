@@ -5,6 +5,8 @@
 - Update map point fusion procedure (TODO)
 
 ## Latest Version
+- Fix a bug about the copy behavior of CamPose objects, which causes
+  the failure of epipolar constraint test when triangulating new map points
 
 ## v0.4.2
 - Revise tracking procedure

@@ -58,6 +58,8 @@ public: // public members
 private: // private data
     /// Pointer to the map.
     std::shared_ptr<Map> mpMap;
+    /// Minimum number of map points for optimization.
+    static const int TH_MIN_NUM_MAPPOINT;
 private: // private members
     /**
      * @name Conversion functions between cv::Mat & g2o vertices data

@@ -43,7 +43,7 @@ const float Tracker::TH_RATIO_DIST = 0.7f;
 const float Tracker::TH_MAX_DIST_MATCH = 64.0f;
 const float Tracker::TH_MAX_RATIO_FH = 0.5f;
 const float Tracker::TH_COS_PARALLAX = 0.9999f;
-const float Tracker::TH_REPROJ_ERR_FACTOR = 4.0f;
+const float Tracker::TH_REPROJ_ERR_FACTOR = 2.0f;
 const float Tracker::TH_POSE_SEL = 0.5f;
 const float Tracker::TH_MIN_RATIO_TRIANG_PTS = 0.5f;
 const int Tracker::TH_MIN_MATCHES_3D_TO_2D = 30;
@@ -170,7 +170,7 @@ Tracker::State Tracker::initializeMapMono()
         
         // optimize both pose & map data
         shared_ptr<Optimizer> pOpt = make_shared<Optimizer>(mpMap);
-        pOpt->globalBundleAdjustment(0, 10, true);
+        pOpt->globalBundleAdjustment(0, 20, true);
         
         return State::OK;
     }
@@ -760,15 +760,15 @@ bool Tracker::checkTriangulatedPt(const cv::Mat& Xw,
         return false;
     }
     // condition 5: the keypoint pair should meet epipolar constraint
-    //Mat F21 = computeFundamental(pose1, pose2);
-    //Mat F12 = F21.t();
-    //// mean square symmetric error
-    //Mat x1h = (cv::Mat_<float>(3, 1) << kpt1.pt.x, kpt1.pt.y, 1.f);
-    //Mat x2h = (cv::Mat_<float>(3, 1) << kpt2.pt.x, kpt2.pt.y, 1.f);
-    //float errorF2 = computeReprojErr(F21, F12, x1h, x2h, ReprojErrScheme::F);
-    //if (errorF2*2 > th1Reproj*th1Reproj + th2Reproj*th2Reproj) {
-    //    return false;
-    //}
+    Mat F21 = computeFundamental(pose1, pose2);
+    Mat F12 = F21.t();
+    // mean square symmetric error
+    Mat x1h = (cv::Mat_<float>(3, 1) << kpt1.pt.x, kpt1.pt.y, 1.f);
+    Mat x2h = (cv::Mat_<float>(3, 1) << kpt2.pt.x, kpt2.pt.y, 1.f);
+    float errorF2 = computeReprojErr(F21, F12, x1h, x2h, ReprojErrScheme::F);
+    if (errorF2*2.0f > (th1Reproj*th1Reproj + th2Reproj*th2Reproj)) {
+        return false;
+    }
     return true; // triangulated result is good if all conditions are met
 }
 
@@ -843,12 +843,12 @@ Tracker::State Tracker::track()
     //     << nInliers << "/" << mvMatches3Dto2D.size() << endl;
     
     // only optimize pose
-    //nInliers = pOpt->poseOptimization(mpView2);
-    //cout << "Inliers/Total matches (pose BA, 2nd): " << nInliers << "/"
-    //     << mvMatches3Dto2D.size() << endl;
+    nInliers = pOpt->poseOptimization(mpView2);
+    cout << "Inliers/Total matches (pose BA, 2nd): " << nInliers << "/"
+         << mvMatches3Dto2D.size() << endl;
 
-    pOpt->frameBundleAdjustment(1, 5, true);
-    //pOpt->globalBundleAdjustment(5, 5, true);
+    pOpt->frameBundleAdjustment(1, 10, true);
+    //pOpt->globalBundleAdjustment(10, 10, true);
 
     // global BA every N frames
     //if ((System::nCurrentFrame - n1stFrame + 1) % 20 == 0) {

@@ -37,7 +37,7 @@ using std::vector;
 
 unsigned System::nCurrentFrame = 0;
 unsigned System::nLostFrames = 0;
-const unsigned System::TH_MAX_LOST_FRAMES = 5;
+const unsigned System::TH_MAX_LOST_FRAMES = 10;
 
 System::System(Mode eMode) : meMode(eMode)
 {

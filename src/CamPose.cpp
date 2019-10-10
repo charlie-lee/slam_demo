@@ -45,14 +45,14 @@ CamPose::CamPose(const cv::Mat& Rcw, const cv::Mat& tcw) :
 
 CamPose::CamPose(const CamPose& pose)
 {
-    mTcw = pose.mTcw;
-    mTwc = pose.mTwc;
+    mTcw = pose.mTcw.clone(); // clone the cv::Mat!
+    mTwc = pose.mTwc.clone();
 }
 
 CamPose& CamPose::operator=(const CamPose& pose)
 {
-    mTcw = pose.mTcw;
-    mTwc = pose.mTwc;
+    mTcw = pose.mTcw.clone(); // clone the cv::Mat!
+    mTwc = pose.mTwc.clone();
     return *this;
 }
 
