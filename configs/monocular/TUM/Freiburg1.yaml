@@ -15,27 +15,27 @@ Camera.width: 640
 Camera.height: 480
 
 # Camera intrinsics (K)
-#Camera.fx: 517.3
-#Camera.fy: 516.5
-#Camera.cx: 318.6
-#Camera.cy: 255.3
-Camera.fx: 525.0
-Camera.fy: 525.0
-Camera.cx: 319.5
-Camera.cy: 239.5
+Camera.fx: 517.306408
+Camera.fy: 516.469215
+Camera.cx: 318.643040
+Camera.cy: 255.313989
+#Camera.fx: 525.0
+#Camera.fy: 525.0
+#Camera.cx: 319.5
+#Camera.cy: 239.5
 
 # Camera distortion data
 Camera.distortion_model: radial-tangential
-#Camera.k1: 0.2624
-#Camera.k2: -0.9531
-#Camera.p1: -0.0054
-#Camera.p2: 0.0026
-#Camera.k3: 1.1633
-Camera.k1: 0
-Camera.k2: 0
-Camera.p1: 0
-Camera.p2: 0
-Camera.k3: 0
+Camera.k1: 0.262383
+Camera.k2: -0.953104
+Camera.p1: -0.005358
+Camera.p2: 0.002628
+Camera.k3: 1.163314
+#Camera.k1: 0
+#Camera.k2: 0
+#Camera.p1: 0
+#Camera.p2: 0
+#Camera.k3: 0
 
 
 ###
@@ -46,10 +46,10 @@ Camera.k3: 0
 Feature.nFeatures: 1000
 
 # Scale factor of the image pyramid
-Feature.scaleFactor: 2
+Feature.scaleFactor: 1.2
 
 # Number of octaves/levels of the image pyramid
-Feature.nLevels: 5
+Feature.nLevels: 8
 
 
 ###

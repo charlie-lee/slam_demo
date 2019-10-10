@@ -245,7 +245,7 @@ void Optimizer::frameBundleAdjustment(unsigned nFrames, int nIter,
 
     // add vertices: poses
     vector<shared_ptr<Frame>> vpFrames = mpMap->getLastNFrames(nFrames);
-    shared_ptr<Frame> pFrameCur;
+    shared_ptr<Frame> pFrameCur = nullptr;
 
     unsigned idxFMax = 0;
     for (const auto& pFrame : vpFrames) {
@@ -263,6 +263,11 @@ void Optimizer::frameBundleAdjustment(unsigned nFrames, int nIter,
         if (idxF > idxFMax) {
             idxFMax = idxF;
         }
+    }
+
+    // no target frame to be optimized
+    if (!pFrameCur) {
+        return;
     }
 
     // add vertices: map points, and add edges for each map point

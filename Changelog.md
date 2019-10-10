@@ -5,8 +5,14 @@
 - Update map point fusion procedure (TODO)
 
 ## Latest Version
-- Fix a bug about the copy behavior of CamPose objects, which causes
-  the failure of epipolar constraint test when triangulating new map points
+
+## 0.4.3
+- Use constant velocity model for initial pose guess when tracking
+- Force skip BA optimization if there're not enough map point nodes in the graph
+- Bug fixes:
+  - Fix a bug about the copy behavior of CamPose objects, which causes
+    the failure of epipolar constraint test when triangulating new map points
+  - Fix wrong camera intrinsic data for Freiburg1 sequences in TUM dataset
 
 ## v0.4.2
 - Revise tracking procedure

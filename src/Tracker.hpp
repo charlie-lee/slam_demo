@@ -178,6 +178,8 @@ private: // private data
      *        frame where x = Tracker::n1stFrame.
      */
     std::vector<CamPose> mvTs;
+    /// Velocity of current frame/view, i,e, T_{k|k-1}.
+    CamPose mVelocity;    
 private: // private member functions
     /// Convert input image @p img into grayscale image.
     cv::Mat rgb2Gray(const cv::Mat& img) const;

@@ -41,12 +41,12 @@ using std::endl;
 const bool Tracker::USE_LOWE_RATIO_TEST = false;
 const float Tracker::TH_RATIO_DIST = 0.7f;
 const float Tracker::TH_MAX_DIST_MATCH = 64.0f;
-const float Tracker::TH_MAX_RATIO_FH = 0.5f;
+const float Tracker::TH_MAX_RATIO_FH = 0.2f;
 const float Tracker::TH_COS_PARALLAX = 0.9999f;
-const float Tracker::TH_REPROJ_ERR_FACTOR = 2.0f;
-const float Tracker::TH_POSE_SEL = 0.5f;
+const float Tracker::TH_REPROJ_ERR_FACTOR = 3.0f;
+const float Tracker::TH_POSE_SEL = 0.8f;
 const float Tracker::TH_MIN_RATIO_TRIANG_PTS = 0.5f;
-const int Tracker::TH_MIN_MATCHES_3D_TO_2D = 30;
+const int Tracker::TH_MIN_MATCHES_3D_TO_2D = 20;
 // other data
 unsigned Tracker::n1stFrame = 0;
 
@@ -170,8 +170,12 @@ Tracker::State Tracker::initializeMapMono()
         
         // optimize both pose & map data
         shared_ptr<Optimizer> pOpt = make_shared<Optimizer>(mpMap);
-        pOpt->globalBundleAdjustment(0, 20, true);
-        
+        pOpt->globalBundleAdjustment(0, 10, true);
+        //pOpt->frameBundleAdjustment(2, 10, true);
+
+        // assign velocity
+        mVelocity = mpView2->mPose;
+ 
         return State::OK;
     }
     return State::NOT_INITIALIZED; 
@@ -815,7 +819,7 @@ Tracker::State Tracker::track()
     matchFeatures3Dto2D();
 
     // pose estimation (1st)
-    nInliers = poseEstimation(mpView1->mPose);
+    nInliers = poseEstimation(mVelocity * mpView1->mPose);
     cout << "Inliers/total 3D-to-2D matches (RANSAC PnP): "
          << nInliers << "/" << mvMatches3Dto2D.size() << endl;
 
@@ -838,23 +842,23 @@ Tracker::State Tracker::track()
     matchFeatures3Dto2D();
 
     // pose estimation (2nd)
-    //nInliers = poseEstimation(mpView2->mPose);
-    //cout << "Inliers/total 3D-to-2D matches (RANSAC PnP, 2nd): "
-    //     << nInliers << "/" << mvMatches3Dto2D.size() << endl;
+    nInliers = poseEstimation(mpView2->mPose);
+    cout << "Inliers/total 3D-to-2D matches (RANSAC PnP, 2nd): "
+         << nInliers << "/" << mvMatches3Dto2D.size() << endl;
     
     // only optimize pose
-    nInliers = pOpt->poseOptimization(mpView2);
-    cout << "Inliers/Total matches (pose BA, 2nd): " << nInliers << "/"
-         << mvMatches3Dto2D.size() << endl;
+    //nInliers = pOpt->poseOptimization(mpView2);
+    //cout << "Inliers/Total matches (pose BA, 2nd): " << nInliers << "/"
+    //     << mvMatches3Dto2D.size() << endl;
 
-    pOpt->frameBundleAdjustment(1, 10, true);
-    //pOpt->globalBundleAdjustment(10, 10, true);
+    pOpt->frameBundleAdjustment(5, 10, true);
+    //pOpt->globalBundleAdjustment(5, 10, true);
 
     // global BA every N frames
     //if ((System::nCurrentFrame - n1stFrame + 1) % 20 == 0) {
-    //    pOpt->globalBundleAdjustment(20, 5, true);
+    //    pOpt->globalBundleAdjustment(20, 10, true);
     //} else {
-    //    pOpt->frameBundleAdjustment(1, 5, true);
+    //    pOpt->frameBundleAdjustment(5, 10, true);
     //}
 
     // update visibility counter of all existed map points
@@ -873,10 +877,15 @@ Tracker::State Tracker::track()
              << Tracker::n1stFrame  << "}:" << endl
              << mpView2->mPose << endl;
         setAbsPose(mpView2->mPose);
+        // compute velocity
+        // T_{k|k-1} = T_{k|1} * T_{1|k-1} = T_{k|1} * T_{k-1|1}^{-1}
+        CamPose pose1Inv = CamPose(mpView1->mPose.getPoseInv());
+        mVelocity = mpView2->mPose * pose1Inv;
         eState = State::OK;
     } else {
         mpView2->mPose = mpView1->mPose;
         setAbsPose(mpView1->mPose);
+        mVelocity = CamPose();
         eState = State::LOST;
     }
 
