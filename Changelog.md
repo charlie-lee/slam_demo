@@ -6,7 +6,13 @@
 
 ## Latest Version
 
-## 0.4.3
+## v0.4.4
+- Do not add frame observation data to the map if there's no new 
+  triangulated map points in the frame
+- Add outlier detection to single-frame BA scheme
+- Fix trajectory dump bug: dump [R^T | -R^T*t] instead of [R | t]
+
+## v0.4.3
 - Use constant velocity model for initial pose guess when tracking
 - Force skip BA optimization if there're not enough map point nodes in the graph
 - Bug fixes:

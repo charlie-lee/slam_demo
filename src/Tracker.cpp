@@ -842,31 +842,41 @@ Tracker::State Tracker::track()
     matchFeatures3Dto2D();
 
     // pose estimation (2nd)
-    nInliers = poseEstimation(mpView2->mPose);
-    cout << "Inliers/total 3D-to-2D matches (RANSAC PnP, 2nd): "
-         << nInliers << "/" << mvMatches3Dto2D.size() << endl;
+    //nInliers = poseEstimation(mpView2->mPose);
+    //cout << "Inliers/total 3D-to-2D matches (RANSAC PnP, 2nd): "
+    //     << nInliers << "/" << mvMatches3Dto2D.size() << endl;
     
     // only optimize pose
     //nInliers = pOpt->poseOptimization(mpView2);
     //cout << "Inliers/Total matches (pose BA, 2nd): " << nInliers << "/"
     //     << mvMatches3Dto2D.size() << endl;
 
-    pOpt->frameBundleAdjustment(5, 10, true);
-    //pOpt->globalBundleAdjustment(5, 10, true);
+    nInliers = pOpt->frameBundleAdjustment(20, 10, true);
+    //pOpt->globalBundleAdjustment(10, 5, true);
+    cout << "Inliers/Total matches (frame BA): " << nInliers << "/"
+         << mvMatches3Dto2D.size() << endl;
 
     // global BA every N frames
     //if ((System::nCurrentFrame - n1stFrame + 1) % 20 == 0) {
     //    pOpt->globalBundleAdjustment(20, 10, true);
+    //}
     //} else {
     //    pOpt->frameBundleAdjustment(5, 10, true);
     //}
 
     // update visibility counter of all existed map points
     updateMPtVisibleData();
+
+    // do not update map point data to the map if there's no
+    // new triangulated map points in this frame
+    if (vnIdxPts.size() < 1) {
+        resetMPtVisibleData();
+        resetMPtObsData();
+    }
     
     // remove redundant map points
     mpMap->removeMPts();
-
+    
     // temp test on display of feature matching result
     displayFeatMatchResult(0, 0);
 
@@ -1039,7 +1049,17 @@ void Tracker::resetMPtObsData() const
     for (auto& pMPt : vpMPts) {
         pMPt->removeObservation(mpView2);
     }
-    mpView2->resetObservation();    
+    mpView2->resetObservation();
+}
+
+void Tracker::resetMPtVisibleData() const
+{
+    vector<shared_ptr<MapPoint>> vpMPts = mpView2->getpMPtsObserved();
+    for (auto& pMPt : vpMPts) {
+        if (pMPt->getIdxLastObsFrm() == mpView2->getFrameIdx()) {
+            pMPt->addCntVisible(-1);
+        }
+    }
 }
 
 void Tracker::triangulate3DPts(cv::Mat& Xws, std::vector<int>& vnIdxPts) const

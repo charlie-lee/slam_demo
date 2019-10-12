@@ -116,6 +116,14 @@ Eigen::Quaternion<float> CamPose::getRQuatEigen() const
     return q;
 }
 
+Eigen::Quaternion<float> CamPose::getRInvQuatEigen() const
+{
+    Eigen::Matrix<float, 3, 3> RInv;
+    cv::cv2eigen(getRotation().t(), RInv);
+    Eigen::Quaternionf q(RInv);
+    return q;
+}
+
 CamPose& CamPose::operator*=(const CamPose& rhs)
 {
     Mat RcwL = getRotation();
@@ -165,7 +173,7 @@ std::ostream& operator<<(std::ostream& os, const CamPose& pose)
 {
     //os << "Pose Tcw = [Rcw | tcw] = " << endl << pose.getPose() << endl;
     Eigen::Vector3f ea = pose.getREulerAngleEigen();
-    //os << "Camera origin = " << pose.getCamOrigin().t() << endl;
+    os << "Camera origin = " << pose.getCamOrigin().t() << endl;
     os << "Rotation {yaw, pitch, roll} = {"
        << ea(0) << ", " << ea(1) << ", " << ea(2) << "} (deg)" << endl;
     os << "Translation tcw = " << pose.getTranslation().t();

@@ -396,6 +396,12 @@ private: // private member functions
     /// Reset observation data of all matched map points for current view.
     void resetMPtObsData() const;
     /** 
+     * @brief Reset visibility data of all matched map points for 
+     *        current view if there's no new triangulated map points.
+     * @note Only revert visibility counter for each visible map point.
+     */
+    void resetMPtVisibleData() const;
+    /** 
      * @brief Triangulate new 3D points based on estimated pose and 
      *        2D-to-2D matches.
      * @param[in,out] Xws      \f$3 \times N\f$ matrix of \f$N\f$ triangulated 

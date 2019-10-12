@@ -33,20 +33,22 @@ public: // public members
      *                    Optimize all avaiable frames if nFrames == 0.
      * @param[in] nIter   Number of iterations for the optimization scheme.
      * @param[in] bRobust Whether or not to use robust kernel.
+     * @return Number of map point inliers after the optimization.
      */
-    void globalBundleAdjustment(unsigned nFrames = 0, int nIter = 20,
-                                bool bRobust = true) const;
+    int globalBundleAdjustment(unsigned nFrames = 0, int nIter = 20,
+                               bool bRobust = true) const;
     /**
      * @brief Single-frame bundle adjustment for pose & new map point 
      *        data optimization.
      * @param[in] nIter   Number of iterations for the optimization scheme.
      * @param[in] bRobust Whether or not to use robust kernel.
+     * @return Number of map point inliers after the optimization.
      * @note Only the new pose and all observed map points are being
      *       optimized. If there're no new triangulated map points avaible,
      *       the optimization scheme will be skipped.
      */
-    void frameBundleAdjustment(unsigned nFrames = 1, int nIter = 20,
-                               bool bRobust = true) const;
+    int frameBundleAdjustment(unsigned nFrames = 1, int nIter = 20,
+                              bool bRobust = true) const;
     /**
      * @brief Pose optimization scheme using BA.
      * @param[in] pFrame Pointer to the frame where the corresponding pose 
@@ -60,6 +62,8 @@ private: // private data
     std::shared_ptr<Map> mpMap;
     /// Minimum number of map points for optimization.
     static const int TH_MIN_NUM_MAPPOINT;
+    /// Threshold on edge's chi2 factor.
+    static const float TH_MAX_CHI2_FACTOR;
 private: // private members
     /**
      * @name Conversion functions between cv::Mat & g2o vertices data

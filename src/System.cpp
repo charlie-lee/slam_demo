@@ -132,17 +132,19 @@ void System::dumpTrajectory(DumpMode eMode)
     for (const auto& pair : *pTrajectory) {
         const double& ts = pair.first;
         const CamPose& pose = pair.second;
-        cv::Mat tcw = pose.getTranslation();
-        Eigen::Quaternion<float> qRcw = pose.getRQuatEigen();
+        //cv::Mat t = pose.getTranslation();
+        cv::Mat t = pose.getCamOrigin();
+        //Eigen::Quaternion<float> qRcw = pose.getRQuatEigen();
+        Eigen::Quaternion<float> qR = pose.getRInvQuatEigen();
         ofs << std::fixed << std::setprecision(8)
             << ts << " "
-            << tcw.at<float>(0) << " "
-            << tcw.at<float>(1) << " "
-            << tcw.at<float>(2) << " "
-            << qRcw.x() << " "
-            << qRcw.y() << " "
-            << qRcw.z() << " "
-            << qRcw.w() << " "
+            << t.at<float>(0) << " "
+            << t.at<float>(1) << " "
+            << t.at<float>(2) << " "
+            << qR.x() << " "
+            << qR.y() << " "
+            << qR.z() << " "
+            << qR.w() << " "
             << endl;
     }
 }

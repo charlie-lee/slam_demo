@@ -86,6 +86,8 @@ public: // public members
      *         as \f$4 \times 1\f$ vector \f$(qw, qx, qy, qz)^T\f$. 
      */
     Eigen::Quaternion<float> getRQuatEigen() const;
+    /// Get Quaternion representation of R^T.
+    Eigen::Quaternion<float> getRInvQuatEigen() const;
     /// Pose multiplication & assignment.
     CamPose& operator*=(const CamPose& rhs);
     /// Pose multiplication.    
