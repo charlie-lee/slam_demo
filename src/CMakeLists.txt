@@ -8,6 +8,7 @@ add_library(${PROJECT_NAME} SHARED
   MapPoint.cpp
   Map.cpp
   Optimizer.cpp
+  KeyFrame.cpp
   )
 
 target_link_libraries(${PROJECT_NAME}

@@ -63,6 +63,9 @@ private: // private data
     std::set<std::shared_ptr<MapPoint>> mspMPts;
     /// A map of (related frame, number of observed map points) pairs.
     std::map<std::shared_ptr<Frame>, int> mmRFrames;
+    /// A map of (related frame, number of observed map points) pairs.
+    std::map<std::shared_ptr<Frame>, int> mmKFs;
+
     /**
      * @brief A set of frames whose poses are optimized.
      * @note The frames are removed from the map, so no further optimization

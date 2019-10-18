@@ -62,7 +62,7 @@ std::vector<std::shared_ptr<Frame>> Map::getLastNFrames(unsigned nFrames) const
     // get all frames in another map and sort them by frame index
     std::map<unsigned, shared_ptr<Frame>> mpFrames;
     for (auto it = mmRFrames.begin(); it != mmRFrames.end(); ++it) {
-        mpFrames.insert({it->first->getFrameIdx(), it->first});
+        mpFrames.insert({it->first->index(), it->first});
     }
     // get last N frames
     for (auto it = mpFrames.rbegin(); it != mpFrames.rend(); ++it) {

@@ -65,7 +65,7 @@ int Optimizer::globalBundleAdjustment(unsigned nFrames, int nIter,
     for (const auto& pFrame : vpFrames) {
         g2o::VertexSE3Expmap* pVSE3 = new g2o::VertexSE3Expmap();
         Mat Tcw = pFrame->mPose.getPose();
-        unsigned idxF = pFrame->getFrameIdx();
+        unsigned idxF = pFrame->index();
         pVSE3->setEstimate(cvMat2SE3Quat(Tcw));
         pVSE3->setId(idxF);
         bool bFixed = idxF == Tracker::n1stFrame;
@@ -87,7 +87,7 @@ int Optimizer::globalBundleAdjustment(unsigned nFrames, int nIter,
     for (int i = 0; i < nMPts; ++i) {
         const shared_ptr<MapPoint>& pMPt = vpMPts[i];
         g2o::VertexSBAPointXYZ* pVPt = new g2o::VertexSBAPointXYZ();
-        pVPt->setEstimate(cvMat2Vector3d(pMPt->getX3D()));
+        pVPt->setEstimate(cvMat2Vector3d(pMPt->X3D()));
         pVPt->setId(idxFMax + 1 + i);
         pVPt->setMarginalized(true); // why?? (to decrease the size of Hessian?)
         optimizer.addVertex(pVPt);
@@ -106,7 +106,7 @@ int Optimizer::globalBundleAdjustment(unsigned nFrames, int nIter,
             }
             // form an edge
             bHasEdge = true;
-            cv::KeyPoint kpt = pMPt->getKpt(pFrame);
+            cv::KeyPoint kpt = pMPt->keypoint(pFrame);
             Eigen::Matrix<double, 2, 1> obs;
             obs << kpt.pt.x, kpt.pt.y;
             g2o::EdgeSE3ProjectXYZ* pEdge = new g2o::EdgeSE3ProjectXYZ();
@@ -115,7 +115,7 @@ int Optimizer::globalBundleAdjustment(unsigned nFrames, int nIter,
                                  pVPt));
             // vertex 1: pose
             pEdge->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex*>(
-                                 optimizer.vertex(pFrame->getFrameIdx())));
+                                 optimizer.vertex(pFrame->index())));
             pEdge->setMeasurement(obs);
             // set element in information matrix (value = 1 / sigma^2)
             float sigma = std::pow(Config::scaleFactor(), kpt.octave);
@@ -170,7 +170,7 @@ int Optimizer::globalBundleAdjustment(unsigned nFrames, int nIter,
                         pEdge->setLevel(0);
                     } else {
                         float chi2 = pEdge->chi2();
-                        cv::KeyPoint kpt = pMPt->getKpt(vpFramesMPt[j]);
+                        cv::KeyPoint kpt = pMPt->keypoint(vpFramesMPt[j]);
                         float sigma = std::pow(Config::scaleFactor(),
                                                kpt.octave);
                         if (chi2 > sigma*sigma ||
@@ -189,7 +189,7 @@ int Optimizer::globalBundleAdjustment(unsigned nFrames, int nIter,
     // pose update via vpFrames
     for (const auto& pFrame : vpFrames) {
         g2o::VertexSE3Expmap* pVSE3 = dynamic_cast<g2o::VertexSE3Expmap*>(
-            optimizer.vertex(pFrame->getFrameIdx()));
+            optimizer.vertex(pFrame->index()));
         g2o::SE3Quat T = pVSE3->estimate();
         pFrame->mPose.setPose(SE3Quat2cvMat(T));
     }
@@ -215,7 +215,7 @@ int Optimizer::globalBundleAdjustment(unsigned nFrames, int nIter,
                     continue;
                 }
                 float chi2 = pEdge->chi2();
-                cv::KeyPoint kpt = pMPt->getKpt(vpFramesMPt[j]);
+                cv::KeyPoint kpt = pMPt->keypoint(vpFramesMPt[j]);
                 float sigma = std::pow(Config::scaleFactor(), kpt.octave);
                 if (chi2 > sigma*sigma * TH_MAX_CHI2_FACTOR ||
                     !pEdge->isDepthPositive()) {
@@ -258,7 +258,7 @@ int Optimizer::frameBundleAdjustment(unsigned nFrames, int nIter,
     for (const auto& pFrame : vpFrames) {
         g2o::VertexSE3Expmap* pVSE3 = new g2o::VertexSE3Expmap();
         Mat Tcw = pFrame->mPose.getPose();
-        unsigned idxF = pFrame->getFrameIdx();
+        unsigned idxF = pFrame->index();
         pVSE3->setEstimate(cvMat2SE3Quat(Tcw));
         pVSE3->setId(idxF);
         bool bFixed = idxF != System::nCurrentFrame;
@@ -288,7 +288,7 @@ int Optimizer::frameBundleAdjustment(unsigned nFrames, int nIter,
     for (int i = 0; i < nMPts; ++i) {
         const shared_ptr<MapPoint>& pMPt = vpMPts[i];
         g2o::VertexSBAPointXYZ* pVPt = new g2o::VertexSBAPointXYZ();
-        pVPt->setEstimate(cvMat2Vector3d(pMPt->getX3D()));
+        pVPt->setEstimate(cvMat2Vector3d(pMPt->X3D()));
         pVPt->setId(idxFMax + 1 + i);
         pVPt->setMarginalized(true);
         optimizer.addVertex(pVPt);
@@ -301,7 +301,7 @@ int Optimizer::frameBundleAdjustment(unsigned nFrames, int nIter,
             if (!pMPt->isObservedBy(pFrame)) {
                 continue;
             }
-            cv::KeyPoint kpt = pMPt->getKpt(pFrame);
+            cv::KeyPoint kpt = pMPt->keypoint(pFrame);
             Eigen::Matrix<double, 2, 1> obs;
             obs << kpt.pt.x, kpt.pt.y;
             g2o::EdgeSE3ProjectXYZ* pEdge = new g2o::EdgeSE3ProjectXYZ();
@@ -310,7 +310,7 @@ int Optimizer::frameBundleAdjustment(unsigned nFrames, int nIter,
                                  pVPt));
             // vertex 1: pose
             pEdge->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex*>(
-                                 optimizer.vertex(pFrame->getFrameIdx())));
+                                 optimizer.vertex(pFrame->index())));
             pEdge->setMeasurement(obs);
             // set element in information matrix (value = 1 / sigma^2)
             float sigma = std::pow(Config::scaleFactor(), kpt.octave);
@@ -359,7 +359,7 @@ int Optimizer::frameBundleAdjustment(unsigned nFrames, int nIter,
                     pEdge->setLevel(0);
                 } else {
                     float chi2 = pEdge->chi2();
-                    cv::KeyPoint kpt = pMPt->getKpt(vpFrames[j]);
+                    cv::KeyPoint kpt = pMPt->keypoint(vpFrames[j]);
                     float sigma = std::pow(Config::scaleFactor(),
                                            kpt.octave);
                     if (chi2 > sigma*sigma ||
@@ -397,7 +397,7 @@ int Optimizer::frameBundleAdjustment(unsigned nFrames, int nIter,
                 continue;
             }
             float chi2 = pEdge->chi2();
-            cv::KeyPoint kpt = pMPt->getKpt(vpFrames[j]);
+            cv::KeyPoint kpt = pMPt->keypoint(vpFrames[j]);
             float sigma = std::pow(Config::scaleFactor(), kpt.octave);
             if (chi2 > sigma*sigma * TH_MAX_CHI2_FACTOR ||
                 !pEdge->isDepthPositive()) {
@@ -452,7 +452,7 @@ int Optimizer::poseOptimization(const std::shared_ptr<Frame>& pFrame) const
     for (int i = 0; i < nMPts; ++i) {
         const shared_ptr<MapPoint>& pMPt = vpMPts[i];
         // is it necessary to check whether the frame is valid?
-        cv::KeyPoint kpt = pMPt->getKpt(pFrame);
+        cv::KeyPoint kpt = pMPt->keypoint(pFrame);
         Eigen::Matrix<double, 2, 1> obs;
         obs << kpt.pt.x, kpt.pt.y;
         g2o::EdgeSE3ProjectXYZOnlyPose* pEdge =
@@ -471,7 +471,7 @@ int Optimizer::poseOptimization(const std::shared_ptr<Frame>& pFrame) const
         // rho(x) = x^2 if |x| < delta else 2*delta*|x| - delta^2
         pRK->setDelta(sigma);
         // set map point position
-        pEdge->Xw = cvMat2Vector3d(pMPt->getX3D());
+        pEdge->Xw = cvMat2Vector3d(pMPt->X3D());
         // set cam intrinsics
         pEdge->fx = Config::fx();
         pEdge->fy = Config::fy();
@@ -501,7 +501,7 @@ int Optimizer::poseOptimization(const std::shared_ptr<Frame>& pFrame) const
                 pEdge->setLevel(0);
             } else {
                 float chi2 = pEdge->chi2();
-                cv::KeyPoint kpt = pMPt->getKpt(pFrame);
+                cv::KeyPoint kpt = pMPt->keypoint(pFrame);
                 float sigma = std::pow(Config::scaleFactor(), kpt.octave);
                 if (chi2 > sigma*sigma || !pEdge->isDepthPositive()) {
                     pEdge->setLevel(1);
@@ -517,7 +517,7 @@ int Optimizer::poseOptimization(const std::shared_ptr<Frame>& pFrame) const
         auto& pMPt = vpMPts[i];
         auto& pEdge = vpEdges[i];
         float chi2 = pEdge->chi2();
-        cv::KeyPoint kpt = pMPt->getKpt(pFrame);
+        cv::KeyPoint kpt = pMPt->keypoint(pFrame);
         float sigma = std::pow(Config::scaleFactor(), kpt.octave);
         if (chi2 > sigma*sigma * TH_MAX_CHI2_FACTOR ||
             !pEdge->isDepthPositive()) {

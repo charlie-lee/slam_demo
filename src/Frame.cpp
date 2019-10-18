@@ -7,7 +7,8 @@
 
 #include "Frame.hpp"
 
-#include <iostream>
+#include <algorithm> // std::fill()
+#include <memory>
 
 #include <opencv2/core.hpp>
 #include <opencv2/features2d.hpp>
@@ -18,6 +19,7 @@
 namespace SLAM_demo {
 
 using std::vector;
+using std::shared_ptr;
 using cv::Mat;
 
 unsigned Frame::nNextIdx = 0;
@@ -27,7 +29,7 @@ const int Frame::NUM_BLK_Y = 4;
 const int Frame::TH_EDGE = 17;
 
 Frame::Frame(const cv::Mat& img, double timestamp) :
-    mTimestamp(timestamp), mnIdx(nNextIdx++)
+    mTimestamp(timestamp), mnIdx(nNextIdx++), mnMPts(0)
 {
     int numFeatScale = std::min(Config::nFeatures(),
                                 std::max(1, NUM_BLK_X * NUM_BLK_Y));
@@ -73,6 +75,25 @@ void Frame::addObservation(const std::shared_ptr<MapPoint>& pMPt)
     mspMPtsObs.insert(pMPt);
 }
 
+void Frame::resetObservation()
+{
+    mspMPtsObs.clear();
+    std::fill(mvpMPts.begin(), mvpMPts.end(), nullptr);
+    mnMPts = 0;
+}
+
+void Frame::bindMPt(const std::shared_ptr<MapPoint>& pMPt, int idxKpt)
+{
+    if (!mvpMPts[idxKpt] && pMPt) {
+        mnMPts++;
+    }
+    if (mvpMPts[idxKpt] && !pMPt) {
+        mnMPts--;
+        assert(mnMPts >= 0);
+    }
+    mvpMPts[idxKpt] = pMPt;
+}
+
 std::vector<std::shared_ptr<MapPoint>> Frame::getpMPtsObserved()
 {
     vector<std::shared_ptr<MapPoint>> vMPtsObs;
@@ -93,6 +114,7 @@ void Frame::extractFeatures(const cv::Mat& img)
 {
     // block-based feature extraction
     mvKpts.reserve(Config::nFeatures());
+    
     int nImgWidth = img.cols;
     int nImgHeight = img.rows;
     // expand input image by 2*TH_EDGE
@@ -151,6 +173,8 @@ void Frame::extractFeatures(const cv::Mat& img)
             }
         }
     }
+    // allocate space for matched map points
+    mvpMPts.resize(mvKpts.size(), nullptr);
     // undistort keypoint coordinates
     undistortKpts();
 }

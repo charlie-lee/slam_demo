@@ -1,10 +1,30 @@
 # Changelog & TODO-list
 
 ## TODO
-- Add keyframe selection scheme (add KeyFrame class) (TODO)
-- Update map point fusion procedure (TODO)
+- Add data structure for matched 3D map points in Frame class
+  - Same size with the vector of keypoints (done)
+  - Add bindings in tracker class (may need to revamp binding timing)
+  - May need to update feature matching functions
+    - May write a matcher class??
+- Add KeyFrame class (50%)
+  - Add weighted graph related member functions (TODO)
+- Add keyframe selection scheme (TODO)
+- Add LocalMapper class (TODO)
+  - For each new KF, try to find new mappoints among all related KFs
+  - Fuse existing MPts & triangulate new MPts
+  - Remove redundant MPts & KFs
+- Update track() procedure (TODO)
+  - No triangulation anymore
+  - Try to find all related keyframes & corresponding map points
+  - Do 3D-to-2D match for stable match result
+  - Use all matched MPts for pose optimization (maybe also single-frame BA)
+- Low priority TODOs
+  - Update backend BA schemes to use keyframe data (TODO)
+  - Add trajectory visialization mode (TODO)
+  - Update map point fusion procedure (TODO)
 
 ## Latest Version
+- Simplify some class designs
 
 ## v0.4.4
 - Do not add frame observation data to the map if there's no new 

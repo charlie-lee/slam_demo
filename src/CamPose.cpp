@@ -100,7 +100,8 @@ cv::Mat CamPose::getTranslationSS() const
 Eigen::Matrix<float, 3, 1> CamPose::getREulerAngleEigen() const
 {
     Eigen::Matrix<float, 3, 1> ea;
-    Eigen::Matrix<float, 3, 3> R = getRotationEigen();
+    Eigen::Matrix<float, 3, 3> R;
+    cv::cv2eigen(getRotation(), R);
     // construct corresponding Euler angles from rotation matrix representation
     // (yaw, pitch, roll)^T
     ea = R.eulerAngles(2, 1, 0);
@@ -111,7 +112,8 @@ Eigen::Matrix<float, 3, 1> CamPose::getREulerAngleEigen() const
 
 Eigen::Quaternion<float> CamPose::getRQuatEigen() const
 {
-    Eigen::Matrix<float, 3, 3> R = getRotationEigen();
+    Eigen::Matrix<float, 3, 3> R;
+    cv::cv2eigen(getRotation(), R);
     Eigen::Quaternionf q(R);
     return q;
 }
@@ -160,13 +162,6 @@ void CamPose::setPoseInv()
     Mat twc = -Rwc*tcw;
     Rwc.copyTo(mTwc.rowRange(0, 3).colRange(0, 3));
     twc.copyTo(mTwc.rowRange(0, 3).col(3));    
-}
-
-Eigen::Matrix<float, 3, 3> CamPose::getRotationEigen() const
-{
-    Eigen::Matrix<float, 3, 3> R;
-    cv::cv2eigen(getRotation(), R);
-    return R;
 }
 
 std::ostream& operator<<(std::ostream& os, const CamPose& pose)

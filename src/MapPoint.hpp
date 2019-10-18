@@ -33,13 +33,13 @@ public: // public members
      */
     MapPoint(const std::shared_ptr<Map>& pMap, const cv::Mat& X3D);
     /// Get 3D world coordinate.
-    cv::Mat getX3D() const { return mX3D; }
+    cv::Mat X3D() const { return mX3D; }
     /// Get most distinctive descriptor of the point.
-    cv::Mat getDesc() const { return mDesc; }
+    cv::Mat descriptor() const { return mDesc; }
     /// Get descriptor from a frame.
-    cv::Mat getDesc(const std::shared_ptr<Frame>& pFrame) const;
+    cv::Mat descriptor(const std::shared_ptr<Frame>& pFrame) const;
     /// Get keypoint data from a frame.
-    cv::KeyPoint getKpt(const std::shared_ptr<Frame>& pFrame) const;
+    cv::KeyPoint keypoint(const std::shared_ptr<Frame>& pFrame) const;
     /// Get all related frames that observed it.
     std::vector<std::shared_ptr<Frame>> getRelatedFrames() const;
     /// Get index of the latest frame that observed the point.
@@ -49,7 +49,7 @@ public: // public members
     /// Update 3D world coordinate of the point.
     void setX3D(const cv::Mat& X3D) { mX3D = X3D.clone(); }
     /// Update descriptor of the point.
-    void setDesc(const cv::Mat& desc) { mDesc = desc.clone(); }
+    //void setDescriptor(const cv::Mat& desc) { mDesc = desc.clone(); }
     /// Update index of the latest frame that observed the point.
     void setIdxLastObsFrm(int idx) { mnIdxLastObsFrm = idx; }
     /// Update count of being observed by input frames.

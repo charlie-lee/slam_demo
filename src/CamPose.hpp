@@ -55,10 +55,12 @@ public: // public members
      */
     ///@{
     CamPose getCamPoseInv() const { return CamPose(getPoseInv()); }
-    cv::Mat getPose() const { return mTcw; }
-    cv::Mat getRotation() const { return mTcw.colRange(0, 3).rowRange(0, 3); }
+    cv::Mat getPose() const { return mTcw.clone(); }
+    cv::Mat getRotation() const { return mTcw.colRange(0, 3).clone(); }
     cv::Mat getRotationAngleAxis() const;
-    cv::Mat getTranslation() const { return mTcw.rowRange(0, 3).col(3); }
+    cv::Mat getTranslation() const {
+        return mTcw.rowRange(0, 3).col(3).clone();
+    }
     /** 
      * @brief Get \f$3 \times 3\f$ skew-symmetric matrix \f$[t]_x\f$ based on 
      *        \f$3 \times 1\f$ translation vector \f$t = (t_1, t_2, t_3)^T\f$.
@@ -69,11 +71,13 @@ public: // public members
      * \f]
      */
     cv::Mat getTranslationSS() const;
-    cv::Mat getPoseInv() const { return mTwc; }
-    cv::Mat getRotationInv() const { return mTwc.rowRange(0, 3).colRange(0, 3); }
+    cv::Mat getPoseInv() const { return mTwc.clone(); }
+    cv::Mat getRotationInv() const {
+        return mTwc.rowRange(0, 3).colRange(0, 3).clone();
+    }
     //cv::Mat getRotationInvAngleAxis() const;
     /// Get \f$t_{wc}\f$, which is the camera origin in world coordinate system.
-    cv::Mat getCamOrigin() const { return mTwc.rowRange(0, 3).col(3); }
+    cv::Mat getCamOrigin() const { return mTwc.rowRange(0, 3).col(3).clone(); }
     ///@}
     /**
      * @brief  Get Euler angle representation of rotation matrix \f$R_{cw}\f$
@@ -117,8 +121,6 @@ private: // private members
     void setTranslation(const cv::Mat& tcw);
     /// Set inverse pose \f$T_{wc} = [R_{cw}^T | -R_{cw}^T t_{cw}]\f$.
     void setPoseInv();
-    /// Get rotation matrix represented using Eigen.
-    Eigen::Matrix<float, 3, 3> getRotationEigen() const;    
 };
 
 /// Display pose info.

@@ -94,7 +94,7 @@ void Tracker::trackImgsMono(const cv::Mat& img, double timestamp)
         make_shared<Frame>(imgCurGray, timestamp);
 
     cout << "Extracted "
-         << pFrameCur->getKeyPoints().size() << " keypoint(s)" << endl;
+         << pFrameCur->keypoints().size() << " keypoint(s)" << endl;
     cout << mpMap->getAllFrames().size() << " frames in map" << endl;
     
     // feature matching
@@ -115,7 +115,7 @@ void Tracker::trackImgsMono(const cv::Mat& img, double timestamp)
         }
     }
     imgPrev = imgCur;
-    cv::waitKey(1);
+    cv::waitKey(0);
 }
 
 cv::Mat Tracker::rgb2Gray(const cv::Mat& img) const
@@ -137,7 +137,7 @@ Tracker::State Tracker::initializeMap()
     // where k is the 1st frame in a initialized SLAM system.
     mvTs.clear();
     setAbsPose(CamPose());
-    Tracker::n1stFrame = mpView1->getFrameIdx();
+    Tracker::n1stFrame = mpView1->index();
     if (meMode == System::Mode::MONOCULAR) {
         return initializeMapMono();
     }
@@ -186,13 +186,13 @@ void Tracker::matchFeatures2Dto2D()
     mvMatches2Dto2D.clear();
     unsigned nBestMatches = USE_LOWE_RATIO_TEST ? 2 : 1;
     vector<vector<cv::DMatch>> vMatches;
-    mpFeatMatcher->knnMatch(mpView1->getFeatDescriptors(), // query
-                            mpView2->getFeatDescriptors(), // train
+    mpFeatMatcher->knnMatch(mpView1->descriptors(), // query
+                            mpView2->descriptors(), // train
                             vMatches,
                             nBestMatches); // get 2 best matches
     // find good matches using Lowe's ratio test
-    const vector<cv::KeyPoint>& vKpts1 = mpView1->getKeyPoints();
-    const vector<cv::KeyPoint>& vKpts2 = mpView2->getKeyPoints();
+    const vector<cv::KeyPoint>& vKpts1 = mpView1->keypoints();
+    const vector<cv::KeyPoint>& vKpts2 = mpView2->keypoints();
     mvMatches2Dto2D.reserve(vMatches.size());
     for (unsigned i = 0; i < vMatches.size(); ++i) {
         if (vMatches[i].size() != nBestMatches) {
@@ -234,10 +234,10 @@ void Tracker::matchFeatures3Dto2D()
     unsigned nBestMatches = USE_LOWE_RATIO_TEST ? 2 : 1;
     // get descriptors from the map and view 2.
     int nMPts = mvpMPts.size();
-    Mat descsView2 = mpView2->getFeatDescriptors();
+    Mat descsView2 = mpView2->descriptors();
     Mat descsMap(nMPts, descsView2.cols, descsView2.type());
     for (int i = 0; i < nMPts; ++i) {
-        (mvpMPts[i]->getDesc()).copyTo(descsMap.row(i));
+        (mvpMPts[i]->descriptor()).copyTo(descsMap.row(i));
     }
     // feature matching
     // query: map points; train: keypoints in current frame (mpView2)
@@ -250,7 +250,7 @@ void Tracker::matchFeatures3Dto2D()
     //                           descsView2, // train set
     //                           vMatches,
     //                           32.f); // Hamming distance threshold
-    const vector<cv::KeyPoint>& vKpts2 = mpView2->getKeyPoints();
+    const vector<cv::KeyPoint>& vKpts2 = mpView2->keypoints();
     mvMatches3Dto2D.reserve(vMatches.size());
     for (unsigned i = 0; i < vMatches.size(); ++i) {
         if (vMatches[i].size() != nBestMatches) {
@@ -269,7 +269,7 @@ void Tracker::matchFeatures3Dto2D()
         // filter matches whose dist between reprojected 2D point in view 1
         // and 2D point in view 2 is larger than a threshold
         shared_ptr<MapPoint> pMPt = mvpMPts[vMatches[i][0].queryIdx];
-        Mat x1Reproj = mpView1->coordWorld2Img(pMPt->getX3D());
+        Mat x1Reproj = mpView1->coordWorld2Img(pMPt->X3D());
         Mat x2 = Mat(pt2);
         Mat xDiff = x1Reproj - x2;
         float xDistSq = xDiff.dot(xDiff);
@@ -294,10 +294,10 @@ void Tracker::displayFeatMatchResult(int viewPrev, int viewCur) const
 {
     // get keypoint data
     vector<cv::KeyPoint> vKpts1;
-    vector<cv::KeyPoint> vKpts2 = mvpFramesCur[viewCur]->getKeyPoints();
+    vector<cv::KeyPoint> vKpts2 = mvpFramesCur[viewCur]->keypoints();
     const vector<cv::DMatch>* pvMatches = nullptr;
     if (meState == State::NOT_INITIALIZED) {
-        vKpts1 = mvpFramesPrev[viewPrev]->getKeyPoints();
+        vKpts1 = mvpFramesPrev[viewPrev]->keypoints();
         pvMatches = &mvMatches2Dto2D;
     } else if (meState == State::OK || meState == State::LOST) {
         // Construct a vector of fake keypoints for the map points
@@ -310,7 +310,7 @@ void Tracker::displayFeatMatchResult(int viewPrev, int viewCur) const
             // reprojected image coord in view 1
             if (pMPt) {
                 Mat x1 = mvpFramesPrev[viewPrev]->coordWorld2Img(
-                    pMPt->getX3D());
+                    pMPt->X3D());
                 vKpts1[nIdxMPt] = cv::KeyPoint(
                     x1.at<float>(0), x1.at<float>(1), 1 /* size */);
             } else {
@@ -376,8 +376,8 @@ cv::Mat Tracker::computeFundamental() const
     // fundamental matrix result (from previous (1) to current (2) frame)
     Mat F21;
     // retrieve input 2D-2D matches
-    const vector<cv::KeyPoint>& vKpts1 = mpView1->getKeyPoints();
-    const vector<cv::KeyPoint>& vKpts2 = mpView2->getKeyPoints();
+    const vector<cv::KeyPoint>& vKpts1 = mpView1->keypoints();
+    const vector<cv::KeyPoint>& vKpts2 = mpView2->keypoints();
     unsigned nMatches = mvMatches2Dto2D.size();
     // 2D keypoints as input of F computation function
     vector<cv::Point2f> vPts1, vPts2; 
@@ -401,8 +401,8 @@ cv::Mat Tracker::computeHomography() const
     // fundamental matrix result (from previous (1) to current (2))
     Mat H21;
     // retrieve input 2D-2D matches
-    const vector<cv::KeyPoint>& vKpts1 = mpView1->getKeyPoints();
-    const vector<cv::KeyPoint>& vKpts2 = mpView2->getKeyPoints();
+    const vector<cv::KeyPoint>& vKpts1 = mpView1->keypoints();
+    const vector<cv::KeyPoint>& vKpts2 = mpView2->keypoints();
     unsigned nMatches = mvMatches2Dto2D.size();
     // 2D keypoints as input of F computation function
     vector<cv::Point2f> vPts1, vPts2; 
@@ -459,8 +459,8 @@ bool Tracker::recoverPoseFromFH(const cv::Mat& F21, const cv::Mat& H21,
     //nSolutions = nSolF + nSolH;
   
     // retrieve input 2D-2D matches
-    const vector<cv::KeyPoint>& vKpts1 = mpView1->getKeyPoints();
-    const vector<cv::KeyPoint>& vKpts2 = mpView2->getKeyPoints();
+    const vector<cv::KeyPoint>& vKpts1 = mpView1->keypoints();
+    const vector<cv::KeyPoint>& vKpts2 = mpView2->keypoints();
     // get the vector of 2D keypoints from both frames
     unsigned nMatches = mvMatches2Dto2D.size();
     vector<cv::Point2f> vPts1;
@@ -586,8 +586,8 @@ Tracker::FHResult Tracker::selectFH(const cv::Mat& F21,
     F12 = F21.t();
     H12 = H21.inv(cv::DECOMP_LU);
     // retrieve input 2D-2D matches
-    const vector<cv::KeyPoint>& vKpts1 = mpView1->getKeyPoints();
-    const vector<cv::KeyPoint>& vKpts2 = mpView2->getKeyPoints();
+    const vector<cv::KeyPoint>& vKpts1 = mpView1->keypoints();
+    const vector<cv::KeyPoint>& vKpts2 = mpView2->keypoints();
     // compute reprojection errors
     float errorF = 0.f;
     float errorH = 0.f;
@@ -782,7 +782,7 @@ void Tracker::buildInitialMap(const cv::Mat& Xws,
     // clear the map to build a new one
     mpMap->clear();
     // traverse all triangulated points
-    Mat descs2 = mpView2->getFeatDescriptors();
+    Mat descs2 = mpView2->descriptors();
     for (unsigned i = 0; i < vnIdxPts.size(); ++i) {
         int nIdxKpt1 = mvMatches2Dto2D[vnIdxPts[i]].queryIdx;
         int nIdxKpt2 = mvMatches2Dto2D[vnIdxPts[i]].trainIdx;
@@ -795,6 +795,8 @@ void Tracker::buildInitialMap(const cv::Mat& Xws,
         pMPt->addObservation(mpView2, nIdxKpt2);
         mpView1->addObservation(pMPt);
         mpView2->addObservation(pMPt);
+        mpView1->bindMPt(pMPt, nIdxKpt1);
+        mpView2->bindMPt(pMPt, nIdxKpt2);
         // update distinctive descriptor
         pMPt->updateDescriptor();
         // add point into the map & update data of related frames
@@ -847,21 +849,20 @@ Tracker::State Tracker::track()
     //     << nInliers << "/" << mvMatches3Dto2D.size() << endl;
     
     // only optimize pose
-    //nInliers = pOpt->poseOptimization(mpView2);
-    //cout << "Inliers/Total matches (pose BA, 2nd): " << nInliers << "/"
-    //     << mvMatches3Dto2D.size() << endl;
-
-    nInliers = pOpt->frameBundleAdjustment(20, 10, true);
-    //pOpt->globalBundleAdjustment(10, 5, true);
-    cout << "Inliers/Total matches (frame BA): " << nInliers << "/"
+    nInliers = pOpt->poseOptimization(mpView2);
+    cout << "Inliers/Total matches (pose BA, 2nd): " << nInliers << "/"
          << mvMatches3Dto2D.size() << endl;
 
+    nInliers = pOpt->frameBundleAdjustment(20, 10, true);
+    cout << "Inliers/Total matches (frame BA): " << nInliers << "/"
+         << mvMatches3Dto2D.size() << endl;
+    //pOpt->globalBundleAdjustment(10, 5, true);
+
     // global BA every N frames
-    //if ((System::nCurrentFrame - n1stFrame + 1) % 20 == 0) {
+    //if ((System::nCurrentFrame - n1stFrame + 1) % 10 == 0) {
     //    pOpt->globalBundleAdjustment(20, 10, true);
-    //}
     //} else {
-    //    pOpt->frameBundleAdjustment(5, 10, true);
+    //    pOpt->frameBundleAdjustment(20, 10, true);
     //}
 
     // update visibility counter of all existed map points
@@ -876,6 +877,10 @@ Tracker::State Tracker::track()
     
     // remove redundant map points
     mpMap->removeMPts();
+
+    //if ((System::nCurrentFrame - n1stFrame + 1) % 20 == 0) {
+    //    pOpt->globalBundleAdjustment(0, 10, true);
+    //}
     
     // temp test on display of feature matching result
     displayFeatMatchResult(0, 0);
@@ -883,7 +888,7 @@ Tracker::State Tracker::track()
     cout << mvMatches3Dto2D.size() << " matches after triangulation" << endl;
 
     if (mvMatches3Dto2D.size() > 10) {
-        cout << "Pose T_{" << mpView2->getFrameIdx() << "|"
+        cout << "Pose T_{" << mpView2->index() << "|"
              << Tracker::n1stFrame  << "}:" << endl
              << mpView2->mPose << endl;
         setAbsPose(mpView2->mPose);
@@ -924,11 +929,11 @@ int Tracker::poseEstimation(const CamPose& pose)
     // get input 3D and 2D points for PnP
     Mat X3Ds(nMatches, 3, CV_32FC1);
     Mat x2Ds(nMatches, 2, CV_32FC1);
-    vector<cv::KeyPoint> vKpts2 = mpView2->getKeyPoints();
+    vector<cv::KeyPoint> vKpts2 = mpView2->keypoints();
     for (int i = 0; i < nMatches; ++i) {
         // 3D points (copy 1x3 cv::Mat)
         shared_ptr<MapPoint> pMPt = mvpMPts[mvMatches3Dto2D[i].queryIdx];
-        Mat X3Dt = pMPt->getX3D().t();
+        Mat X3Dt = pMPt->X3D().t();
         X3Dt.copyTo(X3Ds.row(i));
         // 2D keypoints (cv::Point2f -> cv::Mat, copy 1x2 cv::Mat)
         Mat x2D = Mat(vKpts2[mvMatches3Dto2D[i].trainIdx].pt);
@@ -1001,10 +1006,10 @@ void Tracker::updateMPtVisibleData() const
             continue;
         }
         // visibility data already updated
-        if (pMPt->getIdxLastObsFrm() == mpView2->getFrameIdx()) {
+        if (pMPt->getIdxLastObsFrm() == mpView2->index()) {
             continue;
         }
-        Mat Xc = mpView2->coordWorld2Cam(pMPt->getX3D());
+        Mat Xc = mpView2->coordWorld2Cam(pMPt->X3D());
         float Zc = Xc.at<float>(2);
         // map point is visible if it is in front of the camera (depth > 0)
         if (Zc <= 0) {
@@ -1017,7 +1022,7 @@ void Tracker::updateMPtVisibleData() const
         }
         // regard the map point as visible if passing all the tests
         pMPt->addCntVisible(1);
-        pMPt->setIdxLastObsFrm(mpView2->getFrameIdx());
+        pMPt->setIdxLastObsFrm(mpView2->index());
     }
     // update observation data
     for (unsigned i = 0; i < mvMatches3Dto2D.size(); ++i) {
@@ -1026,7 +1031,7 @@ void Tracker::updateMPtVisibleData() const
         shared_ptr<MapPoint> pMPt = mvpMPts[nIdxMPt];
         // only update data for visible map points (discard potential
         // wrong matches)
-        if (pMPt->getIdxLastObsFrm() == mpView2->getFrameIdx()) {
+        if (pMPt->getIdxLastObsFrm() == mpView2->index()) {
             pMPt->updateDescriptor();
         }
     }
@@ -1040,6 +1045,9 @@ void Tracker::updateMPtObsData() const
         shared_ptr<MapPoint> pMPt = mvpMPts[nIdxMPt];
         mpView2->addObservation(pMPt);
         pMPt->addObservation(mpView2, nIdxKpt);
+
+        // bind map point with corresponding keypoint
+        mpView2->bindMPt(pMPt, nIdxKpt);
     }
 }
 
@@ -1056,7 +1064,7 @@ void Tracker::resetMPtVisibleData() const
 {
     vector<shared_ptr<MapPoint>> vpMPts = mpView2->getpMPtsObserved();
     for (auto& pMPt : vpMPts) {
-        if (pMPt->getIdxLastObsFrm() == mpView2->getFrameIdx()) {
+        if (pMPt->getIdxLastObsFrm() == mpView2->index()) {
             pMPt->addCntVisible(-1);
         }
     }
@@ -1065,8 +1073,8 @@ void Tracker::resetMPtVisibleData() const
 void Tracker::triangulate3DPts(cv::Mat& Xws, std::vector<int>& vnIdxPts) const
 {
     // get all 2D-to-2D matches
-    const vector<cv::KeyPoint>& vKpts1 = mpView1->getKeyPoints();
-    const vector<cv::KeyPoint>& vKpts2 = mpView2->getKeyPoints();
+    const vector<cv::KeyPoint>& vKpts1 = mpView1->keypoints();
+    const vector<cv::KeyPoint>& vKpts2 = mpView2->keypoints();
     unsigned nMatches = mvMatches2Dto2D.size();
     vector<cv::Point2f> vPts1(nMatches);
     vector<cv::Point2f> vPts2(nMatches);
@@ -1099,7 +1107,7 @@ void Tracker::triangulate3DPts(cv::Mat& Xws, std::vector<int>& vnIdxPts) const
 void Tracker::fuseMPts(const cv::Mat& Xws,
                        const std::vector<int>& vnIdxPts) const
 {
-    Mat descs2 = mpView2->getFeatDescriptors();
+    Mat descs2 = mpView2->descriptors();
     // set of pointers to 3D-to-2D matches
     std::set<cv::DMatch*> spMatches3Dto2D;
     for (unsigned i = 0; i < mvMatches3Dto2D.size(); ++i) {
@@ -1144,9 +1152,8 @@ void Tracker::fuseMPts(const cv::Mat& Xws,
             shared_ptr<MapPoint> pMPt = make_shared<MapPoint>(mpMap, Xw);
             // add observations for map point & frame
             pMPt->addObservation(mpView1, nIdxKpt1);
-            //pMPt->addObservation(mpView2, nIdxKpt2);
             mpView1->addObservation(pMPt);
-            //mpView2->addObservation(pMPt);
+            mpView1->bindMPt(pMPt, nIdxKpt1);
             // update distinctive descriptor
             pMPt->updateDescriptor();
             // add point into the map & update data of related frames

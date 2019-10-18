@@ -1,46 +1,39 @@
 /**
- * @file   Frame.hpp
- * @brief  Header of Frame class for storing intra- and inter-frame info.
+ * @file   KeyFrame.hpp
+ * @brief  Header of KeyFrame class for storing keyframe info.
  * @author Charlie Li
- * @date   2019.08.12
+ * @date   2019.10.18
  */
 
-#ifndef FRAME_HPP
-#define FRAME_HPP
+#ifndef KEYFRAME_HPP
+#define KEYFRAME_HPP
 
 #include <memory>
-#include <set>
 #include <vector>
 
-#include <opencv2/core.hpp>
-#include <opencv2/features2d.hpp>
 #include "CamPose.hpp"
 
 namespace SLAM_demo {
 
 // forward declarations
+class Frame;
 class MapPoint;
 
 /**
- * @class Frame
- * @brief Store intra- and inter-frame info, including keypoint data, 
- *        camera pose, etc.
+ * @class KeyFrame
+ * @brief Store keyframe info for local mapper and tracker.
  */
-class Frame {
+class KeyFrame {
 public: // public data
     /// Relative camera pose \f$T_{cw,k|k-1}\f$ of the current frame.
     CamPose mPose; 
 public: // public members
     /**
-     * @brief Constructor of the Frame class.
-     *
-     * Features in the input image will be extracted by a feature extractor
-     * into keypoint and descriptor data.
-     *
-     * @param[in] img       Input image.
-     * @param[in] timestamp Timestamp info of current frame.
+     * @brief Constructor of the KeyFrame class. Construct keyframe from
+     *        normal frames.
+     * @param[in] pFrame Pointer to the frame.
      */
-    Frame(const cv::Mat& img, double timestamp);
+    KeyFrame(const std::shared_ptr<Frame>& pFrame);
     /// Get keypoint data for current frame.
     std::vector<cv::KeyPoint> keypoints() const { return mvKpts; }
     /// Get feature descriptors. Row \f$i\f$ for \f$i\f$th descriptor.
@@ -51,6 +44,8 @@ public: // public members
     double timestamp() const { return mTimestamp; }
     /// Get all corresponding map points (including unmatched ones).
     std::vector<std::shared_ptr<MapPoint>> MPts() const { return mvpMPts; }
+    /// Get number of observed map points
+    int getNumMPts() const { return mnMPts; }
     /**
      * @name Coordinate Conversion given Camera Extrinsics and Intrinsics
      * @brief Coordinate conversion among world/cam/image coordinate system.
@@ -74,49 +69,22 @@ public: // public members
      */
     cv::Mat coordCam2Img(const cv::Mat& Xc) const;
     ///@}
-    /** @brief Add observed map point data into current frame. */
-    void addObservation(const std::shared_ptr<MapPoint>& pMPt);
-    void resetObservation();
     /// Bind map point data to keypoint of a specific index.
     void bindMPt(const std::shared_ptr<MapPoint>& pMPt, int idxKpt);
-    /// Get number of observed map points
-    int getNumMPts() const { return mnMPts; }    
-    /** 
-     * @brief Get all observed map points (pointer) which are in the map. 
-     * @note The set of map points will be updated (remove map points that have 
-     *       already been removed from the map).
-     */
-    std::vector<std::shared_ptr<MapPoint>> getpMPtsObserved();
 private: // private data
-    /// Number of blocks (sub-images) on X direction when extracting features.
-    static const int NUM_BLK_X;
-    /// Number of blocks (sub-images) on Y direction when extracting features.
-    static const int NUM_BLK_Y;
-    /// Edge threshold for feature extractor.
-    static const int TH_EDGE;
     double mTimestamp; ///< Timestamp info for the current frame.
     unsigned mnIdx; ///< Frame index.
-    static unsigned nNextIdx; ///< Frame index for next frame.
-    std::shared_ptr<cv::Feature2D> mpFeatExtractor; ///< Feature extractor.
+    unsigned mnKFIdx; ///< Keyframe index.
+    static unsigned nNextKFIdx; ///< Next keyframe index
     std::vector<cv::KeyPoint> mvKpts; ///< Keypoint data of the current frame.
     /// Feature descriptors. Row \f$i\f$ for \f$i\f$th descriptor.
     cv::Mat mDescs;
-    /// Set of observed map points.
-    std::set<std::shared_ptr<MapPoint>> mspMPtsObs;
     /// Matched map points.
     std::vector<std::shared_ptr<MapPoint>> mvpMPts;
     /// Number of observed map points.
-    int mnMPts;
-private: // private member functions
-    /// Extract features from the current frame.
-    void extractFeatures(const cv::Mat& img);
-    /**
-     * @brief Undistort keypoint coordinates based on camera intrinsics and
-     *        distortion coefficients.
-     */
-    void undistortKpts();
+    int mnMPts;    
 };
 
 } // namespace SLAM_demo
 
-#endif // FRAME_HPP
+#endif // KEYFRAME_HPP

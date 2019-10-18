@@ -37,7 +37,7 @@ using std::vector;
 
 unsigned System::nCurrentFrame = 0;
 unsigned System::nLostFrames = 0;
-const unsigned System::TH_MAX_LOST_FRAMES = 10;
+const unsigned System::TH_MAX_LOST_FRAMES = 20;
 
 System::System(Mode eMode) : meMode(eMode)
 {
@@ -89,29 +89,6 @@ void System::trackImgs(const std::vector<cv::Mat>& vImgs, double timestamp)
             mpTracker->setState(Tracker::State::NOT_INITIALIZED);
         }            
     }
-    
-    // save trajectory (real time)
-    //int nIdx = mpTracker->getIdxLastPose();
-    //// just initialized
-    //if (nIdx == 1) { //
-    //    // reset trajectory
-    //    mmTrajectoryRT.clear();
-    //    mmTrajectoryOpt.clear();
-    //    saveTrajectoryRT(timestamp, CamPose());
-    //}
-    //
-    //if (nIdx > 0) {
-    //    // already initialized
-    //    CamPose pose = mpTracker->getAbsPose(nIdx);
-    //    saveTrajectoryRT(timestamp, pose);
-    //    // save trajectory (final optimized)
-    //    bool bFuseRestData = false;
-    //    saveTrajectoryOpt(bFuseRestData);
-    //} else {
-    //    // reset trajectory
-    //    mmTrajectoryRT.clear();
-    //    mmTrajectoryOpt.clear();
-    //}
 }
 
 void System::dumpTrajectory(DumpMode eMode)
@@ -132,9 +109,7 @@ void System::dumpTrajectory(DumpMode eMode)
     for (const auto& pair : *pTrajectory) {
         const double& ts = pair.first;
         const CamPose& pose = pair.second;
-        //cv::Mat t = pose.getTranslation();
         cv::Mat t = pose.getCamOrigin();
-        //Eigen::Quaternion<float> qRcw = pose.getRQuatEigen();
         Eigen::Quaternion<float> qR = pose.getRInvQuatEigen();
         ofs << std::fixed << std::setprecision(8)
             << ts << " "
@@ -178,7 +153,7 @@ void System::saveTrajectoryOpt(bool bFuseRestData)
         pspFrames = &spFramesOpt;
     }
     for (const auto& pFrame : *pspFrames) {
-        double timestamp = pFrame->getTimestamp();
+        double timestamp = pFrame->timestamp();
         CamPose pose = pFrame->mPose;
         mmTrajectoryOpt.insert({timestamp, pose});
     }

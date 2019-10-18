@@ -33,19 +33,19 @@ MapPoint::MapPoint(const std::shared_ptr<Map>& pMap, const cv::Mat& X3D) :
     mDesc(cv::Mat()), mnIdxLastObsFrm(System::nCurrentFrame),
     mnCntVisible(2), mnCntObs(0), mbOutlier(false) {}
 
-cv::Mat MapPoint::getDesc(const std::shared_ptr<Frame>& pFrame) const
+cv::Mat MapPoint::descriptor(const std::shared_ptr<Frame>& pFrame) const
 {
     auto it = mmObses.find(pFrame);
     assert(it != mmObses.end());
-    cv::Mat descs = pFrame->getFeatDescriptors();
+    cv::Mat descs = pFrame->descriptors();
     return descs.row(it->second);
 }
 
-cv::KeyPoint MapPoint::getKpt(const std::shared_ptr<Frame>& pFrame) const
+cv::KeyPoint MapPoint::keypoint(const std::shared_ptr<Frame>& pFrame) const
 {
     auto it = mmObses.find(pFrame);
     assert(it != mmObses.end());
-    vector<cv::KeyPoint> vKpts = pFrame->getKeyPoints();
+    vector<cv::KeyPoint> vKpts = pFrame->keypoints();
     return vKpts[it->second];
 }
 
@@ -98,14 +98,14 @@ void MapPoint::updateDescriptor()
     shared_ptr<Frame> pFrameBest = nullptr;
     for (auto it = mmObses.begin(); it != mmObses.end(); ++it) {
         // get keypoint & descriptor data
-        cv::KeyPoint kpt = getKpt(it->first);
-        cv::Mat desc = getDesc(it->first);
+        cv::KeyPoint kpt = this->keypoint(it->first);
+        cv::Mat desc = this->descriptor(it->first);
         if (kpt.response > maxResponse) {
             maxResponse = kpt.response;
             pFrameBest = it->first;
         }
     }
-    mDesc = getDesc(pFrameBest);
+    mDesc = descriptor(pFrameBest);
 }
 
 bool MapPoint::isObservedBy(const std::shared_ptr<Frame>& pFrame) const
