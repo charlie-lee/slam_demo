@@ -20,7 +20,8 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry> // for Eigen::Quaternion
 #include "CamPose.hpp"
-#include "Frame.hpp"
+#include "KeyFrame.hpp"
+#include "LocalMapper.hpp"
 #include "Map.hpp"
 #include "Tracker.hpp"
 
@@ -54,9 +55,11 @@ System::System(Mode eMode) : meMode(eMode)
 
     // initialize SLAM modules
     // map module
-    mpMap = make_shared<Map>(Map());
+    mpMap = make_shared<Map>();
+    // local mapper module
+    mpLocalMapper = make_shared<LocalMapper>(mpMap);
     // tracker module
-    mpTracker = make_shared<Tracker>(Tracker(meMode, mpMap));
+    mpTracker = make_shared<Tracker>(meMode, mpMap, mpLocalMapper);
 }
 
 void System::trackImgs(const std::vector<cv::Mat>& vImgs, double timestamp)
@@ -70,6 +73,9 @@ void System::trackImgs(const std::vector<cv::Mat>& vImgs, double timestamp)
     } else {
         assert(0); // TODO: track images in other SLAM modes
     }
+    
+    // process new keyframes & triangulate new map points.
+    mpLocalMapper->run();
 
     Tracker::State eState = mpTracker->getState();
     if (eState == Tracker::State::NOT_INITIALIZED) {
@@ -142,19 +148,20 @@ void System::saveTrajectoryRT(double timestamp, const CamPose& pose)
 
 void System::saveTrajectoryOpt(bool bFuseRestData)
 {
-    set<shared_ptr<Frame>>* pspFrames;
-    vector<shared_ptr<Frame>> vpRFrames = mpMap->getAllFrames();
-    set<shared_ptr<Frame>> spRFrames(vpRFrames.begin(), vpRFrames.end());
-    set<shared_ptr<Frame>> spFramesOpt = mpMap->transferFramesOpt();
+    set<shared_ptr<KeyFrame>>* pspKFs;
+    vector<shared_ptr<KeyFrame>> vpKFs = mpMap->getAllKFs();
+    set<shared_ptr<KeyFrame>> spKFs(vpKFs.cbegin(), vpKFs.cend());
+    set<shared_ptr<KeyFrame>> spKFsOpt = mpMap->transferKFsOpt();
     if (bFuseRestData) {
         // add rest poses to the optimized trajectory
-        pspFrames = &spRFrames;
+        pspKFs = &spKFs;
     } else {
-        pspFrames = &spFramesOpt;
+        pspKFs = &spKFsOpt;
     }
-    for (const auto& pFrame : *pspFrames) {
-        double timestamp = pFrame->timestamp();
-        CamPose pose = pFrame->mPose;
+    //vector<shared_ptr<KeyFrame>> vpKFs = mpMap->getAllKFs();
+    for (const auto& pKF : *pspKFs) {
+        double timestamp = pKF->timestamp();
+        CamPose pose = pKF->mPose;
         mmTrajectoryOpt.insert({timestamp, pose});
     }
 }

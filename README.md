@@ -9,17 +9,12 @@ A Simultaneous Localization and Mapping (SLAM) demo application.
 - [Doxygen](http://www.doxygen.nl/) (optional)
 
 ## Build Programs & Documentations
-1. Build thirdparty library *g2o*
-   - `mkdir thirdparty/g2o/build && cd thirdparty/g2o/build`
-   - `cmake ..`
-   - `make`
-   - `cd -`
-2. Build CMake files
+1. Build CMake files
    - `mkdir build && cd build`
    - `cmake ..`
-3. Build Programs
+2. Build Programs
    - `make`
-4. Build Documentations with Doxygen (optional)
+3. Build Documentations with Doxygen (optional)
    - `make doc`
 
 ## Build Tags

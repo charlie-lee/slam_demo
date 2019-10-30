@@ -29,17 +29,18 @@ public: // public members
     Optimizer(const std::shared_ptr<Map>& pMap);
     /**
      * @brief Global bundle adjustment for pose & map data optimization.
-     * @param[in] nFrames Number of recent frames as input to global BA scheme.
-     *                    Optimize all avaiable frames if nFrames == 0.
+     * @param[in] nKFs    Number of recent keyframes as input to global BA 
+     *                    scheme. Optimize all avaiable keyframes if nKFs == 0.
      * @param[in] nIter   Number of iterations for the optimization scheme.
      * @param[in] bRobust Whether or not to use robust kernel.
      * @return Number of map point inliers after the optimization.
      */
-    int globalBundleAdjustment(unsigned nFrames = 0, int nIter = 20,
+    int globalBundleAdjustment(unsigned nKFs = 0, int nIter = 20,
                                bool bRobust = true) const;
     /**
      * @brief Single-frame bundle adjustment for pose & new map point 
      *        data optimization.
+     * @param[in] nFrames Number of frames/pose vertices in the graph.
      * @param[in] nIter   Number of iterations for the optimization scheme.
      * @param[in] bRobust Whether or not to use robust kernel.
      * @return Number of map point inliers after the optimization.

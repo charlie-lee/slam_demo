@@ -14,7 +14,7 @@
 #include <vector>
 
 #include <opencv2/core.hpp>
-#include "Frame.hpp"
+#include "KeyFrame.hpp"
 #include "Map.hpp"
 #include "System.hpp"
 
@@ -25,46 +25,51 @@ using std::vector;
 
 MapPoint::MapPoint() :
     mpMap(nullptr), mX3D(cv::Mat()),
-    mDesc(cv::Mat()), mnIdxLastObsFrm(0),
+    mDesc(cv::Mat()), mnIdxLastVisibleFrm(0),
     mnCntVisible(0), mnCntObs(0), mbOutlier(false) {}
 
 MapPoint::MapPoint(const std::shared_ptr<Map>& pMap, const cv::Mat& X3D) :
     mpMap(pMap), mX3D(X3D.clone()),
-    mDesc(cv::Mat()), mnIdxLastObsFrm(System::nCurrentFrame),
-    mnCntVisible(2), mnCntObs(0), mbOutlier(false) {}
+    mDesc(cv::Mat()), mnIdxLastVisibleFrm(0), // explicitly set frame index
+    mnCntVisible(1), mnCntTracked(1), mnCntObs(0), mbOutlier(false) {}
 
-cv::Mat MapPoint::descriptor(const std::shared_ptr<Frame>& pFrame) const
+cv::Mat MapPoint::descriptor(const std::shared_ptr<KeyFrame>& pKF) const
 {
-    auto it = mmObses.find(pFrame);
+    auto it = mmObses.find(pKF);
     assert(it != mmObses.end());
-    cv::Mat descs = pFrame->descriptors();
+    cv::Mat descs = pKF->descriptors();
     return descs.row(it->second);
 }
 
-cv::KeyPoint MapPoint::keypoint(const std::shared_ptr<Frame>& pFrame) const
+int MapPoint::keypointIdx(const std::shared_ptr<KeyFrame>& pKF) const
 {
-    auto it = mmObses.find(pFrame);
+    auto it = mmObses.find(pKF);
     assert(it != mmObses.end());
-    vector<cv::KeyPoint> vKpts = pFrame->keypoints();
-    return vKpts[it->second];
+    return it->second;
 }
 
-std::vector<std::shared_ptr<Frame>> MapPoint::getRelatedFrames() const
+cv::KeyPoint MapPoint::keypoint(const std::shared_ptr<KeyFrame>& pKF) const
 {
-    vector<shared_ptr<Frame>> vpRelatedFrames;
-    vpRelatedFrames.reserve(mmObses.size());
-    for (auto cit = mmObses.cbegin(); cit != mmObses.cend(); ++cit) {
-        vpRelatedFrames.push_back(cit->first);
-    }
-    return vpRelatedFrames;
+    vector<cv::KeyPoint> vKpts = pKF->keypoints();
+    return vKpts[keypointIdx(pKF)];
 }
 
-float MapPoint::getObs2VisibleRatio() const
+std::vector<std::shared_ptr<KeyFrame>> MapPoint::getRelatedKFs() const
+{
+    vector<shared_ptr<KeyFrame>> vpRelatedKFs;
+    vpRelatedKFs.reserve(mmObses.size());
+    for (auto cit = mmObses.cbegin(); cit != mmObses.cend(); ++cit) {
+        vpRelatedKFs.push_back(cit->first);
+    }
+    return vpRelatedKFs;
+}
+
+float MapPoint::getTracked2VisibleRatio() const
 {
     if (mnCntVisible == 0) {
         return 0.f;
     } else {
-        return static_cast<float>(mnCntObs) / mnCntVisible;
+        return static_cast<float>(mnCntTracked) / mnCntVisible;
     }
 }
 
@@ -73,44 +78,53 @@ void MapPoint::addCntVisible(int n)
     mnCntVisible += n;
 }
 
-void MapPoint::addObservation(const std::shared_ptr<Frame>& pFrame, int nIdxKpt)
+void MapPoint::addCntTracked(int n)
 {
-    // add observation count only once for each frame
-    if (!isObservedBy(pFrame)) {
-        addCntObs(1);
-        mpMap->updateFrameData(pFrame, 1);
-    }
-    mmObses.insert(std::make_pair(pFrame, nIdxKpt));
+    mnCntTracked += n;
 }
 
-void MapPoint::removeObservation(const std::shared_ptr<Frame>& pFrame)
+void MapPoint::addObservation(const std::shared_ptr<KeyFrame>& pKF, int nIdxKpt)
 {
-    if (isObservedBy(pFrame)) {
+    // add observation count only once for each frame
+    if (!isObservedBy(pKF)) {
+        addCntObs(1);
+        mpMap->updateKFData(pKF, 1);
+    }
+    mmObses.insert(std::make_pair(pKF, nIdxKpt));
+}
+
+void MapPoint::removeObservation(const std::shared_ptr<KeyFrame>& pKF)
+{
+    if (isObservedBy(pKF)) {
         addCntObs(-1);
-        mpMap->updateFrameData(pFrame, -1);
-        mmObses.erase(pFrame);
+        mpMap->updateKFData(pKF, -1);
+        mmObses.erase(pKF);
     }
 }
 
 void MapPoint::updateDescriptor()
 {
     float maxResponse = - std::numeric_limits<float>::max();
-    shared_ptr<Frame> pFrameBest = nullptr;
-    for (auto it = mmObses.begin(); it != mmObses.end(); ++it) {
+    shared_ptr<KeyFrame> pKFBest = nullptr;
+    for (auto cit = mmObses.cbegin(); cit != mmObses.cend(); ++cit) {
         // get keypoint & descriptor data
-        cv::KeyPoint kpt = this->keypoint(it->first);
-        cv::Mat desc = this->descriptor(it->first);
+        cv::KeyPoint kpt = this->keypoint(cit->first);
+        cv::Mat desc = this->descriptor(cit->first);
         if (kpt.response > maxResponse) {
             maxResponse = kpt.response;
-            pFrameBest = it->first;
+            pKFBest = cit->first;
         }
     }
-    mDesc = descriptor(pFrameBest);
+    // invalid map point without observation data
+    if (!pKFBest) {
+        return;
+    }
+    mDesc = descriptor(pKFBest);
 }
 
-bool MapPoint::isObservedBy(const std::shared_ptr<Frame>& pFrame) const
+bool MapPoint::isObservedBy(const std::shared_ptr<KeyFrame>& pKF) const
 {
-    return (mmObses.find(pFrame) != mmObses.end());
+    return (mmObses.find(pKF) != mmObses.end());
 }
 
 void MapPoint::addCntObs(int n)

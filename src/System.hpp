@@ -19,8 +19,9 @@
 namespace SLAM_demo {
 
 // forward declarations
-class Tracker;
+class LocalMapper;
 class Map;
+class Tracker;
 
 /**
  * @class System
@@ -76,6 +77,7 @@ private: // private data
     Mode meMode; ///< System mode.
     std::shared_ptr<Tracker> mpTracker; ///< Pointer to tracker module.
     std::shared_ptr<Map> mpMap; ///< Pointer to the map.
+    std::shared_ptr<LocalMapper> mpLocalMapper; ///< Pointer to local mapper.
     /// Real-time trajectory of the system.
     std::map<double, CamPose> mmTrajectoryRT;
     /// Optimized trajectory of the system.

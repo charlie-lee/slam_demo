@@ -15,7 +15,7 @@
 
 namespace SLAM_demo {
 
-class Frame;
+class KeyFrame;
 class MapPoint;
 
 /**
@@ -30,49 +30,50 @@ public: // public members
     void addMPt(const std::shared_ptr<MapPoint>& pMPt);
     /// Get all map points from the map.
     std::vector<std::shared_ptr<MapPoint>> getAllMPts() const;
-    /// Get all related frames from the map.
-    std::vector<std::shared_ptr<Frame>> getAllFrames() const;
-    /// Get last N frames. If N <= 0, return all related frames.
-    std::vector<std::shared_ptr<Frame>> getLastNFrames(unsigned nFrames) const;
+    /// Get all related keyframes from the map.
+    std::vector<std::shared_ptr<KeyFrame>> getAllKFs() const;
+    /// Get last N keyframes. If N <= 0, return all related keyframes.
+    std::vector<std::shared_ptr<KeyFrame>> getLastNKFs(unsigned nKFs) const;
     /** 
-     * @brief Update map point count data of a related frame, and remove 
-     *        redundant frame with no observed map point.
-     * @param[in] pFrame Pointer to a frame.
-     * @param[in] cnt    The map point count to be added to the related frame.
-     * @note @p pFrame will be removed from the map if its count becomes 0.
+     * @brief Update map point count data of a related keyframe, and remove 
+     *        redundant keyframe with no observed map point.
+     * @param[in] pKF Pointer to a keyframe.
+     * @param[in] cnt The map point count to be added to the related keyframe.
+     * @note @p pKF will be removed from the map if its count becomes 0.
      */
-    void updateFrameData(const std::shared_ptr<Frame>& pFrame, int cnt);
+    void updateKFData(const std::shared_ptr<KeyFrame>& pKF, int cnt);
     /// Clear the current map.
     void clear();
     /// Remove redundant map points from the map.
     void removeMPts();
+    /// Compute scene median depth of the map.
+    float computeMedianDepth() const;
+    /// Scale all map points to a target depth.
+    void scaleToDepth(float depth) const;
     /** 
-     * @brief Transfer frames whose poses are optimized and will not receive 
+     * @brief Transfer keyframes whose poses are optimized and will not receive 
      *        further optimization to the System.
      */
-    std::set<std::shared_ptr<Frame>> transferFramesOpt();
+    std::set<std::shared_ptr<KeyFrame>> transferKFsOpt();
 private: // private data
     /**
-     * @brief Minimum observe-to-visible ratio (ratio of the number of times
-     *        being matched to the number of times being observed).
+     * @brief Minimum tracked-to-visible ratio (ratio of the number of times
+     *        being matched to the number of times being seen).
      */
-    static const float TH_MIN_RATIO_OBS_TO_VISIBLE;
+    static const float TH_MIN_RATIO_TRACKED_TO_VISIBLE;
     /// Maximum number of frames passed after the map point is seen.
     static const unsigned TH_MAX_NUM_FRMS_LAST_SEEN;
     /// A set of map points.
     std::set<std::shared_ptr<MapPoint>> mspMPts;
     /// A map of (related frame, number of observed map points) pairs.
-    std::map<std::shared_ptr<Frame>, int> mmRFrames;
-    /// A map of (related frame, number of observed map points) pairs.
-    std::map<std::shared_ptr<Frame>, int> mmKFs;
-
+    std::map<std::shared_ptr<KeyFrame>, int> mmpKFs;
     /**
      * @brief A set of frames whose poses are optimized.
      * @note The frames are removed from the map, so no further optimization
      *       is available. After the System fetches these frames, they will
      *       be removed from the Map object.
      */
-    std::set<std::shared_ptr<Frame>> mspFramesOpt;
+    std::set<std::shared_ptr<KeyFrame>> mspKFsOpt;
 private: // private members
     /// Remove a point from the map.
     void removeMPt(std::shared_ptr<MapPoint>& pMPt);

@@ -7,29 +7,28 @@
 
 #include "Frame.hpp"
 
-#include <algorithm> // std::fill()
 #include <memory>
 
 #include <opencv2/core.hpp>
 #include <opencv2/features2d.hpp>
 #include <opencv2/calib3d.hpp> // cv::undistortPoints()
 #include "Config.hpp"
+#include "FrameBase.hpp"
 #include "MapPoint.hpp"
 
 namespace SLAM_demo {
 
-using std::vector;
 using std::shared_ptr;
+using std::vector;
 using cv::Mat;
-
-unsigned Frame::nNextIdx = 0;
 
 const int Frame::NUM_BLK_X = 4;
 const int Frame::NUM_BLK_Y = 4;
 const int Frame::TH_EDGE = 17;
+unsigned Frame::nNextIdx = 0;
 
 Frame::Frame(const cv::Mat& img, double timestamp) :
-    mTimestamp(timestamp), mnIdx(nNextIdx++), mnMPts(0)
+    FrameBase(timestamp), mnIdx(nNextIdx++)
 {
     int numFeatScale = std::min(Config::nFeatures(),
                                 std::max(1, NUM_BLK_X * NUM_BLK_Y));
@@ -42,72 +41,6 @@ Frame::Frame(const cv::Mat& img, double timestamp) :
         31, // patchSize
         20); // FAST threshold
     extractFeatures(img);
-}
-
-cv::Mat Frame::coordWorld2Img(const cv::Mat& Xw) const
-{
-    Mat Xc = coordWorld2Cam(Xw);
-    Mat x = coordCam2Img(Xc);
-    return x;
-}
-
-cv::Mat Frame::coordWorld2Cam(const cv::Mat& Xw) const
-{
-    Mat Xc(3, 1, CV_32FC1);
-    Mat Rcw = mPose.getRotation();
-    Mat tcw = mPose.getTranslation();
-    Xc = Rcw*Xw + tcw;
-    return Xc;
-}
-
-cv::Mat Frame::coordCam2Img(const cv::Mat& Xc) const
-{
-    Mat x(2, 1, CV_32FC1);
-    Mat K = Config::K();
-    float invZc = 1.0f / Xc.at<float>(2);
-    Mat x3D = invZc * K * Xc;
-    x3D.rowRange(0, 2).copyTo(x);
-    return x;
-}
-
-void Frame::addObservation(const std::shared_ptr<MapPoint>& pMPt)
-{
-    mspMPtsObs.insert(pMPt);
-}
-
-void Frame::resetObservation()
-{
-    mspMPtsObs.clear();
-    std::fill(mvpMPts.begin(), mvpMPts.end(), nullptr);
-    mnMPts = 0;
-}
-
-void Frame::bindMPt(const std::shared_ptr<MapPoint>& pMPt, int idxKpt)
-{
-    if (!mvpMPts[idxKpt] && pMPt) {
-        mnMPts++;
-    }
-    if (mvpMPts[idxKpt] && !pMPt) {
-        mnMPts--;
-        assert(mnMPts >= 0);
-    }
-    mvpMPts[idxKpt] = pMPt;
-}
-
-std::vector<std::shared_ptr<MapPoint>> Frame::getpMPtsObserved()
-{
-    vector<std::shared_ptr<MapPoint>> vMPtsObs;
-    vMPtsObs.reserve(mspMPtsObs.size());
-    for (const std::shared_ptr<MapPoint>& pMPt : mspMPtsObs) {
-        if (pMPt) {
-            vMPtsObs.push_back(pMPt);
-        }
-    }
-    // update map point set (necessary?)
-    mspMPtsObs.clear();
-    mspMPtsObs = std::set<std::shared_ptr<MapPoint>>(
-        vMPtsObs.begin(), vMPtsObs.end());
-    return vMPtsObs;
 }
 
 void Frame::extractFeatures(const cv::Mat& img)
@@ -173,8 +106,6 @@ void Frame::extractFeatures(const cv::Mat& img)
             }
         }
     }
-    // allocate space for matched map points
-    mvpMPts.resize(mvKpts.size(), nullptr);
     // undistort keypoint coordinates
     undistortKpts();
 }

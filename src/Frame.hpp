@@ -8,6 +8,9 @@
 #ifndef FRAME_HPP
 #define FRAME_HPP
 
+#include "FrameBase.hpp"
+
+#include <map>
 #include <memory>
 #include <set>
 #include <vector>
@@ -26,10 +29,7 @@ class MapPoint;
  * @brief Store intra- and inter-frame info, including keypoint data, 
  *        camera pose, etc.
  */
-class Frame {
-public: // public data
-    /// Relative camera pose \f$T_{cw,k|k-1}\f$ of the current frame.
-    CamPose mPose; 
+class Frame : public FrameBase {
 public: // public members
     /**
      * @brief Constructor of the Frame class.
@@ -41,52 +41,8 @@ public: // public members
      * @param[in] timestamp Timestamp info of current frame.
      */
     Frame(const cv::Mat& img, double timestamp);
-    /// Get keypoint data for current frame.
-    std::vector<cv::KeyPoint> keypoints() const { return mvKpts; }
-    /// Get feature descriptors. Row \f$i\f$ for \f$i\f$th descriptor.
-    cv::Mat descriptors() const { return mDescs; }
     /// Get frame index of current frame.
     unsigned index() const { return mnIdx; }
-    /// Get timestamp info of the frame.
-    double timestamp() const { return mTimestamp; }
-    /// Get all corresponding map points (including unmatched ones).
-    std::vector<std::shared_ptr<MapPoint>> MPts() const { return mvpMPts; }
-    /**
-     * @name Coordinate Conversion given Camera Extrinsics and Intrinsics
-     * @brief Coordinate conversion among world/cam/image coordinate system.
-     * @param[in] Xw \f$3 \times 1\f$ coordinate in world coordinate system.
-     * @param[in] Xc \f$3 \times 1\f$ coordinate in camera coordinate system.
-     */
-    ///@{
-    /**
-     * @brief World to image coordinate system conversion.
-     * @return \f$2 \times 1\f$ image cooordinate w.r.t. the current frame.
-     */
-    cv::Mat coordWorld2Img(const cv::Mat& Xw) const;
-    /**
-     * @brief World to camera coordinate system conversion.
-     * @return \f$3 \times 1\f$ camera cooordinate w.r.t. the current frame.
-     */
-    cv::Mat coordWorld2Cam(const cv::Mat& Xw) const;
-    /**
-     * @brief Camera to image coordinate system conversion.
-     * @return \f$2 \times 1\f$ image cooordinate w.r.t. the current frame.
-     */
-    cv::Mat coordCam2Img(const cv::Mat& Xc) const;
-    ///@}
-    /** @brief Add observed map point data into current frame. */
-    void addObservation(const std::shared_ptr<MapPoint>& pMPt);
-    void resetObservation();
-    /// Bind map point data to keypoint of a specific index.
-    void bindMPt(const std::shared_ptr<MapPoint>& pMPt, int idxKpt);
-    /// Get number of observed map points
-    int getNumMPts() const { return mnMPts; }    
-    /** 
-     * @brief Get all observed map points (pointer) which are in the map. 
-     * @note The set of map points will be updated (remove map points that have 
-     *       already been removed from the map).
-     */
-    std::vector<std::shared_ptr<MapPoint>> getpMPtsObserved();
 private: // private data
     /// Number of blocks (sub-images) on X direction when extracting features.
     static const int NUM_BLK_X;
@@ -94,19 +50,9 @@ private: // private data
     static const int NUM_BLK_Y;
     /// Edge threshold for feature extractor.
     static const int TH_EDGE;
-    double mTimestamp; ///< Timestamp info for the current frame.
     unsigned mnIdx; ///< Frame index.
     static unsigned nNextIdx; ///< Frame index for next frame.
     std::shared_ptr<cv::Feature2D> mpFeatExtractor; ///< Feature extractor.
-    std::vector<cv::KeyPoint> mvKpts; ///< Keypoint data of the current frame.
-    /// Feature descriptors. Row \f$i\f$ for \f$i\f$th descriptor.
-    cv::Mat mDescs;
-    /// Set of observed map points.
-    std::set<std::shared_ptr<MapPoint>> mspMPtsObs;
-    /// Matched map points.
-    std::vector<std::shared_ptr<MapPoint>> mvpMPts;
-    /// Number of observed map points.
-    int mnMPts;
 private: // private member functions
     /// Extract features from the current frame.
     void extractFeatures(const cv::Mat& img);

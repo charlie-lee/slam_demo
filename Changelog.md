@@ -1,30 +1,35 @@
 # Changelog & TODO-list
 
 ## TODO
-- Add data structure for matched 3D map points in Frame class
-  - Same size with the vector of keypoints (done)
-  - Add bindings in tracker class (may need to revamp binding timing)
-  - May need to update feature matching functions
-    - May write a matcher class??
-- Add KeyFrame class (50%)
-  - Add weighted graph related member functions (TODO)
-- Add keyframe selection scheme (TODO)
-- Add LocalMapper class (TODO)
-  - For each new KF, try to find new mappoints among all related KFs
-  - Fuse existing MPts & triangulate new MPts
-  - Remove redundant MPts & KFs
-- Update track() procedure (TODO)
-  - No triangulation anymore
-  - Try to find all related keyframes & corresponding map points
-  - Do 3D-to-2D match for stable match result
-  - Use all matched MPts for pose optimization (maybe also single-frame BA)
+- LocalMapper:
+  - Fuse new triangulated points with bound map points
+  - Local BA scheme
+- System: dump keyframe trajectory (50%, seems to have bug)
+- Check why the system failed in KITTI dataset
 - Low priority TODOs
   - Update backend BA schemes to use keyframe data (TODO)
   - Add trajectory visialization mode (TODO)
-  - Update map point fusion procedure (TODO)
+  - Check why mask info not utilized by knnMatch() for feature matching (TODO)
 
 ## Latest Version
+
+## v0.5.0
 - Simplify some class designs
+- Add FrameBase class and regard Frame as derived class
+- Add KeyFrame class as derived class of FrameBase
+  - Add weighted graph related member functions
+  - Store a map of (pKF, weight (common map points)) pairs
+  - Use {idxKpt, pMPt} pair instead of vMPts[idxKpt] data for Frame & KeyFrame 
+    classes
+- Revamp data structure for matched 3D map points in Frame/KeyFrame class
+- Extract feature matching operations to a separate class
+- Add LocalMapper class with the following features:
+  - New map point creation scheme
+  - Map point fusion scheme
+  - Keyframe removal scheme
+- Scale scene median depth to 1 after initialization
+- Add keyframe addition scheme (basic version)
+- Update interface for related classes
 
 ## v0.4.4
 - Do not add frame observation data to the map if there's no new 

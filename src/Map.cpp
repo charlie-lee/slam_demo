@@ -7,21 +7,24 @@
 
 #include "Map.hpp"
 
+#include <algorithm>
 #include <memory>
 #include <set>
 #include <vector>
 
-#include "Frame.hpp"
+#include <opencv2/core.hpp>
+#include "KeyFrame.hpp"
 #include "MapPoint.hpp"
 #include "System.hpp"
 
 namespace SLAM_demo {
 
+using cv::Mat;
 using std::set;
 using std::shared_ptr;
 using std::vector;
 
-const float Map::TH_MIN_RATIO_OBS_TO_VISIBLE = 0.7f;
+const float Map::TH_MIN_RATIO_TRACKED_TO_VISIBLE = 0.25f;
 const unsigned Map::TH_MAX_NUM_FRMS_LAST_SEEN = 10000;
 
 void Map::addMPt(const std::shared_ptr<MapPoint>& pMPt)
@@ -41,50 +44,50 @@ std::vector<std::shared_ptr<MapPoint>> Map::getAllMPts() const
     return vpMPts;
 }
 
-std::vector<std::shared_ptr<Frame>> Map::getAllFrames() const
+std::vector<std::shared_ptr<KeyFrame>> Map::getAllKFs() const
 {
-    std::vector<std::shared_ptr<Frame>> vpFrames;
-    vpFrames.reserve(mmRFrames.size());
-    for (auto cit = mmRFrames.cbegin(); cit != mmRFrames.cend(); ++cit) {
-        vpFrames.push_back(cit->first);
+    std::vector<std::shared_ptr<KeyFrame>> vpKFs;
+    vpKFs.reserve(mmpKFs.size());
+    for (auto cit = mmpKFs.cbegin(); cit != mmpKFs.cend(); ++cit) {
+        vpKFs.push_back(cit->first);
     }
-    return vpFrames;
+    return vpKFs;
 }
 
-std::vector<std::shared_ptr<Frame>> Map::getLastNFrames(unsigned nFrames) const
+std::vector<std::shared_ptr<KeyFrame>> Map::getLastNKFs(unsigned nKFs) const
 {
-    // get all frames if the number of frames is too small or too large
-    if (nFrames == 0 || nFrames >= mmRFrames.size()) {
-        return getAllFrames();
+    // get all keyframes if the number of keyframes is too small or too large
+    if (nKFs == 0 || nKFs >= mmpKFs.size()) {
+        return getAllKFs();
     }
-    vector<shared_ptr<Frame>> vpFrames;
-    vpFrames.reserve(nFrames);
+    vector<shared_ptr<KeyFrame>> vpKFs;
+    vpKFs.reserve(nKFs);
     // get all frames in another map and sort them by frame index
-    std::map<unsigned, shared_ptr<Frame>> mpFrames;
-    for (auto it = mmRFrames.begin(); it != mmRFrames.end(); ++it) {
-        mpFrames.insert({it->first->index(), it->first});
+    std::map<unsigned, shared_ptr<KeyFrame>> mpKFs;
+    for (auto cit = mmpKFs.cbegin(); cit != mmpKFs.cend(); ++cit) {
+        mpKFs.insert({cit->first->index(), cit->first});
     }
     // get last N frames
-    for (auto it = mpFrames.rbegin(); it != mpFrames.rend(); ++it) {
-        vpFrames.push_back(it->second);
+    for (auto it = mpKFs.rbegin(); it != mpKFs.rend(); ++it) {
+        vpKFs.push_back(it->second);
     }
-    return vpFrames;
+    return vpKFs;
 }
 
-void Map::updateFrameData(const std::shared_ptr<Frame>& pFrame, int cnt)
+void Map::updateKFData(const std::shared_ptr<KeyFrame>& pKF, int cnt)
 {
-    auto it = mmRFrames.find(pFrame);
-    if (it == mmRFrames.end()) {
+    auto it = mmpKFs.find(pKF);
+    if (it == mmpKFs.end()) {
         // insert new frame pointer
         assert(cnt == 1);
-        mmRFrames.insert({pFrame, cnt});
+        mmpKFs.insert({pKF, cnt});
     } else {
         assert(it->second > 0);
         it->second += cnt;
         // remove redundant frame with no observed map points
         if (it->second == 0) {
-            mspFramesOpt.insert(pFrame);
-            mmRFrames.erase(pFrame);
+            mspKFsOpt.insert(pKF);
+            mmpKFs.erase(pKF);
         }
     }
 }
@@ -92,7 +95,8 @@ void Map::updateFrameData(const std::shared_ptr<Frame>& pFrame, int cnt)
 void Map::clear()
 {
     mspMPts.clear();
-    mmRFrames.clear();
+    mmpKFs.clear();
+    mspKFsOpt.clear();
 }
 
 void Map::removeMPts()
@@ -104,13 +108,16 @@ void Map::removeMPts()
         if (!pMPt) {
             continue;
         }
-        float o2vRatio = pMPt->getObs2VisibleRatio();
-        if (o2vRatio < TH_MIN_RATIO_OBS_TO_VISIBLE) {
+        float t2vRatio = pMPt->getTracked2VisibleRatio();
+        // target map point has no observations
+        if (pMPt->getNumObservations() == 0) {
+            removeMPt(pMPt);
+        } else if (t2vRatio < TH_MIN_RATIO_TRACKED_TO_VISIBLE) {
             // discard low quality map points that has low
-            // observe-to-visible ratio
+            // tracked-to-visible ratio
             removeMPt(pMPt);
         } else if (System::nCurrentFrame >
-                   pMPt->getIdxLastObsFrm() + TH_MAX_NUM_FRMS_LAST_SEEN) {
+                   pMPt->getIdxLastVisibleFrm() + TH_MAX_NUM_FRMS_LAST_SEEN) {
             removeMPt(pMPt);
         } else if (pMPt->isOutlier()) {
             removeMPt(pMPt);
@@ -118,21 +125,46 @@ void Map::removeMPts()
     }
 }
 
-std::set<std::shared_ptr<Frame>> Map::transferFramesOpt()
+float Map::computeMedianDepth() const
 {
-    set<shared_ptr<Frame>> spFramesOpt = mspFramesOpt;
+    vector<float> vDepths;
+    vDepths.reserve(mspMPts.size());
+    for (const auto& pMPt : mspMPts) {
+        Mat Xw = pMPt->X3D();
+        float depth = Xw.at<float>(2);
+        vDepths.push_back(depth);
+    }
+    std::sort(vDepths.begin(), vDepths.end());
+    return vDepths[(vDepths.size() - 1) / 2];
+}
+
+void Map::scaleToDepth(float depth) const
+{
+    for (const auto& pMPt : mspMPts) {
+        Mat Xw = pMPt->X3D();
+        Xw /= depth;
+        pMPt->setX3D(Xw);
+    }    
+}
+
+std::set<std::shared_ptr<KeyFrame>> Map::transferKFsOpt()
+{
+    set<shared_ptr<KeyFrame>> spKFsOpt = mspKFsOpt;
     // remove frame data from the map
-    mspFramesOpt.clear();
+    mspKFsOpt.clear();
     // transfer the frame data to System
-    return spFramesOpt;
+    return spKFsOpt;
 }
 
 void Map::removeMPt(std::shared_ptr<MapPoint>& pMPt)
 {
-    // update data of related frames
-    vector<shared_ptr<Frame>> vpRelatedFrames = pMPt->getRelatedFrames();
-    for (const auto& pFrame : vpRelatedFrames) {
-        updateFrameData(pFrame, -1);
+    // update data of related keyframes
+    vector<shared_ptr<KeyFrame>> vpRelatedKFs = pMPt->getRelatedKFs();
+    for (const auto& pKF : vpRelatedKFs) {
+        // unbind map point and the corresponding observed keypoint or each KF
+        pKF->bindMPt(nullptr, pMPt->keypointIdx(pKF));
+        // update number of observed map point for each keyframe
+        updateKFData(pKF, -1);
     }
     mspMPts.erase(pMPt);
 }

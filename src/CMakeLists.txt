@@ -9,6 +9,10 @@ add_library(${PROJECT_NAME} SHARED
   Map.cpp
   Optimizer.cpp
   KeyFrame.cpp
+  LocalMapper.cpp
+  FeatureMatcher.cpp
+  FrameBase.cpp
+  Utility.cpp
   )
 
 target_link_libraries(${PROJECT_NAME}
