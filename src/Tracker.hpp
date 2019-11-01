@@ -22,6 +22,7 @@ class KeyFrame;
 class LocalMapper;
 class Map;
 class MapPoint;
+class Optimizer;
 
 /**
  * @class Tracker
@@ -75,6 +76,7 @@ public: // public members
      * @param[in] pLocalMapper Pointer to the local mapper.
      */
     Tracker(System::Mode eMode, const std::shared_ptr<Map>& pMap,
+            const std::shared_ptr<Optimizer>& pOptimizer,
             const std::shared_ptr<LocalMapper>& pLocalMapper);
     /** 
      * @brief Track an input image in System::Mode::MONOCULAR mode.
@@ -109,6 +111,7 @@ private: // private data
     State meState; ///< Tracking state.
     bool mbFirstFrame; ///< Whether it is the 1st input frame to be processed.
     std::shared_ptr<Map> mpMap; ///< Pointer to the map.
+    std::shared_ptr<Optimizer> mpOpt; ///< Pointer to the optimizer.
     std::shared_ptr<LocalMapper> mpLocalMapper; ///< Pointer to local mapper.
     /** 
      * @brief Images of previous frame for a vector of views. 

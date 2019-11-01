@@ -17,6 +17,7 @@ namespace SLAM_demo {
 
 // forward declarations
 class Frame;
+class KeyFrame;
 class Map;
 
 /**
@@ -58,6 +59,14 @@ public: // public members
      * @note In this BA scheme, only the pose is optimized.
      */
     int poseOptimization(const std::shared_ptr<Frame>& pFrame) const;
+    /**
+     * @brief BA for the local map based on the input keyframe.
+     * @param[in] pKFin Ptr to the keyframe which maintains a local map with it.
+     * @param[in] nIter   Number of iterations for the optimization scheme.
+     * @param[in] bRobust Whether or not to use robust kernel.
+     */
+    void localBundleAdjustment(const std::shared_ptr<KeyFrame>& pKFin,
+                               int nIter = 20, bool bRobust = true) const;
 private: // private data
     /// Pointer to the map.
     std::shared_ptr<Map> mpMap;

@@ -48,7 +48,7 @@ public: // public members
     /// Get index of the latest frame that observed the point.
     unsigned getIdxLastVisibleFrm() const { return mnIdxLastVisibleFrm; }
     /// Get number of observations.
-    int getNumObservations() const { return mnCntObs; }
+    int getNumObservations() const { return mmObses.size(); }
     /// Get observation-to-visible ratio.
     float getTracked2VisibleRatio() const;
     /// Update 3D world coordinate of the point.
@@ -90,16 +90,8 @@ private: // private data
     int mnCntVisible;
     /// Number of times by which the point is tracked by input frames,
     int mnCntTracked;
-    /** 
-     * @brief Number of times by which the point is matched with another 
-     *        point (2D/3D) after the system is initialized.
-     */
-    int mnCntObs;
     /// Whether the map point is an outlier.
     bool mbOutlier;
-private: // private members
-    /// Update count of being matched by other points.
-    void addCntObs(int n = 1);
 };
 
 } // namespace SLAM_demo

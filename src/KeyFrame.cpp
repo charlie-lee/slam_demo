@@ -26,7 +26,7 @@ using std::vector;
 using cv::Mat;
 
 unsigned KeyFrame::nNextIdx = 0;
-const int KeyFrame::TH_MIN_WEIGHT = 10;
+const int KeyFrame::TH_MIN_WEIGHT = 20;
 
 KeyFrame::KeyFrame(const std::shared_ptr<Frame>& pFrame) :
     FrameBase(*pFrame), mnIdx(nNextIdx++), mnIdxFrame(pFrame->index()) {}

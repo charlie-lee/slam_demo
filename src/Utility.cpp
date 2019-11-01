@@ -25,7 +25,7 @@ using std::vector;
 
 
 // constants
-const float Utility::TH_COS_PARALLAX = 0.9998f;
+const float Utility::TH_COS_PARALLAX = 0.9995f;
 
 bool Utility::is2DPtInBorder(const cv::Mat& pt)
 {
@@ -67,7 +67,8 @@ std::vector<cv::Mat> Utility::triangulate3DPts(
         const cv::KeyPoint& kpt1 = vKpts1[vMatches21[i].trainIdx];
         const cv::KeyPoint& kpt2 = vKpts2[vMatches21[i].queryIdx];
         if (checkTriangulatedPt(Xws.col(i), kpt1, kpt2,
-                                pF1->mPose, pF2->mPose)) {
+                                pF1->mPose, pF2->mPose,
+                                0.99f)) {
             vXws.push_back(Xws.col(i).clone()); // clone() necessary?
         } else {
             vXws.push_back(Mat()); // empty cv::Mat for bad points
@@ -80,7 +81,8 @@ bool Utility::checkTriangulatedPt(const cv::Mat& Xw,
                                   const cv::KeyPoint& kpt1,
                                   const cv::KeyPoint& kpt2,
                                   const CamPose& pose1,
-                                  const CamPose& pose2)
+                                  const CamPose& pose2,
+                                  float thCosParallax)
 {
     // 3D cam coord in view 1
     Mat Rcw1 = pose1.getRotation();
@@ -104,7 +106,7 @@ bool Utility::checkTriangulatedPt(const cv::Mat& Xw,
     float normXc1o1 = cv::norm(Xc1o1, cv::NORM_L2);
     float normXc2o2 = cv::norm(Xc2o2, cv::NORM_L2);
     float cosParallax = Xc1o1.dot(Xc2o2) / (normXc1o1 * normXc2o2);
-    if (cosParallax > TH_COS_PARALLAX) {
+    if (cosParallax > thCosParallax) {
         return false;
     }
     // condition 3: reprojected 2D point needs to be inside image border

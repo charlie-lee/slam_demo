@@ -24,7 +24,7 @@ using std::set;
 using std::shared_ptr;
 using std::vector;
 
-const float Map::TH_MIN_RATIO_TRACKED_TO_VISIBLE = 0.25f;
+const float Map::TH_MIN_RATIO_TRACKED_TO_VISIBLE = 0.3f;
 const unsigned Map::TH_MAX_NUM_FRMS_LAST_SEEN = 10000;
 
 void Map::addMPt(const std::shared_ptr<MapPoint>& pMPt)

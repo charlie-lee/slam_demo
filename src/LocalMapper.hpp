@@ -20,6 +20,7 @@ namespace SLAM_demo {
 class KeyFrame;
 class Map;
 class MapPoint;
+class Optimizer;
 
 /**
  * @class LocalMapper
@@ -30,13 +31,15 @@ class MapPoint;
  *    - Create new map points between it & a number of its connected keyframes;
  *    - Fuse newly triangulated map points to the related keyframes in the local
  *      map (cosivibility graph);
+ *    - Perform local bundle adjustment (based on local map of the keyframe).
  *    - Remove redundant keyframes.
  * 2. Remove redundant map points.
  */
 class LocalMapper {
 public: // public members
     /// Constructor of the class.
-    LocalMapper(const std::shared_ptr<Map>& pMap);
+    LocalMapper(const std::shared_ptr<Map>& pMap,
+                const std::shared_ptr<Optimizer>& pOptimizer);
     /// Core function for all the related tasks.
     void run();
     /// Insert a keyframe to the back of the list of new keyframes.
@@ -45,6 +48,7 @@ private: // private data
     /// Number of best connected keyframes for new map point creation.
     static const int NUM_BEST_KF;
     std::shared_ptr<Map> mpMap; ///< Pointer to the map.
+    std::shared_ptr<Optimizer> mpOpt; ///< Pointer to the optimizer.
     /// List of newly inserted keyframes.
     std::list<std::shared_ptr<KeyFrame>> mlNewKFs;
     /// Current keyframe to be processed.
@@ -65,13 +69,14 @@ private: // private members
      *                       and 1 (training set).
      * @param[in] vXws       A vector of newly triangulated points (same size 
      *                       with that of the matches).
+     * @return Number of newly created map points.
      * @note Newly triangulated points which can be bound to the input keyframe
      *       are generated as new map points and are put into the map.
      */
-    void fuseMapPoints(const std::shared_ptr<KeyFrame>& pKF2,
-                       const std::shared_ptr<KeyFrame>& pKF1,
-                       const std::vector<cv::DMatch>& vMatches21,
-                       const std::vector<cv::Mat>& vXws) const;
+    int fuseMapPoints(const std::shared_ptr<KeyFrame>& pKF2,
+                      const std::shared_ptr<KeyFrame>& pKF1,
+                      const std::vector<cv::DMatch>& vMatches21,
+                      const std::vector<cv::Mat>& vXws) const;
     /** 
      * @brief Fuse map points of source keyframe to destination keyframe.
      * @param[in] pKFsrc Pointer to source keyframe.

@@ -81,7 +81,8 @@ public: // public members
                                     const cv::KeyPoint& kpt1,
                                     const cv::KeyPoint& kpt2,
                                     const CamPose& pose1,
-                                    const CamPose& pose2);
+                                    const CamPose& pose2,
+                                    float thCosParallax = 0.9999f);
     /** 
      * @brief Compute fundamental matrix F21 of 2 views (from view 1 to view 2)
      *        based on their relative  poses T1 & T2.

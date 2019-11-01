@@ -9,6 +9,7 @@
 
 #include <map>
 #include <memory>
+#include <set>
 #include <vector>
 
 #include <g2o/core/sparse_optimizer.h>
@@ -20,7 +21,7 @@
 //#include <g2o/solvers/cholmod/linear_solver_cholmod.h> // for global BA
 #include <g2o/solvers/csparse/linear_solver_csparse.h> // for global BA
 #include <g2o/solvers/dense/linear_solver_dense.h> // for pose optimization
-//#include <g2o/solvers/eigen/linear_solver_eigen.h>
+#include <g2o/solvers/eigen/linear_solver_eigen.h> // for local BA
 #include <g2o/types/sba/types_six_dof_expmap.h> // g2o::EdgeSE3ProjectXYZ, ...
 #include <opencv2/core.hpp>
 #include <opencv2/core/eigen.hpp> // cv::cv2eigen()
@@ -37,6 +38,7 @@ namespace SLAM_demo {
 
 using std::map;
 using std::make_shared;
+using std::set;
 using std::shared_ptr;
 using std::vector;
 using cv::Mat;
@@ -541,6 +543,228 @@ int Optimizer::poseOptimization(const std::shared_ptr<Frame>& pFrame) const
     optimizer.clearParameters();
 
     return nInliers;
+}
+
+void Optimizer::localBundleAdjustment(const std::shared_ptr<KeyFrame>& pKFin,
+                                      int nIter, bool bRobust) const
+{
+    // set definition of solver
+    g2o::BlockSolver_6_3::LinearSolverType* pLinearSolver;
+    pLinearSolver =
+        new g2o::LinearSolverEigen<g2o::BlockSolver_6_3::PoseMatrixType>();
+    g2o::BlockSolver_6_3* pBlkSolver;
+    pBlkSolver = new g2o::BlockSolver_6_3(pLinearSolver);
+    g2o::OptimizationAlgorithmLevenberg* pSolverLM;
+    pSolverLM = new g2o::OptimizationAlgorithmLevenberg(pBlkSolver);
+    // configure optimizer
+    g2o::SparseOptimizer optimizer;
+    optimizer.setVerbose(false);
+    optimizer.setAlgorithm(pSolverLM);
+    
+    // add vertices: poses that can be optimized
+    vector<shared_ptr<KeyFrame>> vpConnectedKFs = pKFin->getConnectedKFs();
+    set<shared_ptr<KeyFrame>> spKFs;
+    spKFs.insert(pKFin);
+    spKFs.insert(vpConnectedKFs.cbegin(), vpConnectedKFs.cend());
+    set<shared_ptr<MapPoint>> spMPts; // temp container for all local map points
+    unsigned idxKFMax = 0;
+    for (const auto& pKF : spKFs) {
+        g2o::VertexSE3Expmap* pVSE3 = new g2o::VertexSE3Expmap();
+        Mat Tcw = pKF->mPose.getPose();
+        unsigned idxKF = pKF->index();
+        pVSE3->setEstimate(cvMat2SE3Quat(Tcw));
+        pVSE3->setId(idxKF);
+        bool bFixed = pKF->index() == 0;
+        pVSE3->setFixed(bFixed);
+        optimizer.addVertex(pVSE3);
+        if (idxKF > idxKFMax) {
+            idxKFMax = idxKF;
+        }
+        // get local map points
+        vector<shared_ptr<MapPoint>> vpMPtsKF = pKF->mappoints();
+        for (const auto& pMPt : vpMPtsKF) {
+            if (pMPt) {
+                spMPts.insert(pMPt);
+            }
+        }
+    }
+    // add vertices: fixed poses
+    vector<shared_ptr<KeyFrame>> vpWeakKFs = pKFin->getWeakKFs();
+    set<shared_ptr<KeyFrame>> spFixedKFs;
+    spFixedKFs.insert(vpWeakKFs.cbegin(), vpWeakKFs.cend());
+    for (const auto& pMPt: spMPts) {
+        vector<shared_ptr<KeyFrame>> vpKFRelated = pMPt->getRelatedKFs();
+        for (const auto& pKF : vpKFRelated) {
+            // add poses that is not in the local map to the fixed pose set
+            if (spKFs.find(pKF) == spKFs.end()) {
+                spFixedKFs.insert(pKF);
+            }
+        }
+    }
+    for (const auto& pKF : spFixedKFs) {
+        g2o::VertexSE3Expmap* pVSE3 = new g2o::VertexSE3Expmap();
+        Mat Tcw = pKF->mPose.getPose();
+        unsigned idxKF = pKF->index();
+        pVSE3->setEstimate(cvMat2SE3Quat(Tcw));
+        pVSE3->setId(idxKF);
+        pVSE3->setFixed(true);
+        optimizer.addVertex(pVSE3);
+        if (idxKF > idxKFMax) {
+            idxKFMax = idxKF;
+        }
+    }
+
+    // add vertices: map points, and add edges for each map point
+    int nMPts = spMPts.size();
+    // skip optimization if map points are not enough
+    if (nMPts < TH_MIN_NUM_MAPPOINT) {
+        return;
+    }
+    // use std::vector for indexing on each map point
+    vector<shared_ptr<MapPoint>> vpMPts(spMPts.cbegin(), spMPts.cend());
+    vector<bool> vbMPtOptimized(nMPts, true);
+    vector<vector<g2o::EdgeSE3ProjectXYZ*>> vvpEdges(nMPts);    
+    for (int i = 0; i < nMPts; ++i) {
+        const shared_ptr<MapPoint>& pMPt = vpMPts[i];
+        g2o::VertexSBAPointXYZ* pVPt = new g2o::VertexSBAPointXYZ();
+        pVPt->setEstimate(cvMat2Vector3d(pMPt->X3D()));
+        pVPt->setId(idxKFMax + 1 + i);
+        pVPt->setMarginalized(true); // why?? (to decrease the size of Hessian?)
+        optimizer.addVertex(pVPt);
+        
+        // add edges
+        vector<shared_ptr<KeyFrame>> vpKFsMPt = pMPt->getRelatedKFs();
+        int nKFsMpt = vpKFsMPt.size();
+        vvpEdges[i].resize(nKFsMpt, nullptr);
+        bool bHasEdge = false; // check whether the vertec has edges
+        for (int j = 0; j < nKFsMpt; ++j) {
+            auto& pKF = vpKFsMPt[j];        
+            // check whether the map point is observed by the target keyframe
+            if (!pMPt->isObservedBy(pKF)) {
+                continue;
+            }
+            // form an edge
+            bHasEdge = true;
+            cv::KeyPoint kpt = pMPt->keypoint(pKF);
+            Eigen::Matrix<double, 2, 1> obs;
+            obs << kpt.pt.x, kpt.pt.y;
+            g2o::EdgeSE3ProjectXYZ* pEdge = new g2o::EdgeSE3ProjectXYZ();
+            // vertex 0: map point
+            pEdge->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex*>(
+                                 pVPt));
+            // vertex 1: pose
+            pEdge->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex*>(
+                                 optimizer.vertex(pKF->index())));
+            pEdge->setMeasurement(obs);
+            // set element in information matrix (value = 1 / sigma^2)
+            float sigma = std::pow(Config::scaleFactor(), kpt.octave);
+            float invSigma2 = 1.0f / (sigma * sigma);
+            pEdge->setInformation(Eigen::Matrix2d::Identity() * invSigma2);
+            // set robust kernel
+            if (bRobust) {
+                g2o::RobustKernelHuber* pRK = new g2o::RobustKernelHuber();
+                pEdge->setRobustKernel(pRK);
+                // rho(x) = x^2 if |x| < delta else 2*delta*|x| - delta^2
+                pRK->setDelta(sigma);
+            }
+            // set cam intrinsics
+            pEdge->fx = Config::fx();
+            pEdge->fy = Config::fy();
+            pEdge->cx = Config::cx();
+            pEdge->cy = Config::cy();
+            // record all the edges
+            vvpEdges[i][j] = pEdge;
+            // only optimize outliers at the last iteration
+            if (pMPt->isOutlier()) {
+                pEdge->setLevel(1);
+            }            
+            optimizer.addEdge(pEdge);
+        }
+        if (!bHasEdge) {
+            optimizer.removeVertex(pVPt);
+            vbMPtOptimized[i] = false;
+        }
+    }
+
+    // optimize
+    int nIt = 2;
+    for (int it = 0; it < nIt; ++it) {
+        optimizer.initializeOptimization(0);
+        optimizer.optimize(nIter);
+        // exclude outliers
+        for (int i = 0; i < nMPts; ++i) {
+            auto& pMPt = vpMPts[i];
+            if (vbMPtOptimized[i]) {
+                vector<shared_ptr<KeyFrame>> vpKFsMPt = pMPt->getRelatedKFs();
+                int nKFsMpt = vpKFsMPt.size();
+                for (int j = 0; j < nKFsMpt; ++j) {
+                    auto& pEdge = vvpEdges[i][j];
+                    if (!pEdge) {
+                        continue;
+                    }
+                    // optimize all edges for the last iteration
+                    // exclude outliers for other iterations
+                    if (it == nIt - 2) {
+                        pEdge->setLevel(0);
+                    } else {
+                        float chi2 = pEdge->chi2();
+                        cv::KeyPoint kpt = pMPt->keypoint(vpKFsMPt[j]);
+                        float sigma = std::pow(Config::scaleFactor(),
+                                               kpt.octave);
+                        if (chi2 > sigma*sigma ||
+                            !pEdge->isDepthPositive()) {
+                            pEdge->setLevel(1);
+                        } else {
+                            pEdge->setLevel(0);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // update results back to the keyframes/map
+    // pose update via spKFs
+    for (const auto& pKF : spKFs) {
+        g2o::VertexSE3Expmap* pVSE3 = dynamic_cast<g2o::VertexSE3Expmap*>(
+            optimizer.vertex(pKF->index()));
+        g2o::SE3Quat T = pVSE3->estimate();
+        pKF->mPose.setPose(SE3Quat2cvMat(T));
+    }
+    // map point data update via vpMPts
+    // count the number of map point outliers after optimization
+    for (int i = 0; i < nMPts; ++i) {
+        if (vbMPtOptimized[i]) {
+            shared_ptr<MapPoint>& pMPt = vpMPts[i];
+            g2o::VertexSBAPointXYZ* pVPt = dynamic_cast<
+                g2o::VertexSBAPointXYZ*>(optimizer.vertex(idxKFMax + 1 + i));
+            Eigen::Vector3d X = pVPt->estimate();
+            pMPt->setX3D(Vector3d2cvMat(X));
+            
+            // set outlier status for all map points
+            pMPt->setOutlier(false);
+            vector<shared_ptr<KeyFrame>> vpKFsMPt = pMPt->getRelatedKFs();
+            int nKFsMpt = vpKFsMPt.size();
+            for (int j = 0; j < nKFsMpt; ++j) {
+                auto& pEdge = vvpEdges[i][j];
+                if (!pEdge) {
+                    continue;
+                }
+                float chi2 = pEdge->chi2();
+                cv::KeyPoint kpt = pMPt->keypoint(vpKFsMPt[j]);
+                float sigma = std::pow(Config::scaleFactor(), kpt.octave);
+                if (chi2 > sigma*sigma * TH_MAX_CHI2_FACTOR ||
+                    !pEdge->isDepthPositive()) {
+                    pMPt->setOutlier(true);
+                    break;
+                }
+            }            
+        }
+    }
+
+    // clean up resources
+    optimizer.clear();
+    optimizer.clearParameters();
 }
 
 g2o::SE3Quat Optimizer::cvMat2SE3Quat(const cv::Mat& Tcw) const

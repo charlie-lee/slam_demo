@@ -48,14 +48,15 @@ const float Tracker::TH_MAX_RATIO_FH = 0.2f;
 const float Tracker::TH_REPROJ_ERR_FACTOR = 3.0f;
 const float Tracker::TH_POSE_SEL = 0.8f;
 const float Tracker::TH_MIN_RATIO_TRIANG_PTS = 0.5f;
-const int Tracker::TH_MIN_MATCHES_2D_TO_3D = 50;
+const int Tracker::TH_MIN_MATCHES_2D_TO_3D = 20;
 // other data
 unsigned Tracker::n1stFrame = 0;
 
 Tracker::Tracker(System::Mode eMode, const std::shared_ptr<Map>& pMap,
+                 const std::shared_ptr<Optimizer>& pOptimizer,
                  const std::shared_ptr<LocalMapper>& pLocalMapper) :
     meMode(eMode), meState(State::NOT_INITIALIZED), mbFirstFrame(true),
-    mpMap(pMap), mpLocalMapper(pLocalMapper),
+    mpMap(pMap), mpOpt(pOptimizer), mpLocalMapper(pLocalMapper),
     mpView1(nullptr), mpView2(nullptr), mpKFLatest(nullptr)
 {
     // allocate space for vectors
@@ -145,7 +146,7 @@ Tracker::State Tracker::initializeMapMono()
     // match features between previous (1) and current (2) frame
     //matchFeatures2Dto2D();
     shared_ptr<FeatureMatcher> pFMatcher = make_shared<FeatureMatcher>(
-        128.0f, false); //true, 0.75f);
+        32.0f, false); //true, 0.75f);
     mvMatches2Dto2D = pFMatcher->match2Dto2D(mpView2, mpView1);
 
     // temp test on display of feature matching result
@@ -168,9 +169,7 @@ Tracker::State Tracker::initializeMapMono()
         buildInitialMap(Xw3Ds, vnIdxPts);
         
         // optimize both pose & map data
-        //shared_ptr<Optimizer> pOpt = make_shared<Optimizer>(mpMap);
-        //pOpt->globalBundleAdjustment(0, 20, true);
-        //pOpt->frameBundleAdjustment(2, 10, true);
+        mpOpt->globalBundleAdjustment(0, 20, true);
 
         // assign velocity
         mVelocity = mpView2->mPose;
@@ -592,26 +591,15 @@ void Tracker::buildInitialMap(const cv::Mat& Xws,
     pKF2->updateConnections();
     // set latest added keyframe
     mpKFLatest = pKF2;
-    // global BA
-    shared_ptr<Optimizer> pOpt = make_shared<Optimizer>(mpMap);
-    pOpt->globalBundleAdjustment(0, 20, true);
-    // normalize median depth of the map
-    float medianDepth = mpMap->computeMedianDepth();
-    Mat RcwKF2 = pKF2->mPose.getRotation();
-    Mat tcwKF2 = pKF2->mPose.getTranslation();
-    tcwKF2 /= medianDepth;
-    pKF2->mPose.setPose(RcwKF2, tcwKF2);
-    mpMap->scaleToDepth(medianDepth);
 }
 
 Tracker::State Tracker::track()
 {
     State eState = State::NOT_INITIALIZED;
-    shared_ptr<Optimizer> pOpt = make_shared<Optimizer>(mpMap); // optimizer
         
     // match features between previous (1) and current (2) frame
     shared_ptr<FeatureMatcher> pFMatcher = make_shared<FeatureMatcher>(
-        128.0f, false); //true, 0.75f);
+        64.0f, false); //true, 0.75f);
     mvMatches2Dto3D = pFMatcher->match2Dto3D(mpView2, mpView1);
 
     int nInliers;
@@ -621,16 +609,20 @@ Tracker::State Tracker::track()
          << nInliers << "/" << mvMatches2Dto3D.size();
     
     // only optimize pose
-    nInliers = pOpt->poseOptimization(mpView2);
+    nInliers = mpOpt->poseOptimization(mpView2);
     cout << "; pose BA: " << nInliers << "/"
          << mvMatches2Dto3D.size();
 
     // get all related map points
-    mvpMPts = trackLocalMap();
+    if (meState == State::LOST) {
+        mvpMPts = mpMap->getAllMPts();
+    } else {
+        mvpMPts = trackLocalMap();
+    }
     pFMatcher = make_shared<FeatureMatcher>(4.0f, false); //true, 0.75f);
     mvMatches2Dto3D = pFMatcher->match2Dto3D(mpView2, mvpMPts);
     
-    nInliers = pOpt->poseOptimization(mpView2);
+    nInliers = mpOpt->poseOptimization(mpView2);
     cout << " -> " << nInliers << "/"
          << mpView2->getNumMPts() << endl;
 
@@ -646,7 +638,7 @@ Tracker::State Tracker::track()
     
     if (mvMatches2Dto3D.size() > 10) {
         cout << "Pose T_{" << mpView2->index() << "|"
-             << Tracker::n1stFrame  << "}:" << endl
+             << Tracker::n1stFrame  << "}: "
              << mpView2->mPose << endl;
         setAbsPose(mpView2->mPose);
         // compute velocity
@@ -730,19 +722,19 @@ int Tracker::poseEstimation(const CamPose& pose)
         }
         
         // check reprojection error
-        float errorRT = 0.0f;
-        for (int i = 0; i < nMatches; ++i) {
-            Mat xReproj = mpView2->coordWorld2Img(X3Ds.row(i).t());
-            Mat x = x2Ds.row(i).t();
-            Mat diffx = xReproj - x;
-            errorRT += diffx.dot(diffx);
-        }
-        errorRT /= nMatches;
-        if (errorRT > TH_REPROJ_ERR_FACTOR*TH_REPROJ_ERR_FACTOR * 4.0f) {
-            mpView2->mPose = mpView1->mPose;
-            return 0;
-        }
-        cout << "Mean square reprojection error for PnP = " << errorRT << endl;
+        //float errorRT = 0.0f;
+        //for (int i = 0; i < nMatches; ++i) {
+        //    Mat xReproj = mpView2->coordWorld2Img(X3Ds.row(i).t());
+        //    Mat x = x2Ds.row(i).t();
+        //    Mat diffx = xReproj - x;
+        //    errorRT += diffx.dot(diffx);
+        //}
+        //errorRT /= nMatches;
+        //if (errorRT > TH_REPROJ_ERR_FACTOR*TH_REPROJ_ERR_FACTOR * 4.0f) {
+        //    mpView2->mPose = mpView1->mPose;
+        //    return 0;
+        //}
+        //cout << "Mean square reprojection error for PnP = " << errorRT << endl;
 
         return idxInliers.rows;
     } else {
@@ -756,24 +748,24 @@ std::vector<std::shared_ptr<MapPoint>> Tracker::trackLocalMap()
 {
     vector<shared_ptr<MapPoint>> vpMPtsAll;
     // get all related KFs based on each matched map point
-    set<shared_ptr<KeyFrame>> sKFsAll;
+    set<shared_ptr<KeyFrame>> spKFsAll;
     vector<shared_ptr<MapPoint>> vpMPtsCur = mpView2->mappoints();
     for (const auto& pMPt : vpMPtsCur) {
-        vector<shared_ptr<KeyFrame>> vKFs = pMPt->getRelatedKFs();
-        sKFsAll.insert(vKFs.cbegin(), vKFs.cend());
+        vector<shared_ptr<KeyFrame>> vpKFs = pMPt->getRelatedKFs();
+        spKFsAll.insert(vpKFs.cbegin(), vpKFs.cend());
     }
     // get additional keyframes based on the latest KF
-    vector<shared_ptr<KeyFrame>> vConnectedKFs = mpKFLatest->getConnectedKFs();
-    sKFsAll.insert(vConnectedKFs.cbegin(), vConnectedKFs.cend());
+    vector<shared_ptr<KeyFrame>> vpConnectedKFs = mpKFLatest->getConnectedKFs();
+    spKFsAll.insert(vpConnectedKFs.cbegin(), vpConnectedKFs.cend());
     // get all related map points
-    set<shared_ptr<MapPoint>> sMPtsAll;
-    for (const auto& pKF : sKFsAll) {
+    set<shared_ptr<MapPoint>> spMPtsAll;
+    for (const auto& pKF : spKFsAll) {
         vector<shared_ptr<MapPoint>> vpMPtsKF = pKF->mappoints();
-        sMPtsAll.insert(vpMPtsKF.cbegin(), vpMPtsKF.cend());
+        spMPtsAll.insert(vpMPtsKF.cbegin(), vpMPtsKF.cend());
     }
-    vpMPtsAll.reserve(sMPtsAll.size());
+    vpMPtsAll.reserve(spMPtsAll.size());
     // add visible map points
-    for (const auto& pMPt : sMPtsAll) {
+    for (const auto& pMPt : spMPtsAll) {
         if (!pMPt) {
             continue;
         }
@@ -814,10 +806,10 @@ bool Tracker::qualifiedAsKeyFrame() const
     //CamPose poseKFLatestInv = poseKFLatest.getCamPoseInv();
     //CamPose poseRelative = poseCur * poseKFLatestInv;
     // TODO: check large motion between current frame and last keyframe
-    if (mvMatches2Dto3D.size() > 100) {
-        return false;
+    if (mvMatches2Dto3D.size() < 100) {
+        return true;
     }
-    return true;
+    return false;
 }
 
 void Tracker::addNewKeyFrame()

@@ -26,12 +26,12 @@ using std::vector;
 MapPoint::MapPoint() :
     mpMap(nullptr), mX3D(cv::Mat()),
     mDesc(cv::Mat()), mnIdxLastVisibleFrm(0),
-    mnCntVisible(0), mnCntObs(0), mbOutlier(false) {}
+    mnCntVisible(0), mnCntTracked(0), mbOutlier(false) {}
 
 MapPoint::MapPoint(const std::shared_ptr<Map>& pMap, const cv::Mat& X3D) :
     mpMap(pMap), mX3D(X3D.clone()),
     mDesc(cv::Mat()), mnIdxLastVisibleFrm(0), // explicitly set frame index
-    mnCntVisible(1), mnCntTracked(1), mnCntObs(0), mbOutlier(false) {}
+    mnCntVisible(1), mnCntTracked(1), mbOutlier(false) {}
 
 cv::Mat MapPoint::descriptor(const std::shared_ptr<KeyFrame>& pKF) const
 {
@@ -87,7 +87,6 @@ void MapPoint::addObservation(const std::shared_ptr<KeyFrame>& pKF, int nIdxKpt)
 {
     // add observation count only once for each frame
     if (!isObservedBy(pKF)) {
-        addCntObs(1);
         mpMap->updateKFData(pKF, 1);
     }
     mmObses.insert(std::make_pair(pKF, nIdxKpt));
@@ -96,7 +95,6 @@ void MapPoint::addObservation(const std::shared_ptr<KeyFrame>& pKF, int nIdxKpt)
 void MapPoint::removeObservation(const std::shared_ptr<KeyFrame>& pKF)
 {
     if (isObservedBy(pKF)) {
-        addCntObs(-1);
         mpMap->updateKFData(pKF, -1);
         mmObses.erase(pKF);
     }
@@ -125,11 +123,6 @@ void MapPoint::updateDescriptor()
 bool MapPoint::isObservedBy(const std::shared_ptr<KeyFrame>& pKF) const
 {
     return (mmObses.find(pKF) != mmObses.end());
-}
-
-void MapPoint::addCntObs(int n)
-{
-    mnCntObs += n;
 }
 
 } // namespace SLAM_demo

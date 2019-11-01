@@ -23,6 +23,7 @@
 #include "KeyFrame.hpp"
 #include "LocalMapper.hpp"
 #include "Map.hpp"
+#include "Optimizer.hpp"
 #include "Tracker.hpp"
 
 namespace SLAM_demo {
@@ -56,10 +57,13 @@ System::System(Mode eMode) : meMode(eMode)
     // initialize SLAM modules
     // map module
     mpMap = make_shared<Map>();
+    /// optimizer
+    mpOptimizer = make_shared<Optimizer>(mpMap);
     // local mapper module
-    mpLocalMapper = make_shared<LocalMapper>(mpMap);
+    mpLocalMapper = make_shared<LocalMapper>(mpMap, mpOptimizer);
     // tracker module
-    mpTracker = make_shared<Tracker>(meMode, mpMap, mpLocalMapper);
+    mpTracker = make_shared<Tracker>(meMode, mpMap, mpOptimizer,
+                                     mpLocalMapper);
 }
 
 void System::trackImgs(const std::vector<cv::Mat>& vImgs, double timestamp)
@@ -88,8 +92,8 @@ void System::trackImgs(const std::vector<cv::Mat>& vImgs, double timestamp)
         CamPose pose = mpTracker->getAbsPose(nIdx);
         saveTrajectoryRT(timestamp, pose);
         // save trajectory (final optimized)
-        bool bFuseRestData = false;
-        saveTrajectoryOpt(bFuseRestData);
+        //bool bFuseRestData = false;
+        //saveTrajectoryOpt(bFuseRestData);
     } else if (eState == Tracker::State::LOST) {
         if (System::nLostFrames > System::TH_MAX_LOST_FRAMES) {
             mpTracker->setState(Tracker::State::NOT_INITIALIZED);
@@ -107,7 +111,7 @@ void System::dumpTrajectory(DumpMode eMode)
         pTrajectory = &mmTrajectoryRT;
     } else if (eMode == DumpMode::OPTIMIZED) {
         ofs.open("trajectoryOpt.txt");
-        bool bFuseRestData = true;
+        bool bFuseRestData = false; //true;
         saveTrajectoryOpt(bFuseRestData);
         pTrajectory = &mmTrajectoryOpt;
     }
@@ -148,18 +152,18 @@ void System::saveTrajectoryRT(double timestamp, const CamPose& pose)
 
 void System::saveTrajectoryOpt(bool bFuseRestData)
 {
-    set<shared_ptr<KeyFrame>>* pspKFs;
+    //set<shared_ptr<KeyFrame>>* pspKFs;
     vector<shared_ptr<KeyFrame>> vpKFs = mpMap->getAllKFs();
-    set<shared_ptr<KeyFrame>> spKFs(vpKFs.cbegin(), vpKFs.cend());
-    set<shared_ptr<KeyFrame>> spKFsOpt = mpMap->transferKFsOpt();
-    if (bFuseRestData) {
-        // add rest poses to the optimized trajectory
-        pspKFs = &spKFs;
-    } else {
-        pspKFs = &spKFsOpt;
-    }
+    //set<shared_ptr<KeyFrame>> spKFs(vpKFs.cbegin(), vpKFs.cend());
+    //set<shared_ptr<KeyFrame>> spKFsOpt = mpMap->transferKFsOpt();
+    //if (!bFuseRestData) {
+    //    // add rest poses to the optimized trajectory
+    //    pspKFs = &spKFs;
+    //} else {
+    //    pspKFs = &spKFsOpt;
+    //}
     //vector<shared_ptr<KeyFrame>> vpKFs = mpMap->getAllKFs();
-    for (const auto& pKF : *pspKFs) {
+    for (const auto& pKF : vpKFs) {
         double timestamp = pKF->timestamp();
         CamPose pose = pKF->mPose;
         mmTrajectoryOpt.insert({timestamp, pose});

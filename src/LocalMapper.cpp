@@ -7,6 +7,7 @@
 
 #include "LocalMapper.hpp"
 
+#include <iostream>
 #include <list>
 #include <memory>
 #include <set>
@@ -31,10 +32,11 @@ using std::set;
 using std::shared_ptr;
 using std::vector;
 
-const int LocalMapper::NUM_BEST_KF = 50;
+const int LocalMapper::NUM_BEST_KF = 20;
 
-LocalMapper::LocalMapper(const std::shared_ptr<Map>& pMap) :
-    mpMap(pMap), mpKFCur(nullptr) {}
+LocalMapper::LocalMapper(const std::shared_ptr<Map>& pMap,
+                         const std::shared_ptr<Optimizer>& pOptimizer) :
+    mpMap(pMap), mpOpt(pOptimizer), mpKFCur(nullptr) {}
 
 void LocalMapper::run()
 {
@@ -55,12 +57,11 @@ void LocalMapper::run()
         // for each connected KF:
         //   fuse(KF, KFcur)
         fuseNewMapPoints();
+        // perform local BA
+        mpOpt->localBundleAdjustment(mpKFCur, 20, true);
         // remove redundant keyframes
         removeKeyFrames();
     }
-    // windowed BA
-    //shared_ptr<Optimizer> pOpt = make_shared<Optimizer>(mpMap);
-    //pOpt->globalBundleAdjustment(0, 5, true);
     // remove redundant map points
     mpMap->removeMPts();
 }
@@ -72,23 +73,33 @@ void LocalMapper::insertKeyFrame(const std::shared_ptr<KeyFrame>& pKF)
 
 void LocalMapper::createNewMapPoints() const
 {
+    set<shared_ptr<KeyFrame>> spKFs;
     // get best connected keyframes
     vector<shared_ptr<KeyFrame>> vpBestConnectedKFs =
         mpKFCur->getBestConnectedKFs(NUM_BEST_KF);
+    spKFs.insert(vpBestConnectedKFs.cbegin(), vpBestConnectedKFs.cend());
+    for (const auto& pKF : vpBestConnectedKFs) {
+        vector<shared_ptr<KeyFrame>> vpExtraKFs =
+            pKF->getBestConnectedKFs(5);
+        spKFs.insert(vpExtraKFs.cbegin(), vpExtraKFs.cend());
+    }
     // set 2D-to-2D feature matcher
     shared_ptr<FeatureMatcher> pFMatcher = make_shared<FeatureMatcher>(
         10000.0f, false); //true, 0.75f);
+    // check number of newly created map points
+    int nMPts = 0;
     // traverse each connected keyframe
-    for (unsigned i = 0; i < vpBestConnectedKFs.size(); ++i) {
-        shared_ptr<KeyFrame>& pKF = vpBestConnectedKFs[i];
+    for (const auto& pKF : spKFs) {
         // get 2D-to-2D matches
         vector<cv::DMatch> vMatches2Dto2D =
             pFMatcher->match2Dto2D(mpKFCur, pKF);
         // triangulate new map points
         vector<Mat> vXws = Utility::triangulate3DPts(mpKFCur, pKF,
                                                      vMatches2Dto2D);
-        fuseMapPoints(mpKFCur, pKF, vMatches2Dto2D, vXws);
+        nMPts += fuseMapPoints(mpKFCur, pKF, vMatches2Dto2D, vXws);
     }
+    std::cout << vpBestConnectedKFs.size() << " best KFs; "
+              << nMPts << " map points created" << std::endl;
 }
 
 void LocalMapper::fuseNewMapPoints() const
@@ -98,6 +109,8 @@ void LocalMapper::fuseNewMapPoints() const
     // all connected keyframes
     vector<shared_ptr<KeyFrame>> vpConnectedKFs = mpKFCur->getConnectedKFs();
     spRelatedKFs.insert(vpConnectedKFs.cbegin(), vpConnectedKFs.cend());
+    //vector<shared_ptr<KeyFrame>> vpWeakKFs = mpKFCur->getWeakKFs();
+    //spRelatedKFs.insert(vpWeakKFs.cbegin(), vpWeakKFs.cend());
     // best neighbours of each connected keyframes
     for (const auto& pKF : vpConnectedKFs) {
         vector<shared_ptr<KeyFrame>> vpBestKFs = pKF->getBestConnectedKFs(2);
@@ -122,7 +135,7 @@ void LocalMapper::removeKeyFrames() const
         set<shared_ptr<MapPoint>> spMPts;
         vector<shared_ptr<MapPoint>> vpMPts = pKF->mappoints();
         for (const auto& pMPt : vpMPts) {
-            if (!pMPt) {
+            if (pMPt) {
                 spMPts.insert(pMPt);
             }
         }
@@ -130,7 +143,7 @@ void LocalMapper::removeKeyFrames() const
         int nRedundant = 0;
         for (const auto& pMPt : spMPts) {
             int nObses = pMPt->getNumObservations();
-            if (nObses > 3) {
+            if (nObses > 2) {
                 ++nRedundant;
             }
         }
@@ -143,11 +156,12 @@ void LocalMapper::removeKeyFrames() const
     }
 }
 
-void LocalMapper::fuseMapPoints(const std::shared_ptr<KeyFrame>& pKF2,
-                                const std::shared_ptr<KeyFrame>& pKF1,
-                                const std::vector<cv::DMatch>& vMatches21,
-                                const std::vector<cv::Mat>& vXws) const
+int LocalMapper::fuseMapPoints(const std::shared_ptr<KeyFrame>& pKF2,
+                               const std::shared_ptr<KeyFrame>& pKF1,
+                               const std::vector<cv::DMatch>& vMatches21,
+                               const std::vector<cv::Mat>& vXws) const
 {
+    int nMPts = 0;
     // traverse each match with valid triangulated point
     for (unsigned i = 0; i < vMatches21.size(); ++i) {
         const Mat& Xw = vXws[i];
@@ -162,14 +176,14 @@ void LocalMapper::fuseMapPoints(const std::shared_ptr<KeyFrame>& pKF2,
             int nIdxKpt2 = match21.queryIdx;
             int nIdxKpt1 = match21.trainIdx;
             // remove observation data for old map points
-            shared_ptr<MapPoint> pMPt2 = pKF2->mappoint(nIdxKpt2);
-            shared_ptr<MapPoint> pMPt1 = pKF1->mappoint(nIdxKpt1);
-            if (pMPt2) {
-                pMPt2->removeObservation(pKF2);
-            }
-            if (pMPt1) {
-                pMPt1->removeObservation(pKF1);
-            }
+            //shared_ptr<MapPoint> pMPt2 = pKF2->mappoint(nIdxKpt2);
+            //shared_ptr<MapPoint> pMPt1 = pKF1->mappoint(nIdxKpt1);
+            //if (pMPt2) {
+            //    pMPt2->removeObservation(pKF2);
+            //}
+            //if (pMPt1) {
+            //    pMPt1->removeObservation(pKF1);
+            //}
             // add observation data for newly added map point
             pMPt->addObservation(pKF1, nIdxKpt1);
             pMPt->addObservation(pKF2, nIdxKpt2);
@@ -177,11 +191,13 @@ void LocalMapper::fuseMapPoints(const std::shared_ptr<KeyFrame>& pKF2,
             pKF2->bindMPt(pMPt, nIdxKpt2);
             pMPt->updateDescriptor();
             mpMap->addMPt(pMPt);
+            ++nMPts;
         }
     }
     // update weighted covisibiity graph
     pKF1->updateConnections();
     pKF2->updateConnections();
+    return nMPts;
 }
 
 void LocalMapper::fuseMapPoints(const std::shared_ptr<KeyFrame>& pKFsrc,

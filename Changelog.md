@@ -3,15 +3,19 @@
 ## TODO
 - LocalMapper:
   - Fuse new triangulated points with bound map points
-  - Local BA scheme
-- System: dump keyframe trajectory (50%, seems to have bug)
 - Check why the system failed in KITTI dataset
+  - Caused by depth scaling operation after map is initialized (unknown reason)
 - Low priority TODOs
-  - Update backend BA schemes to use keyframe data (TODO)
   - Add trajectory visialization mode (TODO)
   - Check why mask info not utilized by knnMatch() for feature matching (TODO)
 
 ## Latest Version
+
+## v0.5.1
+- Disable scene depth scaling scheme
+- Remove redendant counter for map points
+- Add local BA scheme
+- Add keyframe trajectory dump (temp version)
 
 ## v0.5.0
 - Simplify some class designs
