@@ -63,6 +63,9 @@ public: // public members
      * - The data is updated with the latest call to updateConnections().
      */
     std::vector<std::shared_ptr<KeyFrame>> getBestConnectedKFs(int nKFs) const;
+    std::vector<std::shared_ptr<KeyFrame>> getRelatedKFs() const;
+    /// Clear connection data of this KF and update that of all related KFs.
+    void clearConnectionData();
 private: // private data
     /// Minimum weight (common map points) between 2 keyframes.
     static const int TH_MIN_WEIGHT;

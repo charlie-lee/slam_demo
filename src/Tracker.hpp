@@ -73,6 +73,7 @@ public: // public members
      * @brief Constructor.
      * @param[in] eMode        See System::Mode for more information.
      * @param[in] pMap         Pointer to the map.
+     * @param[in] pOptimizer   Pointer to the optimizer.
      * @param[in] pLocalMapper Pointer to the local mapper.
      */
     Tracker(System::Mode eMode, const std::shared_ptr<Map>& pMap,

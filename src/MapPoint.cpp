@@ -25,12 +25,12 @@ using std::vector;
 
 MapPoint::MapPoint() :
     mpMap(nullptr), mX3D(cv::Mat()),
-    mDesc(cv::Mat()), mnIdxLastVisibleFrm(0),
+    mDesc(cv::Mat()), mAngle(-1.0f), mnIdxLastVisibleFrm(0),
     mnCntVisible(0), mnCntTracked(0), mbOutlier(false) {}
 
 MapPoint::MapPoint(const std::shared_ptr<Map>& pMap, const cv::Mat& X3D) :
     mpMap(pMap), mX3D(X3D.clone()),
-    mDesc(cv::Mat()), mnIdxLastVisibleFrm(0), // explicitly set frame index
+    mDesc(cv::Mat()), mAngle(-1.0f), mnIdxLastVisibleFrm(0), // set frame index
     mnCntVisible(1), mnCntTracked(1), mbOutlier(false) {}
 
 cv::Mat MapPoint::descriptor(const std::shared_ptr<KeyFrame>& pKF) const
@@ -72,6 +72,7 @@ float MapPoint::getTracked2VisibleRatio() const
         return static_cast<float>(mnCntTracked) / mnCntVisible;
     }
 }
+
 
 void MapPoint::addCntVisible(int n)
 {
@@ -118,6 +119,9 @@ void MapPoint::updateDescriptor()
         return;
     }
     mDesc = descriptor(pKFBest);
+    // assign orientation data
+    cv::KeyPoint kptBest = keypoint(pKFBest);
+    mAngle = kptBest.angle;
 }
 
 bool MapPoint::isObservedBy(const std::shared_ptr<KeyFrame>& pKF) const

@@ -1,15 +1,31 @@
 # Changelog & TODO-list
 
 ## TODO
-- LocalMapper:
-  - Fuse new triangulated points with bound map points
-- Check why the system failed in KITTI dataset
-  - Caused by depth scaling operation after map is initialized (unknown reason)
 - Low priority TODOs
   - Add trajectory visialization mode (TODO)
   - Check why mask info not utilized by knnMatch() for feature matching (TODO)
 
 ## Latest Version
+
+## v0.6.0
+- FeatureMatcher: 
+  - Add ROI-based feature matching scheme: for each feature in one frame,
+    find a minimum set of features in another frame to match
+    - Use Lowe's ratio test
+    - Used in tracker and local mapper (both 2D-to-2D and 2D-to-3D cases)
+- LocalMapper:
+  - Fuse new triangulated points with bound map points based on parallax data
+  - Only remove KF data that is in the map (temp fix for redundant KF removal)
+- Improve system performance:
+  - Fix some tracking losses when encountering large motion by using ROI-based 
+    feature matching scheme with a large Hamming distance threshold 
+    (64 currently) (contribute most to performance boost)
+  - Increase the baseline for a valid map point: higher tracked-to-visible
+    ratio  (0.6 currently)
+  - Create new keyframe more frequently: as long as there're less than
+    250 2D-to-3D matches in the tracker for each frame
+  - Try to detect and suppress pose outlier for each frame by thresholding on 
+    number of inliers before record the pose of current frame
 
 ## v0.5.1
 - Disable scene depth scaling scheme

@@ -26,8 +26,6 @@ class FrameBase;
  */
 class Utility {
 public: // public data
-    /// Cosine of smallest appropriate parallax/angle between 2 views.
-    static const float TH_COS_PARALLAX;
     /// Reprojection error computation scheme.
     enum class ReprojErrScheme {
         F, ///< Fundamental matrix as reprojection transformation.
@@ -69,12 +67,13 @@ public: // public members
      * - The reprojection errors in both views (whether it is too high).
      * - Epipolar constriant for the keypoint pair.
      *
-     * @param[in] Xw    \f$3 \times 1\f$ triangulated 3D world point in
-     *                  inhomogeneous coordinate.
-     * @param[in] kpt1  2D keypoint in previous frame.
-     * @param[in] kpt2  corresponding 2D keypoint in current frame.
-     * @param[in] pose1 Camera pose for view 1.
-     * @param[in] pose2 Camera pose for view 2.
+     * @param[in] Xw            \f$3 \times 1\f$ triangulated 3D world point in
+     *                          inhomogeneous coordinate.
+     * @param[in] kpt1          2D keypoint in previous frame.
+     * @param[in] kpt2          corresponding 2D keypoint in current frame.
+     * @param[in] pose1         Camera pose for view 1.
+     * @param[in] pose2         Camera pose for view 2.
+     * @param[in] thCosParallax Max cosine of the parallax.
      * @return True if the triangulated point is good enough, otherwise false.
      */
     static bool checkTriangulatedPt(const cv::Mat& Xw,
@@ -133,6 +132,16 @@ public: // public members
     static float computeReprojErr(const cv::Mat& T21, const cv::Mat& T12,
                                   const cv::Mat& p1, const cv::Mat& p2,
                                   ReprojErrScheme eScheme);
+    /**
+     * @brief Compute cosine of parallax between 2 frames given a 3D
+     *        world coordinate.
+     * @param[in] Xw    3D world coordinate.
+     * @param[in] pose1 Camera pose of frame 1.
+     * @param[in] pose2 Camera pose of frame 2.
+     * @return Cosine of parallax between 2 frames.
+     */
+    static float computeCosParallax(const cv::Mat& Xw,
+                                    const CamPose& pose1, const CamPose& pose2);
 };
 
 } // namespace SLAM_demo

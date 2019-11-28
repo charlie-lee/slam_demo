@@ -106,4 +106,67 @@ cv::Mat FrameBase::coordCam2Img(const cv::Mat& Xc) const
     return x;
 }
 
+std::vector<int> FrameBase::featuresInRange(const cv::Mat& xIn,
+                                            float angleIn,
+                                            float radiusDist,
+                                            float angleDiff) const
+{
+    vector<int> vKptIndices;
+    int nKpts = mvKpts.size();
+    vKptIndices.reserve(mvKpts.size());
+    float x = xIn.at<float>(0);
+    float y = xIn.at<float>(1);
+    // traverse each keypoint for valid ones
+    for (int i = 0; i < nKpts; ++i) {
+        const auto& kpt = mvKpts[i];
+        // check distance between input and target keypoint
+        float distSq = (kpt.pt.x - x) * (kpt.pt.x - x) +
+            (kpt.pt.y - y) * (kpt.pt.y - y);
+        if (distSq > radiusDist * radiusDist) {
+            continue; // ignore keypoint too distant from input keypoint
+        }
+        // check orientation of target keypoint
+        if (!isAngleInRange(kpt.angle, angleIn, angleDiff)) {
+            continue;
+        }
+        // add valid keypoints to the result vector
+        vKptIndices.push_back(i);
+    }
+    return vKptIndices;
+}
+
+bool FrameBase::isAngleInRange(float angleIn,
+                               float angleBase,
+                               float maxDiff) const
+{
+    bool bInRange = false;
+    float angleMin = angleBase - maxDiff;
+    float angleMax = angleBase + maxDiff;
+    // compute 2 ranges
+    float range1Min, range1Max, range2Min, range2Max;
+    // case 1: [angleMin, 360] V [0, angleMax]
+    if (angleMin < 0.0f || angleMax > 360.0f) {
+        if (angleMin < 0.0f) {
+            angleMin += 360.0f;
+        }
+        if (angleMax > 360.0f) {
+            angleMax -= 360.0f;
+        }
+        range1Max = 360.0f;
+        range2Min = 0.0f;
+    } else { // case 2: [angleMin, angleBase) V [angleBase, angleMax]
+        range1Max = range2Min = angleBase;
+    }
+    range1Min = angleMin;
+    range2Max = angleMax;
+    // check whether input angle is within one of the 2 ranges
+    if ((angleIn >= range1Min && angleIn <= range1Max) ||
+        (angleIn >= range2Min && angleIn <= range2Max)) {
+        bInRange = true;
+    } else {
+        bInRange = false;
+    }
+    return bInRange;
+}
+
 } // namespace SLAM_demo

@@ -17,6 +17,7 @@
 #include <vector>
 
 #include <opencv2/core.hpp>
+#include <opencv2/highgui.hpp> // cv::waitKey()
 #include <Eigen/Core>
 #include <Eigen/Geometry> // for Eigen::Quaternion
 #include "CamPose.hpp"
@@ -99,6 +100,8 @@ void System::trackImgs(const std::vector<cv::Mat>& vImgs, double timestamp)
             mpTracker->setState(Tracker::State::NOT_INITIALIZED);
         }            
     }
+    // check result
+    cv::waitKey(1);
 }
 
 void System::dumpTrajectory(DumpMode eMode)

@@ -44,7 +44,7 @@ using std::vector;
 using cv::Mat;
 
 const int Optimizer::TH_MIN_NUM_MAPPOINT = 5;
-const float Optimizer::TH_MAX_CHI2_FACTOR = 4.0f;
+const float Optimizer::TH_MAX_CHI2_FACTOR = 9.0f;
 
 Optimizer::Optimizer(const std::shared_ptr<Map>& pMap) : mpMap(pMap) {}
 
@@ -484,16 +484,16 @@ int Optimizer::poseOptimization(const std::shared_ptr<Frame>& pFrame) const
         pEdge->cy = Config::cy();
         vpEdges.push_back(pEdge);
         // only optimize outliers at the last iteration
-        if (pMPt->isOutlier()) {
-            pEdge->setLevel(1);
-        }
+        //if (pMPt->isOutlier()) {
+        //    pEdge->setLevel(1);
+        //}
         optimizer.addEdge(pEdge);
     }
 
     // optimize (multi-pass?)
     int nIt = 4;
     for (int it = 0; it < nIt; ++it) {
-        pVSE3->setEstimate(cvMat2SE3Quat(Tcw));
+        //pVSE3->setEstimate(cvMat2SE3Quat(Tcw));
         optimizer.initializeOptimization(0); // only optimize level 0 edges
         optimizer.optimize(10);
         // exclude outliers
@@ -675,9 +675,9 @@ void Optimizer::localBundleAdjustment(const std::shared_ptr<KeyFrame>& pKFin,
             // record all the edges
             vvpEdges[i][j] = pEdge;
             // only optimize outliers at the last iteration
-            if (pMPt->isOutlier()) {
-                pEdge->setLevel(1);
-            }            
+            //if (pMPt->isOutlier()) {
+            //    pEdge->setLevel(1);
+            //}            
             optimizer.addEdge(pEdge);
         }
         if (!bHasEdge) {
@@ -687,7 +687,7 @@ void Optimizer::localBundleAdjustment(const std::shared_ptr<KeyFrame>& pKFin,
     }
 
     // optimize
-    int nIt = 2;
+    int nIt = 4;
     for (int it = 0; it < nIt; ++it) {
         optimizer.initializeOptimization(0);
         optimizer.optimize(nIter);

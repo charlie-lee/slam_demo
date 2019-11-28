@@ -14,7 +14,9 @@ target_link_libraries(${TARGET_MONO_VO}
   )
 
 target_compile_options(${TARGET_MONO_VO} PRIVATE
-  "$<$<CONFIG:DEBUG>:${DEBUG_OPTIONS}>")
+  "$<$<CONFIG:DEBUG>:${DEBUG_OPTIONS}>"
+  "$<$<CONFIG:RELEASE>:${RELEASE_OPTIONS}>" # release mode
+  )
 
 set_target_properties(${TARGET_MONO_VO}
   PROPERTIES

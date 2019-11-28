@@ -26,7 +26,7 @@ using std::vector;
 using cv::Mat;
 
 unsigned KeyFrame::nNextIdx = 0;
-const int KeyFrame::TH_MIN_WEIGHT = 20;
+const int KeyFrame::TH_MIN_WEIGHT = 15;
 
 KeyFrame::KeyFrame(const std::shared_ptr<Frame>& pFrame) :
     FrameBase(*pFrame), mnIdx(nNextIdx++), mnIdxFrame(pFrame->index()) {}
@@ -108,6 +108,34 @@ std::vector<std::shared_ptr<KeyFrame>> KeyFrame::getBestConnectedKFs(int nKFs)
         vpKFs.push_back(pair.second);
     }
     return vpKFs;
+}
+
+std::vector<std::shared_ptr<KeyFrame>> KeyFrame::getRelatedKFs() const
+{
+    vector<shared_ptr<KeyFrame>> vpKFs = mvpWeakKFs;
+    vector<shared_ptr<KeyFrame>> vpConnectedKFs = this->getConnectedKFs();
+    vpKFs.insert(vpKFs.end(), vpConnectedKFs.cbegin(), vpConnectedKFs.cend());
+    return vpKFs;
+}
+
+void KeyFrame::clearConnectionData()
+{
+    // remove connections with all related map points
+    map<int, shared_ptr<MapPoint>> mpMPts = this->getMPtsMap();
+    for (const auto& pair : mpMPts) {
+        shared_ptr<MapPoint> pMPt = pair.second;
+        if (!pMPt) {
+            continue;
+        }
+        int kptIdx = pair.first;
+        this->bindMPt(nullptr, kptIdx);
+    }
+    this->updateConnections();
+    // update connections of all related KFs
+    vector<shared_ptr<KeyFrame>> vpRelatedKFs = this->getRelatedKFs();
+    for (auto& pKF : vpRelatedKFs) {
+        pKF->updateConnections();
+    }
 }
     
 } // namespace SLAM_demo

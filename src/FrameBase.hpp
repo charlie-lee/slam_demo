@@ -43,10 +43,12 @@ public: // public members
     virtual ~FrameBase() = default;
     /// Get keypoint data for current frame.
     std::vector<cv::KeyPoint> keypoints() const { return mvKpts; }
-    /// Get keypoint data for current frame.
+    /// Get keypoint data for current frame given its index.
     cv::KeyPoint keypoint(int nIdx) const { return mvKpts[nIdx]; }
     /// Get feature descriptors. Row \f$i\f$ for \f$i\f$th descriptor.
     cv::Mat descriptors() const { return mDescs; }
+    /// Get feature descriptor given its index.
+    cv::Mat descriptor(int nIdx) const { return mDescs.row(nIdx); }
     /// Get timestamp info of the frame.
     double timestamp() const { return mTimestamp; }
     /// Get all corresponding matched keypoint indices and map points.
@@ -84,6 +86,29 @@ public: // public members
      */
     cv::Mat coordCam2Img(const cv::Mat& Xc) const;
     ///@}
+    /**
+     * @brief Get feature indices within a given radius of 2D distance and
+     *        a given range of angle.
+     * @param[in] xIn        An input point near which the appropriate 
+     *                       keypoints are to be found.
+     * @param[in] angleIn    The orientation data for the input point.
+     * @param[in] radiusDist A radius of distance where the found keypoints 
+     *                       should be within.
+     * @param[in] angleDiff  Max angle difference to the input keypoint's
+     *                       orientation data.
+     * @return A vector of indices of valid keypoints.
+     */
+    std::vector<int> featuresInRange(const cv::Mat& xIn, float angleIn,
+                                     float radiusDist, float angleDiff) const;
+protected: // protected members
+    /**
+     * @brief Check whether an input angle is within the range of a base angle.
+     * @param[in] angleIn   Input angle (degree).
+     * @param[in] angleBase Base angle (degree).
+     * @param[in] maxDiff   Max angle difference (degree) to the base angle
+     * @return True if @p angleIn is within the range of @p angleBase.
+     */
+    bool isAngleInRange(float angleIn, float angleBase, float maxDiff) const;
 protected: // protected data for usage of derived classes
     double mTimestamp; ///< Timestamp info for the current frame.
     std::vector<cv::KeyPoint> mvKpts; ///< Keypoint data of the current frame.

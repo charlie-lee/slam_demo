@@ -58,7 +58,7 @@ void LocalMapper::run()
         //   fuse(KF, KFcur)
         fuseNewMapPoints();
         // perform local BA
-        mpOpt->localBundleAdjustment(mpKFCur, 20, true);
+        mpOpt->localBundleAdjustment(mpKFCur, 10, true);
         // remove redundant keyframes
         removeKeyFrames();
     }
@@ -80,26 +80,31 @@ void LocalMapper::createNewMapPoints() const
     spKFs.insert(vpBestConnectedKFs.cbegin(), vpBestConnectedKFs.cend());
     for (const auto& pKF : vpBestConnectedKFs) {
         vector<shared_ptr<KeyFrame>> vpExtraKFs =
-            pKF->getBestConnectedKFs(5);
+            pKF->getBestConnectedKFs(NUM_BEST_KF);
         spKFs.insert(vpExtraKFs.cbegin(), vpExtraKFs.cend());
     }
     // set 2D-to-2D feature matcher
     shared_ptr<FeatureMatcher> pFMatcher = make_shared<FeatureMatcher>(
-        10000.0f, false); //true, 0.75f);
+        //10000.0f, false); //true, 0.75f);
+        128.0f, true, 0.8f, 90, 64);
     // check number of newly created map points
+    int n2DMatches = 0;
     int nMPts = 0;
     // traverse each connected keyframe
     for (const auto& pKF : spKFs) {
         // get 2D-to-2D matches
         vector<cv::DMatch> vMatches2Dto2D =
-            pFMatcher->match2Dto2D(mpKFCur, pKF);
+            //pFMatcher->match2Dto2D(mpKFCur, pKF);
+            pFMatcher->match2Dto2DCustom(mpKFCur, pKF);
         // triangulate new map points
         vector<Mat> vXws = Utility::triangulate3DPts(mpKFCur, pKF,
                                                      vMatches2Dto2D);
         nMPts += fuseMapPoints(mpKFCur, pKF, vMatches2Dto2D, vXws);
+        n2DMatches += vMatches2Dto2D.size();
     }
-    std::cout << vpBestConnectedKFs.size() << " best KFs; "
-              << nMPts << " map points created" << std::endl;
+    std::cout << spKFs.size() << " KFs; "
+              << nMPts << " map points created; "
+              << n2DMatches << " 2D-to-2D matches." << std::endl;
 }
 
 void LocalMapper::fuseNewMapPoints() const
@@ -129,9 +134,10 @@ void LocalMapper::fuseNewMapPoints() const
 void LocalMapper::removeKeyFrames() const
 {
     // all connected keyframes
-    vector<shared_ptr<KeyFrame>> vpConnectedKFs = mpKFCur->getConnectedKFs();
+    vector<shared_ptr<KeyFrame>> vpLocalMapKFs = mpKFCur->getConnectedKFs();
+    //vpLocalMapKFs.push_back(mpKFCur);
     // traverse each connected KF for KFs to be removed
-    for (const auto& pKF : vpConnectedKFs) {
+    for (const auto& pKF : vpLocalMapKFs) {
         set<shared_ptr<MapPoint>> spMPts;
         vector<shared_ptr<MapPoint>> vpMPts = pKF->mappoints();
         for (const auto& pMPt : vpMPts) {
@@ -151,7 +157,10 @@ void LocalMapper::removeKeyFrames() const
         if (ratioRedundant > 0.8f) { // remove data of qualified keyframe
             for (const auto& pMPt : spMPts) {
                 pMPt->removeObservation(pKF);
+                pMPt->updateDescriptor();
             }
+            // no map point removal below
+            pKF->clearConnectionData();
         }
     }
 }
@@ -176,14 +185,14 @@ int LocalMapper::fuseMapPoints(const std::shared_ptr<KeyFrame>& pKF2,
             int nIdxKpt2 = match21.queryIdx;
             int nIdxKpt1 = match21.trainIdx;
             // remove observation data for old map points
-            //shared_ptr<MapPoint> pMPt2 = pKF2->mappoint(nIdxKpt2);
-            //shared_ptr<MapPoint> pMPt1 = pKF1->mappoint(nIdxKpt1);
-            //if (pMPt2) {
-            //    pMPt2->removeObservation(pKF2);
-            //}
-            //if (pMPt1) {
-            //    pMPt1->removeObservation(pKF1);
-            //}
+            shared_ptr<MapPoint> pMPt2 = pKF2->mappoint(nIdxKpt2);
+            shared_ptr<MapPoint> pMPt1 = pKF1->mappoint(nIdxKpt1);
+            if (pMPt2) {
+                pMPt2->removeObservation(pKF2);
+            }
+            if (pMPt1) {
+                pMPt1->removeObservation(pKF1);
+            }
             // add observation data for newly added map point
             pMPt->addObservation(pKF1, nIdxKpt1);
             pMPt->addObservation(pKF2, nIdxKpt2);
@@ -211,9 +220,11 @@ void LocalMapper::fuseMapPoints(const std::shared_ptr<KeyFrame>& pKFsrc,
     //     MPt_new.addObsData()
     //   add new MPt obs data
     shared_ptr<FeatureMatcher> pFMatcher = make_shared<FeatureMatcher>(
-        4.0f, false); //true, 0.75f);
+        8.0f, true, 1.0f, 15, 64);
     // 2: dst (querying); 1: src (training)
-    vector<cv::DMatch> vMatches21 = pFMatcher->match2Dto3D(
+    //vector<cv::DMatch> vMatches21 = pFMatcher->match2Dto3D(
+    //    pKFdst, pKFsrc, false /* do not update map point bindings */);
+    vector<cv::DMatch> vMatches21 = pFMatcher->match2Dto3DCustom(
         pKFdst, pKFsrc, false /* do not update map point bindings */);
     // fuse existed map point observations / add new map point observations
     for (const auto& match21 : vMatches21) {
@@ -253,16 +264,47 @@ bool LocalMapper::isNewPtBetter(const cv::Mat& Xw,
     shared_ptr<MapPoint> pMPt1 = pKF1->mappoint(nIdxKpt1);
     bool bMPt2Bad = !pMPt2 || pMPt2->isOutlier();
     bool bMPt1Bad = !pMPt1 || pMPt1->isOutlier();
+    vector<std::pair<shared_ptr<MapPoint>, shared_ptr<KeyFrame>>> vpMPtpKFPairs;
+    vpMPtpKFPairs.reserve(2);
     if (bMPt2Bad && bMPt1Bad) { // only new point is valid
         return true;
     }
     if (bMPt2Bad) { // check if pMPt1 can be replaced
-        
+        vpMPtpKFPairs.push_back({pMPt1, pKF1});
+        //int nObs1 = pMPt1->getNumObservations();
+        //if (nObs1 > 2) { // check its observations
+        //    return false;
+        //}
     }
     if (bMPt1Bad) { // check if pMPt2 can be replaced
-        
+        vpMPtpKFPairs.push_back({pMPt2, pKF2});
+        //int nObs2 = pMPt2->getNumObservations();
+        //if (nObs2 > 2) {
+        //    return false;
+        //}
     }
-    return true;
+    if (!vpMPtpKFPairs.empty()) { // check whether pMPts can be replaced
+        float cosParallaxNew = Utility::computeCosParallax(
+            Xw, pKF1->mPose, pKF2->mPose);
+        for (const auto& pair : vpMPtpKFPairs) {
+            const shared_ptr<MapPoint>& pMPtOld = pair.first;
+            const shared_ptr<KeyFrame>& pKFOld = pair.second;
+            vector<shared_ptr<KeyFrame>> vpKFs = pMPtOld->getRelatedKFs();
+            for (const auto& pKF : vpKFs) {
+                if (pKF == pKFOld) { // skip same KFs
+                    continue;
+                }
+                float cosParallax = Utility::computeCosParallax(
+                    pMPtOld->X3D(), pKFOld->mPose, pKF->mPose);
+                if (cosParallax < cosParallaxNew) {
+                    // better parallax (less depth range possibility)
+                    // than the new one -> do not replace
+                    return false;
+                }
+            }
+        }
+    }
+    return true; // both pMPt1 & pMPt2 can be replaced
 }
 
 

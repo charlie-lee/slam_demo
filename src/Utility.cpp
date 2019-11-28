@@ -23,10 +23,6 @@ using cv::Mat;
 using std::shared_ptr;
 using std::vector;
 
-
-// constants
-const float Utility::TH_COS_PARALLAX = 0.9995f;
-
 bool Utility::is2DPtInBorder(const cv::Mat& pt)
 {
     bool result =
@@ -40,6 +36,9 @@ std::vector<cv::Mat> Utility::triangulate3DPts(
     const std::shared_ptr<FrameBase>& pF1,
     const std::vector<cv::DMatch>& vMatches21)
 {
+    if (vMatches21.empty()) {
+        return vector<Mat>();
+    }
     vector<Mat> vXws;
     vXws.reserve(vMatches21.size());
     // get all 2D-to-2D matches
@@ -68,7 +67,7 @@ std::vector<cv::Mat> Utility::triangulate3DPts(
         const cv::KeyPoint& kpt2 = vKpts2[vMatches21[i].queryIdx];
         if (checkTriangulatedPt(Xws.col(i), kpt1, kpt2,
                                 pF1->mPose, pF2->mPose,
-                                0.99f)) {
+                                0.9995f)) {
             vXws.push_back(Xws.col(i).clone()); // clone() necessary?
         } else {
             vXws.push_back(Mat()); // empty cv::Mat for bad points
@@ -99,13 +98,14 @@ bool Utility::checkTriangulatedPt(const cv::Mat& Xw,
         return false;
     }
     // condition 2: the parallax of 2 views must not be too small
-    Mat O1 = pose1.getCamOrigin(); // 3D cam origin in previous frame
-    Mat O2 = pose2.getCamOrigin(); // 3D cam origin in current frame
-    Mat Xc1o1 = O1 - Xc1; // vector from Xc1 to o1
-    Mat Xc2o2 = O2 - Xc2; // vector from Xc2 to o2
-    float normXc1o1 = cv::norm(Xc1o1, cv::NORM_L2);
-    float normXc2o2 = cv::norm(Xc2o2, cv::NORM_L2);
-    float cosParallax = Xc1o1.dot(Xc2o2) / (normXc1o1 * normXc2o2);
+    float cosParallax = computeCosParallax(Xw, pose1, pose2);
+    //Mat O1 = pose1.getCamOrigin(); // 3D cam origin in previous frame
+    //Mat O2 = pose2.getCamOrigin(); // 3D cam origin in current frame
+    //Mat Xc1o1 = O1 - Xc1; // vector from Xc1 to o1
+    //Mat Xc2o2 = O2 - Xc2; // vector from Xc2 to o2
+    //float normXc1o1 = cv::norm(Xc1o1, cv::NORM_L2);
+    //float normXc2o2 = cv::norm(Xc2o2, cv::NORM_L2);
+    //float cosParallax = Xc1o1.dot(Xc2o2) / (normXc1o1 * normXc2o2);
     if (cosParallax > thCosParallax) {
         return false;
     }
@@ -203,6 +203,31 @@ float Utility::computeReprojErr(const cv::Mat& T21, const cv::Mat& T12,
     }
     // return mean symmetric reprojection error
     return err / 2.0f;
+}
+
+float Utility::computeCosParallax(const cv::Mat& Xw,
+                                  const CamPose& pose1, const CamPose& pose2)
+{
+    // 3D cam coord in view 1
+    Mat Rcw1 = pose1.getRotation();
+    Mat tcw1 = pose1.getTranslation();
+    Mat Xc1 = Rcw1*Xw + tcw1;
+    // 3D cam coord in view 2
+    Mat Rcw2 = pose2.getRotation();
+    Mat tcw2 = pose2.getTranslation();
+    Mat Xc2 = Rcw2*Xw + tcw2;
+    // camera origins
+    Mat O1 = pose1.getCamOrigin(); // camera origin in frame 1
+    Mat O2 = pose2.getCamOrigin(); // camera origin in frame 2
+    // rays
+    Mat Xc1O1 = O1 - Xc1; // vector from Xc1 to O1
+    Mat Xc2O2 = O2 - Xc2; // vector from Xc2 to O2
+    // norms
+    float normXc1O1 = cv::norm(Xc1O1, cv::NORM_L2); // ||Xc1O1||_l2
+    float normXc2O2 = cv::norm(Xc2O2, cv::NORM_L2); // ||Xc2O2||_l2
+    // parallax computation
+    float cosParallax = Xc1O1.dot(Xc2O2) / (normXc1O1 * normXc2O2);
+    return cosParallax;
 }
 
 } // namespace SLAM_demo

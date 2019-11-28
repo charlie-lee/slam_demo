@@ -37,6 +37,8 @@ public: // public members
     cv::Mat X3D() const { return mX3D; }
     /// Get most distinctive descriptor of the point.
     cv::Mat descriptor() const { return mDesc; }
+    /// Get orientation data of the map point
+    float angle() const { return mAngle; }
     /// Get descriptor from a keyframe.
     cv::Mat descriptor(const std::shared_ptr<KeyFrame>& pKF) const;
     /// Get the index of the observed keypoint in a keyframe.
@@ -84,6 +86,8 @@ private: // private data
     std::map<std::shared_ptr<KeyFrame>, int> mmObses;
     /// Best descriptor of the point.
     cv::Mat mDesc;
+    /// Orientation (degree) of the feature extracted from the point.
+    float mAngle;
     /// Index of the latest frame by which the point is tracked.
     unsigned mnIdxLastVisibleFrm;
     /// Number of times by which the point is visible in input frames.

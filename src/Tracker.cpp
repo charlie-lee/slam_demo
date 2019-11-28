@@ -48,7 +48,7 @@ const float Tracker::TH_MAX_RATIO_FH = 0.2f;
 const float Tracker::TH_REPROJ_ERR_FACTOR = 3.0f;
 const float Tracker::TH_POSE_SEL = 0.8f;
 const float Tracker::TH_MIN_RATIO_TRIANG_PTS = 0.5f;
-const int Tracker::TH_MIN_MATCHES_2D_TO_3D = 20;
+const int Tracker::TH_MIN_MATCHES_2D_TO_3D = 50;
 // other data
 unsigned Tracker::n1stFrame = 0;
 
@@ -112,7 +112,6 @@ void Tracker::trackImgsMono(const cv::Mat& img, double timestamp)
         }
     }
     imgPrev = imgCur;
-    cv::waitKey(1);
 }
 
 cv::Mat Tracker::rgb2Gray(const cv::Mat& img) const
@@ -144,10 +143,11 @@ Tracker::State Tracker::initializeMap()
 Tracker::State Tracker::initializeMapMono()
 {
     // match features between previous (1) and current (2) frame
-    //matchFeatures2Dto2D();
     shared_ptr<FeatureMatcher> pFMatcher = make_shared<FeatureMatcher>(
-        32.0f, false); //true, 0.75f);
-    mvMatches2Dto2D = pFMatcher->match2Dto2D(mpView2, mpView1);
+        //32.0f, false); //true, 0.75f);
+        32.0f, true, 0.8f, 45, 50);
+    //mvMatches2Dto2D = pFMatcher->match2Dto2D(mpView2, mpView1);
+    mvMatches2Dto2D = pFMatcher->match2Dto2DCustom(mpView2, mpView1);
 
     // temp test on display of feature matching result
     displayFeatMatchResult(0, 0);
@@ -600,27 +600,37 @@ Tracker::State Tracker::track()
     // match features between previous (1) and current (2) frame
     shared_ptr<FeatureMatcher> pFMatcher = make_shared<FeatureMatcher>(
         64.0f, false); //true, 0.75f);
+    //64.0f, true, 0.8f, 45, 30);
     mvMatches2Dto3D = pFMatcher->match2Dto3D(mpView2, mpView1);
+    //mvMatches2Dto3D = pFMatcher->match2Dto3DCustom(mpView2, mpView1);
 
     int nInliers;
-    // pose estimation (1st)
-    nInliers = poseEstimation(mVelocity * mpView1->mPose);
-    cout << "RANSAC PnP: "
-         << nInliers << "/" << mvMatches2Dto3D.size();
+    // pose estimation
+    if (mvMatches2Dto3D.size() < 100) {
+        nInliers = poseEstimation(mVelocity * mpView1->mPose);
+        cout << "RANSAC PnP: "
+             << nInliers << "/" << mvMatches2Dto3D.size() << "; ";
+    } else {
+        mpView2->mPose = mVelocity * mpView1->mPose;
+    }
     
     // only optimize pose
     nInliers = mpOpt->poseOptimization(mpView2);
-    cout << "; pose BA: " << nInliers << "/"
+    cout << "pose BA: " << nInliers << "/"
          << mvMatches2Dto3D.size();
 
     // get all related map points
-    if (meState == State::LOST) {
+    mvpMPts = trackLocalMap();
+    pFMatcher = make_shared<FeatureMatcher>(4.0f, true, 1.0f, 15, 64);
+    mvMatches2Dto3D = pFMatcher->match2Dto3DCustom(mpView2, mvpMPts);
+    if (mvMatches2Dto3D.size() < TH_MIN_MATCHES_2D_TO_3D) {
         mvpMPts = mpMap->getAllMPts();
-    } else {
-        mvpMPts = trackLocalMap();
+        pFMatcher = make_shared<FeatureMatcher>(8.0f, true, 0.9f, 45, 64);
+        //mvMatches2Dto3D = pFMatcher->match2Dto3D(mpView2, mvpMPts);
+        mvMatches2Dto3D = pFMatcher->match2Dto3DCustom(mpView2, mvpMPts);
+        // Try to find a better initial pose by PnP
+        poseEstimation(mpView1->mPose);
     }
-    pFMatcher = make_shared<FeatureMatcher>(4.0f, false); //true, 0.75f);
-    mvMatches2Dto3D = pFMatcher->match2Dto3D(mpView2, mvpMPts);
     
     nInliers = mpOpt->poseOptimization(mpView2);
     cout << " -> " << nInliers << "/"
@@ -636,7 +646,7 @@ Tracker::State Tracker::track()
         addNewKeyFrame();
     }
     
-    if (mvMatches2Dto3D.size() > 10) {
+    if (nInliers > 10) {
         cout << "Pose T_{" << mpView2->index() << "|"
              << Tracker::n1stFrame  << "}: "
              << mpView2->mPose << endl;
@@ -806,7 +816,7 @@ bool Tracker::qualifiedAsKeyFrame() const
     //CamPose poseKFLatestInv = poseKFLatest.getCamPoseInv();
     //CamPose poseRelative = poseCur * poseKFLatestInv;
     // TODO: check large motion between current frame and last keyframe
-    if (mvMatches2Dto3D.size() < 100) {
+    if (mvMatches2Dto3D.size() < 250) {
         return true;
     }
     return false;
