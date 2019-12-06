@@ -19,7 +19,16 @@
  *        timestamp data.
  */
 class CamDataLoader {
-public:
+public: // public members
+    /// Different views for monocular/stereo/RGB-D cases.
+    enum class View {
+        MONO,  ///< The single view for monocular case.
+        LEFT,  ///< The left view for stereo case.
+        RIGHT, ///< The right view for stereo case.
+        RGB,   ///< The RGB view for RGB-D case.
+        DEPTH  ///< The depth (D) view for RGB-D case.
+    };
+public: // public member functions
     /** 
      * @brief Constructor for monocular case. 
      *
@@ -43,14 +52,6 @@ public:
     CamDataLoader(const std::string& strImgPath,
                   const std::string& strDataFile,
                   double tsScale = 1e9);
-    /// Different views for monocular/stereo/RGB-D cases.
-    enum class View {
-        MONO,  ///< The single view for monocular case.
-        LEFT,  ///< The left view for stereo case.
-        RIGHT, ///< The right view for stereo case.
-        RGB,   ///< The RGB view for RGB-D case.
-        DEPTH  ///< The depth (D) view for RGB-D case.
-    };
     /** 
      * @brief Load image data (1 view only) for monocular/stereo/RGB-D cases.
      * @param[in] nFrame Frame index starting from 0.
@@ -62,7 +63,7 @@ public:
     int getNFrames() const { return mvTimestamps.size(); }
     /// Get timestamp info of a target frame.
     double getTimestamp(int nFrame) const { return mvTimestamps[nFrame]; }
-private: // private data
+private: // private members
     std::vector<std::string> mvstrImgs1; // image filenames (mono/left/RGB view)
     std::vector<std::string> mvstrImgs2; // image filenames (right/D view)
     std::vector<double> mvTimestamps; // timestamp info (unit: second)

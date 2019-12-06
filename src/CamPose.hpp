@@ -95,7 +95,7 @@ public: // public members
     /// Pose multiplication & assignment.
     CamPose& operator*=(const CamPose& rhs);
     /// Pose multiplication.    
-    CamPose operator*(const CamPose& rhs) const;
+    const CamPose operator*(const CamPose& rhs) const;
 private: // private data
     /** 
      * @brief \f$3 \times 4\f$ camera pose \f$[R_{cw}|t_{cw}]\f$, i.e., the

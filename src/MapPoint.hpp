@@ -24,7 +24,7 @@ class Map;
  * @brief Store related data of each map point in the map of the SLAM system.
  */
 class MapPoint {
-public: // public members
+public: // public member functions
     /// Default constructor: store empty data.
     MapPoint();
     /**
@@ -77,8 +77,8 @@ public: // public members
     void updateDescriptor();
     /// Whether the map point is observed by a frame or not.
     bool isObservedBy(const std::shared_ptr<KeyFrame>& pKF) const;
-private: // private data
-    // Pointer to the map.
+private: // private members
+    /// Pointer to the map.
     std::shared_ptr<Map> mpMap;
     /// Inhomogeneous 3D world coordinate of the point.
     cv::Mat mX3D;
@@ -96,6 +96,11 @@ private: // private data
     int mnCntTracked;
     /// Whether the map point is an outlier.
     bool mbOutlier;
+private: // private member functions
+    /// Do not allow copying.
+    MapPoint(const MapPoint& rhs) = delete;
+    /// Do not allow copy-assignment.
+    MapPoint& operator=(const MapPoint& rhs) = delete;
 };
 
 } // namespace SLAM_demo

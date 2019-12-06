@@ -36,7 +36,7 @@ class Optimizer;
  * 2. Remove redundant map points.
  */
 class LocalMapper {
-public: // public members
+public: // public member functions
     /// Constructor of the class.
     LocalMapper(const std::shared_ptr<Map>& pMap,
                 const std::shared_ptr<Optimizer>& pOptimizer);
@@ -44,7 +44,7 @@ public: // public members
     void run();
     /// Insert a keyframe to the back of the list of new keyframes.
     void insertKeyFrame(const std::shared_ptr<KeyFrame>& pKF);
-private: // private data
+private: // private members
     /// Number of best connected keyframes for new map point creation.
     static const int NUM_BEST_KF;
     std::shared_ptr<Map> mpMap; ///< Pointer to the map.
@@ -53,7 +53,7 @@ private: // private data
     std::list<std::shared_ptr<KeyFrame>> mlNewKFs;
     /// Current keyframe to be processed.
     std::shared_ptr<KeyFrame> mpKFCur;
-private: // private members
+private: // private member functions
     /// Create new map points between current and its connected KFs.
     void createNewMapPoints() const;
     /// Fuse new map points to the local map of newly added keyframe.
@@ -81,9 +81,10 @@ private: // private members
      * @brief Fuse map points of source keyframe to destination keyframe.
      * @param[in] pKFsrc Pointer to source keyframe.
      * @param[in] pKFdst Pointer to destination keyframe.
+     * @return Number of fused map points.
      */
-    void fuseMapPoints(const std::shared_ptr<KeyFrame>& pKFsrc,
-                       const std::shared_ptr<KeyFrame>& pKFdst) const;
+    int fuseMapPoints(const std::shared_ptr<KeyFrame>& pKFsrc,
+                      const std::shared_ptr<KeyFrame>& pKFdst) const;
     /**
      * @brief Check if a newly triangulated 3D point is better than
      *        already-bound map points generated from the same keypoint

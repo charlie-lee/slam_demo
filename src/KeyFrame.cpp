@@ -120,6 +120,8 @@ std::vector<std::shared_ptr<KeyFrame>> KeyFrame::getRelatedKFs() const
 
 void KeyFrame::clearConnectionData()
 {
+    // get related KFs before its connection got updated
+    vector<shared_ptr<KeyFrame>> vpRelatedKFs = this->getRelatedKFs();
     // remove connections with all related map points
     map<int, shared_ptr<MapPoint>> mpMPts = this->getMPtsMap();
     for (const auto& pair : mpMPts) {
@@ -132,7 +134,6 @@ void KeyFrame::clearConnectionData()
     }
     this->updateConnections();
     // update connections of all related KFs
-    vector<shared_ptr<KeyFrame>> vpRelatedKFs = this->getRelatedKFs();
     for (auto& pKF : vpRelatedKFs) {
         pKF->updateConnections();
     }

@@ -30,7 +30,7 @@ class MapPoint;
  *        camera pose, etc.
  */
 class Frame : public FrameBase {
-public: // public members
+public: // public member functions
     /**
      * @brief Constructor of the Frame class.
      *
@@ -43,7 +43,7 @@ public: // public members
     Frame(const cv::Mat& img, double timestamp);
     /// Get frame index of current frame.
     unsigned index() const { return mnIdx; }
-private: // private data
+private: // private members
     /// Number of blocks (sub-images) on X direction when extracting features.
     static const int NUM_BLK_X;
     /// Number of blocks (sub-images) on Y direction when extracting features.
@@ -54,6 +54,10 @@ private: // private data
     static unsigned nNextIdx; ///< Frame index for next frame.
     std::shared_ptr<cv::Feature2D> mpFeatExtractor; ///< Feature extractor.
 private: // private member functions
+    /// Do not allow copying.
+    Frame(const Frame& rhs) = delete;
+    /// Do not allow copy-assignment.
+    Frame& operator=(const Frame& rhs) = delete;
     /// Extract features from the current frame.
     void extractFeatures(const cv::Mat& img);
     /**

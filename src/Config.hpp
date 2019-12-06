@@ -47,7 +47,7 @@ struct FeatExtParameters {
  *        design pattern.
  */
 class Config {
-public:
+public: // public member functions
     friend std::ostream& operator<<(std::ostream& os, const Config& cfg);
     /// Get the only instance of the class.
     static Config& getInstance()
@@ -99,7 +99,7 @@ public:
     static float scaleFactor() { return getInstance().mFeatParams.scaleFactor; }
     static int nLevels() { return getInstance().mFeatParams.nLevels; }
     ///@}
-private: // private data
+private: // private members
     /// Camera parameters for each camera.
     std::vector<CameraParameters> mvCamParams;
     /// Feature extraction parameters.

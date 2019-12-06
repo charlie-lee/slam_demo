@@ -99,13 +99,6 @@ bool Utility::checkTriangulatedPt(const cv::Mat& Xw,
     }
     // condition 2: the parallax of 2 views must not be too small
     float cosParallax = computeCosParallax(Xw, pose1, pose2);
-    //Mat O1 = pose1.getCamOrigin(); // 3D cam origin in previous frame
-    //Mat O2 = pose2.getCamOrigin(); // 3D cam origin in current frame
-    //Mat Xc1o1 = O1 - Xc1; // vector from Xc1 to o1
-    //Mat Xc2o2 = O2 - Xc2; // vector from Xc2 to o2
-    //float normXc1o1 = cv::norm(Xc1o1, cv::NORM_L2);
-    //float normXc2o2 = cv::norm(Xc2o2, cv::NORM_L2);
-    //float cosParallax = Xc1o1.dot(Xc2o2) / (normXc1o1 * normXc2o2);
     if (cosParallax > thCosParallax) {
         return false;
     }

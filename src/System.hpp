@@ -29,7 +29,7 @@ class Tracker;
  * @brief Core SLAM system class. Control all sub-modules in the system.
  */
 class System {
-public: // public data
+public: // public members
     /// SLAM system mode.
     enum class Mode {
         MONOCULAR,
@@ -47,7 +47,7 @@ public: // public data
     static unsigned nLostFrames;
     /// Maxisum number of lost frames allowed in the system.
     const static unsigned TH_MAX_LOST_FRAMES;    
-public: // public members
+public: // public member functions
     /**
      * @brief Constructor for SLAM system class,
      * @param[in] eMode SLAM system mode (see System::Mode for details).
@@ -74,7 +74,7 @@ public: // public members
     void dumpTrajectory(DumpMode eMode);
     /// System reset.
     void reset();    
-private: // private data
+private: // private members
     Mode meMode; ///< System mode.
     std::shared_ptr<Map> mpMap; ///< Pointer to the map.
     std::shared_ptr<Optimizer> mpOptimizer; ///< Pointer to the optimizer.
@@ -84,20 +84,15 @@ private: // private data
     std::map<double, CamPose> mmTrajectoryRT;
     /// Optimized trajectory of the system.
     std::map<double, CamPose> mmTrajectoryOpt;
-private: // private members
+private: // private member functions
     /**
      * @brief Save real time trajectory info of 1 timestamp to the system.
      * @param[in] timestamp The timestamp info.
      * @param[in] pose      Camera pose at the corresponding timestamp.
      */
     void saveTrajectoryRT(double timestamp, const CamPose& pose);
-    /** 
-     * @brief Save optimized trajectory info to the system.
-     * @param[in] bFuseRestData Whether to fuse rest poses into the system.
-     *                          It is true only when the SLAM operation is 
-     *                          finished.
-     */
-    void saveTrajectoryOpt(bool bFuseRestData);
+    /// Save optimized trajectory info to the system.
+    void saveTrajectoryOpt();
 };
 
 } // namespace SLAM_demo

@@ -144,8 +144,8 @@ Tracker::State Tracker::initializeMapMono()
 {
     // match features between previous (1) and current (2) frame
     shared_ptr<FeatureMatcher> pFMatcher = make_shared<FeatureMatcher>(
-        //32.0f, false); //true, 0.75f);
-        32.0f, true, 0.8f, 45, 50);
+        //50.0f, false); //true, 0.75f);
+        50.0f, true, 0.7f, 30, 64);
     //mvMatches2Dto2D = pFMatcher->match2Dto2D(mpView2, mpView1);
     mvMatches2Dto2D = pFMatcher->match2Dto2DCustom(mpView2, mpView1);
 
@@ -642,7 +642,7 @@ Tracker::State Tracker::track()
     // temp test on display of feature matching result
     displayFeatMatchResult(0, 0);
 
-    if (qualifiedAsKeyFrame()) {
+    if (qualifiedAsKeyFrame(nInliers)) {
         addNewKeyFrame();
     }
     
@@ -754,7 +754,7 @@ int Tracker::poseEstimation(const CamPose& pose)
     return 0;
 }
 
-std::vector<std::shared_ptr<MapPoint>> Tracker::trackLocalMap()
+ std::vector<std::shared_ptr<MapPoint>> Tracker::trackLocalMap()
 {
     vector<shared_ptr<MapPoint>> vpMPtsAll;
     // get all related KFs based on each matched map point
@@ -808,18 +808,19 @@ void Tracker::updateMPtTrackedData() const
     }
 }
 
-bool Tracker::qualifiedAsKeyFrame() const
+bool Tracker::qualifiedAsKeyFrame(int nInliers) const
 {
+    bool bQualified = false;
     //const CamPose& poseCur = mpView2->mPose;
     //const CamPose& poseKFLatest = mpKFLatest->mPose;
     //// T_{n|m} = T_{n|1} T_{1|m} = T_{n|1} T_{m|1}^{-1}
     //CamPose poseKFLatestInv = poseKFLatest.getCamPoseInv();
     //CamPose poseRelative = poseCur * poseKFLatestInv;
-    // TODO: check large motion between current frame and last keyframe
-    if (mvMatches2Dto3D.size() < 250) {
-        return true;
+    // check large motion between current frame and last keyframe
+    if (nInliers < 200) {
+        bQualified = true;
     }
-    return false;
+    return bQualified;
 }
 
 void Tracker::addNewKeyFrame()

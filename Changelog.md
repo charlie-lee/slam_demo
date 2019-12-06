@@ -2,11 +2,19 @@
 
 ## TODO
 - Low priority TODOs
-  - Add trajectory visialization mode (TODO)
+  - Add trajectory visualization mode (TODO)
   - Check why mask info not utilized by knnMatch() for feature matching (TODO)
+- Review orientation check procedure used in feature matching schemes
 
 ## Latest Version
 
+## v0.6.1
+- Some minor update on class designs for more robust code
+- Remove obsolete code on keyframe trajectory recording
+- Bug fixes:
+  - Fix a bug that, when removing a keyframe, the connections of its related 
+    keyframes are not correctly updated
+    
 ## v0.6.0
 - FeatureMatcher: 
   - Add ROI-based feature matching scheme: for each feature in one frame,
@@ -21,7 +29,7 @@
     feature matching scheme with a large Hamming distance threshold 
     (64 currently) (contribute most to performance boost)
   - Increase the baseline for a valid map point: higher tracked-to-visible
-    ratio  (0.6 currently)
+    ratio (0.6 currently)
   - Create new keyframe more frequently: as long as there're less than
     250 2D-to-3D matches in the tracker for each frame
   - Try to detect and suppress pose outlier for each frame by thresholding on 

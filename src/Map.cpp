@@ -24,6 +24,8 @@ using std::set;
 using std::shared_ptr;
 using std::vector;
 
+// example:
+// - 0.75: map point should be tracked at least 3 times consecutively (>= 3/4)
 const float Map::TH_MIN_RATIO_TRACKED_TO_VISIBLE = 0.6f;
 const unsigned Map::TH_MAX_NUM_FRMS_LAST_SEEN = 10000;
 
@@ -88,7 +90,6 @@ void Map::updateKFData(const std::shared_ptr<KeyFrame>& pKF, int cnt)
         it->second += cnt;
         // remove redundant frame with no observed map points
         if (it->second == 0) {
-            mspKFsOpt.insert(pKF);
             mmpKFs.erase(pKF);
         }
     }
@@ -98,7 +99,6 @@ void Map::clear()
 {
     mspMPts.clear();
     mmpKFs.clear();
-    mspKFsOpt.clear();
 }
 
 void Map::removeMPts()
@@ -147,15 +147,6 @@ void Map::scaleToDepth(float depth) const
         Xw /= depth;
         pMPt->setX3D(Xw);
     }    
-}
-
-std::set<std::shared_ptr<KeyFrame>> Map::transferKFsOpt()
-{
-    set<shared_ptr<KeyFrame>> spKFsOpt = mspKFsOpt;
-    // remove frame data from the map
-    mspKFsOpt.clear();
-    // transfer the frame data to System
-    return spKFsOpt;
 }
 
 void Map::removeMPt(std::shared_ptr<MapPoint>& pMPt)

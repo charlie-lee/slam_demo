@@ -8,12 +8,11 @@
 #ifndef FEATURE_MATCHER_HPP
 #define FEATURE_MATCHER_HPP
 
-//#include <map> // temp
 #include <memory>
 #include <vector>
 
 #include <opencv2/features2d.hpp>
-#include "MapPoint.hpp" // temp
+#include "MapPoint.hpp"
 
 namespace SLAM_demo {
 
@@ -25,7 +24,7 @@ class FrameBase;
  * @brief Provide feature matching operations between 2D/3D points.
  */
 class FeatureMatcher {
-public: // public members
+public: // public member functions
     /**
      * @brief Constructor of the class.
      * @param[in] thDistMatchMax    Max pixel distance between 2 matched points.
@@ -121,7 +120,7 @@ public: // public members
         const std::shared_ptr<FrameBase>& pF2,
         const std::vector<std::shared_ptr<MapPoint>>& vpMPts,
         bool bBindMPts = true) const;
-private: // private data
+private: // private members
     /// Feature matcher.
     std::shared_ptr<cv::DescriptorMatcher> mpFeatMatcher;
     float mThDistMatchMax; ///< Max pixel distance between 2 matched points.
@@ -130,7 +129,7 @@ private: // private data
     float mThRatioTest;
     float mThAngMatchMax; ///< Max angle difference between 2 matched keypoints.
     int mThDistDescMax; ///< Max descriptor distance between 2 descriptors.
-private: // private members
+private: // private member functions
     /**
      * @brief Filter valid feature matching result.
      * @param[in] vvMatches21 A vector of vector of cv::DMatch matches.

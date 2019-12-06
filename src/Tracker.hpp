@@ -58,7 +58,7 @@ class Optimizer;
  *      the system.
  */
 class Tracker {
-public: // public data
+public: // public members
     /// Tracking state.
     enum class State {
         /// Map is not initialized. Using 2D-2D matches for pose estimation.
@@ -68,7 +68,7 @@ public: // public data
     };
     /// The 1st frame in the initialized SLAM system.
     static unsigned n1stFrame;
-public: // public members
+public: // public member functions
     /**
      * @brief Constructor.
      * @param[in] eMode        See System::Mode for more information.
@@ -95,7 +95,7 @@ public: // public members
     int getIdxLastPose() const { return mvTs.size() - 1; }
     /// Get camera pose of a target frame relative to 1st frame.
     CamPose getAbsPose(int nIdx) const { return mvTs[nIdx]; }
-private: // private data
+private: // private members
     /// Selection result of the better transformation from F and H.
     enum class FHResult {F, H, NONE /**< Neither H nor F is appropriate. */};
     /// Max ratio of reprojection error of F to that of H.
@@ -296,7 +296,7 @@ private: // private member functions
     /// Update visibility counter of all existed map points for current view.
     void updateMPtTrackedData() const;
     /// Check whether current frame is qualified as keyframe.
-    bool qualifiedAsKeyFrame() const;
+    bool qualifiedAsKeyFrame(int nInliers) const;
     /// Add current frame as new keyframe to the map and local mapper.
     void addNewKeyFrame();
 };

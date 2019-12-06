@@ -23,7 +23,7 @@ class MapPoint;
  * @brief Store the observed map of the SLAM system.
  */
 class Map {
-public: // public members
+public: // public member functions
     /// Default constructor.
     Map() = default;
     /// Add a point into the map.
@@ -55,7 +55,7 @@ public: // public members
      *        further optimization to the System.
      */
     std::set<std::shared_ptr<KeyFrame>> transferKFsOpt();
-private: // private data
+private: // private members
     /**
      * @brief Minimum tracked-to-visible ratio (ratio of the number of times
      *        being matched to the number of times being seen).
@@ -67,14 +67,7 @@ private: // private data
     std::set<std::shared_ptr<MapPoint>> mspMPts;
     /// A map of (related frame, number of observed map points) pairs.
     std::map<std::shared_ptr<KeyFrame>, int> mmpKFs;
-    /**
-     * @brief A set of frames whose poses are optimized.
-     * @note The frames are removed from the map, so no further optimization
-     *       is available. After the System fetches these frames, they will
-     *       be removed from the Map object.
-     */
-    std::set<std::shared_ptr<KeyFrame>> mspKFsOpt;
-private: // private members
+private: // private member functions
     /// Remove a point from the map.
     void removeMPt(std::shared_ptr<MapPoint>& pMPt);
 };

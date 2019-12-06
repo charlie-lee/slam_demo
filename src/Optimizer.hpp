@@ -25,7 +25,7 @@ class Map;
  * @brief Optimize pose & map data by bundle adjustment.
  */
 class Optimizer {
-public: // public members
+public: // public member functions
     /// Constructor.
     Optimizer(const std::shared_ptr<Map>& pMap);
     /**
@@ -67,14 +67,14 @@ public: // public members
      */
     void localBundleAdjustment(const std::shared_ptr<KeyFrame>& pKFin,
                                int nIter = 20, bool bRobust = true) const;
-private: // private data
+private: // private members
     /// Pointer to the map.
     std::shared_ptr<Map> mpMap;
     /// Minimum number of map points for optimization.
     static const int TH_MIN_NUM_MAPPOINT;
     /// Threshold on edge's chi2 factor.
     static const float TH_MAX_CHI2_FACTOR;
-private: // private members
+private: // private member functions
     /**
      * @name Conversion functions between cv::Mat & g2o vertices data
      */

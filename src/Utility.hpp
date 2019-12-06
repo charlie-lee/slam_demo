@@ -25,13 +25,13 @@ class FrameBase;
  * @brief Some general operations.
  */
 class Utility {
-public: // public data
+public: // public members
     /// Reprojection error computation scheme.
     enum class ReprojErrScheme {
         F, ///< Fundamental matrix as reprojection transformation.
         H, ///< Homography as reprojection transformation.
     };
-public: // public members
+public: // public member functions
     Utility() = default;
     /** 
      * @brief Check whether a \f$2 \times 1\f$ cv::Mat point is inside 

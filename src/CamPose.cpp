@@ -133,11 +133,11 @@ CamPose& CamPose::operator*=(const CamPose& rhs)
     Mat RcwR = rhs.getRotation();
     Mat tcwR = rhs.getTranslation();
     // (4*4 matrix) T_L * T_R = [R_L*R_R, R_L*t_R + t_L; 0^T, 1] 
-    setPose(RcwL*RcwR, RcwL*tcwR + tcwL);
+    this->setPose(RcwL*RcwR, RcwL*tcwR + tcwL);
     return *this;
 }
 
-CamPose CamPose::operator*(const CamPose& rhs) const
+const CamPose CamPose::operator*(const CamPose& rhs) const
 {
     CamPose ret = *this;
     ret *= rhs;

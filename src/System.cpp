@@ -92,9 +92,6 @@ void System::trackImgs(const std::vector<cv::Mat>& vImgs, double timestamp)
         // already initialized
         CamPose pose = mpTracker->getAbsPose(nIdx);
         saveTrajectoryRT(timestamp, pose);
-        // save trajectory (final optimized)
-        //bool bFuseRestData = false;
-        //saveTrajectoryOpt(bFuseRestData);
     } else if (eState == Tracker::State::LOST) {
         if (System::nLostFrames > System::TH_MAX_LOST_FRAMES) {
             mpTracker->setState(Tracker::State::NOT_INITIALIZED);
@@ -114,8 +111,7 @@ void System::dumpTrajectory(DumpMode eMode)
         pTrajectory = &mmTrajectoryRT;
     } else if (eMode == DumpMode::OPTIMIZED) {
         ofs.open("trajectoryOpt.txt");
-        bool bFuseRestData = false; //true;
-        saveTrajectoryOpt(bFuseRestData);
+        saveTrajectoryOpt();
         pTrajectory = &mmTrajectoryOpt;
     }
     // format: timestamp tx ty tz qx qy qz qw
@@ -153,19 +149,9 @@ void System::saveTrajectoryRT(double timestamp, const CamPose& pose)
     mmTrajectoryRT.insert({timestamp, pose});
 }
 
-void System::saveTrajectoryOpt(bool bFuseRestData)
+void System::saveTrajectoryOpt()
 {
-    //set<shared_ptr<KeyFrame>>* pspKFs;
     vector<shared_ptr<KeyFrame>> vpKFs = mpMap->getAllKFs();
-    //set<shared_ptr<KeyFrame>> spKFs(vpKFs.cbegin(), vpKFs.cend());
-    //set<shared_ptr<KeyFrame>> spKFsOpt = mpMap->transferKFsOpt();
-    //if (!bFuseRestData) {
-    //    // add rest poses to the optimized trajectory
-    //    pspKFs = &spKFs;
-    //} else {
-    //    pspKFs = &spKFsOpt;
-    //}
-    //vector<shared_ptr<KeyFrame>> vpKFs = mpMap->getAllKFs();
     for (const auto& pKF : vpKFs) {
         double timestamp = pKF->timestamp();
         CamPose pose = pKF->mPose;

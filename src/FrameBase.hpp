@@ -26,10 +26,10 @@ class MapPoint;
  * @brief Base class for storing data of an input frame.
  */
 class FrameBase {
-public: // public data
+public: // public members
     /// Relative camera pose \f$T_{cw,k|k-1}\f$ of the current frame.
     CamPose mPose; 
-public: // public members
+public: // public member functions
     /**
      * @brief Constructor of the FrameBase class.
      * @param[in] timestamp Timestamp info of current frame.
@@ -100,7 +100,7 @@ public: // public members
      */
     std::vector<int> featuresInRange(const cv::Mat& xIn, float angleIn,
                                      float radiusDist, float angleDiff) const;
-protected: // protected members
+protected: // protected member functions
     /**
      * @brief Check whether an input angle is within the range of a base angle.
      * @param[in] angleIn   Input angle (degree).
@@ -109,7 +109,7 @@ protected: // protected members
      * @return True if @p angleIn is within the range of @p angleBase.
      */
     bool isAngleInRange(float angleIn, float angleBase, float maxDiff) const;
-protected: // protected data for usage of derived classes
+protected: // protected members for usage of derived classes
     double mTimestamp; ///< Timestamp info for the current frame.
     std::vector<cv::KeyPoint> mvKpts; ///< Keypoint data of the current frame.
     /// Feature descriptors. Row \f$i\f$ for \f$i\f$th descriptor.

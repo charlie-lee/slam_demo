@@ -27,7 +27,7 @@ class MapPoint;
  * @brief Store keyframe info for local mapper and tracker.
  */
 class KeyFrame : public FrameBase {
-public: // public members
+public: // public member functions
     /**
      * @brief Constructor of the KeyFrame class. Construct keyframe from
      *        normal frames.
@@ -66,7 +66,12 @@ public: // public members
     std::vector<std::shared_ptr<KeyFrame>> getRelatedKFs() const;
     /// Clear connection data of this KF and update that of all related KFs.
     void clearConnectionData();
-private: // private data
+private: // private member functions
+    /// Do not allow copying.
+    KeyFrame(const KeyFrame& rhs) = delete;
+    /// Do not allow copy-assignment.
+    KeyFrame& operator=(const KeyFrame& rhs) = delete;
+private: // private members
     /// Minimum weight (common map points) between 2 keyframes.
     static const int TH_MIN_WEIGHT;
     unsigned mnIdx; ///< Keyframe index.
