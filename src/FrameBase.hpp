@@ -13,6 +13,7 @@
 #include <vector>
 
 #include <opencv2/core.hpp>
+#include <opencv2/flann.hpp>
 #include <opencv2/features2d.hpp>
 #include "CamPose.hpp"
 
@@ -116,6 +117,10 @@ protected: // protected members for usage of derived classes
     cv::Mat mDescs;
     /// Matched keypoint indices and their corresponding map points.
     std::map<int, std::shared_ptr<MapPoint>> mmpMPts;
+    cv::Mat mx2Ds; ///< Image coordinates for keypoints of the current frame,
+    /// K-D tree of keypoint positions for optimizing keypoint search time.
+    std::shared_ptr<
+        cv::flann::GenericIndex<cv::flann::L2_Simple<float>>> mpKDTree;
 };
 
 } // namespace SLAM_demo
