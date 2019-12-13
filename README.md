@@ -6,6 +6,7 @@ A Simultaneous Localization and Mapping (SLAM) demo application.
 - [OpenCV](https://opencv.org/)
 - [Eigen](http://eigen.tuxfamily.org)
 - [g2o](https://github.com/RainerKuemmerle/g2o) & its dependencies
+- [nanoflann](https://github.com/jlblancoc/nanoflann)
 - [Doxygen](http://www.doxygen.nl/) (optional)
 
 ## Build Programs & Documentations

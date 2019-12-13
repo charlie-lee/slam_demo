@@ -5,6 +5,7 @@
  * @date   2019.08.05
  */
 
+#include <chrono> // timer-related
 #include <iostream>
 #include <memory>
 #include <string>
@@ -61,9 +62,12 @@ int main(int argc, char** argv)
         tsScale = stod(stsScale);
     }
     CamDataLoader cdl(argv[2], argv[3], tsScale);
+    int nFrames = cdl.getNFrames();
 
     // load each frame and its corresponding timestamp into the SLAM system
-    for (int ni = 0; ni < cdl.getNFrames(); ni++) {
+    std::chrono::duration<double> duration =
+        std::chrono::duration<double>::zero();
+    for (int ni = 0; ni < nFrames; ni++) {
         cv::Mat img;
         img = cdl.loadImg(ni, CamDataLoader::View::MONO);
         assert(img.cols == SLAM_demo::Config::width() &&
@@ -72,10 +76,18 @@ int main(int argc, char** argv)
         vector<cv::Mat> vImgs;
         vImgs.reserve(1);
         vImgs.push_back(img);
+        
+        // invoke SLAM system and compute FPS
+        auto start = std::chrono::high_resolution_clock::now();
         pSLAM->trackImgs(vImgs, cdl.getTimestamp(ni));
+        auto end = std::chrono::high_resolution_clock::now();
+        duration += end - start;
     }
     // dump SLAM results (both real-time and final-optimized)
     pSLAM->dumpTrajectory(SLAM_demo::System::DumpMode::REAL_TIME);
     pSLAM->dumpTrajectory(SLAM_demo::System::DumpMode::OPTIMIZED);
+    
+    // display FPS data
+    cout << "FPS: " << nFrames / duration.count() << endl;
     return 0;
 }

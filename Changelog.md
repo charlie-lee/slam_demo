@@ -5,12 +5,13 @@
   - Add trajectory visualization mode (TODO)
   - Check why mask info not utilized by knnMatch() for feature matching (TODO)
 - Review orientation check procedure used in feature matching schemes
-- Speedup keypoint candidate search: 
-  - Use K-D tree (flann) to store keypoint positions
-  - Perform radius search to get first candidates (and then filter by angles)
-  - Need to store K-D tree & keypoint position data in FrameBase class
 
 ## Latest Version
+
+## v0.6.2
+- Add nearest neighbor search for candidate keypoints using K-D tree 
+  during feature matching schemes (use nanoflann's implementation)
+- Add timer for mono_vo example
 
 ## v0.6.1
 - Some minor update on class designs for more robust code

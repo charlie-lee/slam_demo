@@ -9,15 +9,20 @@
 
 #include <memory>
 
+#include <nanoflann.hpp>
 #include <opencv2/core.hpp>
-#include <opencv2/features2d.hpp>
+#include <opencv2/core/eigen.hpp> // cv::cv2eigen()
 #include <opencv2/calib3d.hpp> // cv::undistortPoints()
+#include <opencv2/features2d.hpp>
+#include <opencv2/flann.hpp>
+#include <Eigen/Dense>
 #include "Config.hpp"
 #include "FrameBase.hpp"
 #include "MapPoint.hpp"
 
 namespace SLAM_demo {
 
+using std::make_shared;
 using std::shared_ptr;
 using std::vector;
 using cv::Mat;
@@ -40,7 +45,13 @@ Frame::Frame(const cv::Mat& img, double timestamp) :
         0, 2, cv::ORB::HARRIS_SCORE,
         31, // patchSize
         20); // FAST threshold
+    // extract image features and get keypoint positions (mx2Ds)
     extractFeatures(img);
+    // construct K-D tree
+    mpKDTree = make_shared<nanoflannKDTree>(2 /* dim */,
+                                            std::cref(*mpx2Ds),
+                                            20 /* max leaf */);
+    mpKDTree->index->buildIndex();
 }
 
 void Frame::extractFeatures(const cv::Mat& img)
@@ -106,7 +117,7 @@ void Frame::extractFeatures(const cv::Mat& img)
             }
         }
     }
-    // undistort keypoint coordinates
+    // undistort keypoint coordinates and construct mx2Ds
     undistortKpts();
 }
 
@@ -121,12 +132,16 @@ void Frame::undistortKpts()
     // undistort keypoints
     cv::undistortPoints(kpts, kpts, Config::K(), Config::distCoeffs(),
                         cv::noArray(), Config::K());
-    kpts.reshape(1); // reshape output to 1 channel (currently 2 channels)
+    kpts = kpts.reshape(1); // reshape to 1 channel (currently 2 channels)
     // update keypoint coordinates (no out-of-border keypoint filtering)
     for (unsigned i = 0; i < mvKpts.size(); ++i) {
         mvKpts[i].pt.x = kpts.at<float>(i, 0);
         mvKpts[i].pt.y = kpts.at<float>(i, 1);
     }
+    // put keypoint coordinates into mx2Ds for keypoint searching scheme
+    mpx2Ds = make_shared<Eigen::MatrixX2f>();
+    mpx2Ds->resize(kpts.rows, kpts.cols);
+    cv::cv2eigen(kpts, *mpx2Ds);
 }
 
 } // namespace SLAM_demo

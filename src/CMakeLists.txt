@@ -23,6 +23,7 @@ target_link_libraries(${PROJECT_NAME}
   g2o_solver_cholmod
   g2o_solver_csparse
   g2o_types_sba
+  nanoflann::nanoflann # nanoflann
   )
 
 target_compile_options(${PROJECT_NAME} PRIVATE

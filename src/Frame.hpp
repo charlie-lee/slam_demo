@@ -63,6 +63,7 @@ private: // private member functions
     /**
      * @brief Undistort keypoint coordinates based on camera intrinsics and
      *        distortion coefficients.
+     * @note cv::Mat @p mx2Ds is updated with undistorted keypoint coordinates.
      */
     void undistortKpts();
 };

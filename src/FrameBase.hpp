@@ -12,9 +12,11 @@
 #include <memory>
 #include <vector>
 
+#include <nanoflann.hpp>
 #include <opencv2/core.hpp>
-#include <opencv2/flann.hpp>
 #include <opencv2/features2d.hpp>
+#include <opencv2/flann.hpp>
+#include <Eigen/Dense>
 #include "CamPose.hpp"
 
 namespace SLAM_demo {
@@ -111,16 +113,20 @@ protected: // protected member functions
      */
     bool isAngleInRange(float angleIn, float angleBase, float maxDiff) const;
 protected: // protected members for usage of derived classes
+    using nanoflannKDTree =
+        nanoflann::KDTreeEigenMatrixAdaptor<Eigen::MatrixX2f,
+                                            2, // data dimension
+                                            nanoflann::metric_L2_Simple>;
     double mTimestamp; ///< Timestamp info for the current frame.
     std::vector<cv::KeyPoint> mvKpts; ///< Keypoint data of the current frame.
     /// Feature descriptors. Row \f$i\f$ for \f$i\f$th descriptor.
     cv::Mat mDescs;
     /// Matched keypoint indices and their corresponding map points.
     std::map<int, std::shared_ptr<MapPoint>> mmpMPts;
-    cv::Mat mx2Ds; ///< Image coordinates for keypoints of the current frame,
+    /// Image coordinates (Nx2, Eigen) for keypoints of the current frame.
+    std::shared_ptr<Eigen::MatrixX2f> mpx2Ds;
     /// K-D tree of keypoint positions for optimizing keypoint search time.
-    std::shared_ptr<
-        cv::flann::GenericIndex<cv::flann::L2_Simple<float>>> mpKDTree;
+    std::shared_ptr<nanoflannKDTree> mpKDTree;
 };
 
 } // namespace SLAM_demo

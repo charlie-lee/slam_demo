@@ -9,7 +9,7 @@ endif()
 
 # set up top-level project
 project(slam_demo
-  VERSION 0.6.1
+  VERSION 0.6.2
   DESCRIPTION "SLAM demo"
   LANGUAGES CXX)
 
@@ -41,6 +41,8 @@ find_package(G2O REQUIRED)
 # doxygen for documentation
 find_package(Doxygen QUIET
   REQUIRED COMPONENTS dot)
+# nanoflann for KNN search on keypoint candidates
+find_package(nanoflann)
 
 
 # add sub directories

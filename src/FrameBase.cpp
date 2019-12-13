@@ -11,6 +11,7 @@
 
 #include <opencv2/core.hpp>
 #include <opencv2/features2d.hpp>
+#include <opencv2/flann.hpp>
 #include "Config.hpp"
 #include "MapPoint.hpp"
 
@@ -21,7 +22,7 @@ using std::vector;
 using cv::Mat;
 
 FrameBase::FrameBase(double timestamp) :
-    mTimestamp(timestamp)
+    mTimestamp(timestamp), mpKDTree(nullptr)
 {
 }
 
@@ -30,7 +31,9 @@ FrameBase::FrameBase(const FrameBase& rhs) :
     mTimestamp(rhs.mTimestamp),
     mvKpts(rhs.mvKpts),
     mDescs(rhs.mDescs.clone()), // clone() necessary??
-    mmpMPts(rhs.mmpMPts)
+    mmpMPts(rhs.mmpMPts),
+    mpx2Ds(rhs.mpx2Ds),
+    mpKDTree(rhs.mpKDTree)
 {
 }
 
@@ -41,6 +44,8 @@ FrameBase& FrameBase::operator=(const FrameBase& rhs)
     mvKpts = rhs.mvKpts;
     mDescs = rhs.mDescs.clone(); // clone() necessary??
     mmpMPts = rhs.mmpMPts;
+    mpx2Ds = rhs.mpx2Ds;
+    mpKDTree = rhs.mpKDTree;
     return *this;
 }
 
@@ -116,21 +121,43 @@ std::vector<int> FrameBase::featuresInRange(const cv::Mat& xIn,
     vKptIndices.reserve(mvKpts.size());
     float x = xIn.at<float>(0);
     float y = xIn.at<float>(1);
-    // traverse each keypoint for valid ones
-    for (int i = 0; i < nKpts; ++i) {
-        const auto& kpt = mvKpts[i];
-        // check distance between input and target keypoint
-        float distSq = (kpt.pt.x - x) * (kpt.pt.x - x) +
-            (kpt.pt.y - y) * (kpt.pt.y - y);
-        if (distSq > radiusDist * radiusDist) {
-            continue; // ignore keypoint too distant from input keypoint
+    bool bUseKDTree = true;
+    if (bUseKDTree) { // use K-D tree for keypoint searching if available
+        float arrxIn[2] = {x, y};
+        vector<std::pair<long int, float>> vIdxnDist;
+        vIdxnDist.reserve(mvKpts.size());
+        nanoflann::SearchParams params;
+        params.sorted = false;
+        // radius search (squared distance)
+        int nFound = mpKDTree->index->radiusSearch(
+            arrxIn, radiusDist*radiusDist, vIdxnDist, params);
+        for (int idx = 0; idx < nFound; ++idx) {
+            int i = vIdxnDist[idx].first; // keypoint index
+            // check orientation of target keypoint
+            const auto& kpt = mvKpts[i];
+            if (!isAngleInRange(kpt.angle, angleIn, angleDiff)) {
+                continue;
+            }
+            // add valid keypoints to the result vector
+            vKptIndices.push_back(i);
         }
-        // check orientation of target keypoint
-        if (!isAngleInRange(kpt.angle, angleIn, angleDiff)) {
-            continue;
+    } else {
+        // traverse each keypoint for valid ones
+        for (int i = 0; i < nKpts; ++i) {
+            const auto& kpt = mvKpts[i];
+            // check distance between input and target keypoint
+            float distSq = (kpt.pt.x - x) * (kpt.pt.x - x) +
+                (kpt.pt.y - y) * (kpt.pt.y - y);
+            if (distSq > radiusDist * radiusDist) {
+                continue; // ignore keypoint too distant from input keypoint
+            }
+            // check orientation of target keypoint
+            if (!isAngleInRange(kpt.angle, angleIn, angleDiff)) {
+                continue;
+            }
+            // add valid keypoints to the result vector
+            vKptIndices.push_back(i);
         }
-        // add valid keypoints to the result vector
-        vKptIndices.push_back(i);
     }
     return vKptIndices;
 }
