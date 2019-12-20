@@ -26,6 +26,10 @@ class Map {
 public: // public member functions
     /// Default constructor.
     Map() = default;
+    /// Do not allow copying.
+    Map(const Map& rhs) = delete;
+    /// Do not allow copy-assignment.
+    Map& operator=(const Map& rhs) = delete;
     /// Add a point into the map.
     void addMPt(const std::shared_ptr<MapPoint>& pMPt);
     /// Get all map points from the map.

@@ -32,7 +32,12 @@ public: // public members
         H, ///< Homography as reprojection transformation.
     };
 public: // public member functions
+    /// Default constructor.
     Utility() = default;
+    /// Do not allow copying.
+    Utility(const Utility& rhs) = delete;
+    /// Do not allow copy-assignment.
+    Utility& operator=(const Utility& rhs) = delete;
     /** 
      * @brief Check whether a \f$2 \times 1\f$ cv::Mat point is inside 
      *        the border of an undistorted image.

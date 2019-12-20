@@ -40,6 +40,10 @@ public: // public member functions
     /// Constructor of the class.
     LocalMapper(const std::shared_ptr<Map>& pMap,
                 const std::shared_ptr<Optimizer>& pOptimizer);
+    /// Do not allow copying.
+    LocalMapper(const LocalMapper& rhs) = delete;
+    /// Do not allow copy-assignment.
+    LocalMapper& operator=(const LocalMapper& rhs) = delete;
     /// Core function for all the related tasks.
     void run();
     /// Insert a keyframe to the back of the list of new keyframes.

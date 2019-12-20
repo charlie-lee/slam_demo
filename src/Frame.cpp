@@ -50,7 +50,7 @@ Frame::Frame(const cv::Mat& img, double timestamp) :
     // construct K-D tree
     mpKDTree = make_shared<nanoflannKDTree>(2 /* dim */,
                                             std::cref(*mpx2Ds),
-                                            20 /* max leaf */);
+                                            10 /* max leaf */);
     mpKDTree->index->buildIndex();
 }
 
@@ -66,6 +66,7 @@ void Frame::extractFeatures(const cv::Mat& img)
     cv::copyMakeBorder(img, imgFull, TH_EDGE, TH_EDGE, TH_EDGE, TH_EDGE,
                        cv::BORDER_REFLECT_101);
     int nBlkHeight = nImgHeight / NUM_BLK_Y;
+    unsigned nMinKpts = Config::nFeatures() / (NUM_BLK_X * NUM_BLK_Y) / 2;
     for (int i = 0; i < NUM_BLK_Y; ++i) {
         int nBlkWidth = nImgWidth / NUM_BLK_X;
         int nBlkTLY = nBlkHeight * i; // top-left y coord of a block
@@ -81,27 +82,28 @@ void Frame::extractFeatures(const cv::Mat& img)
             int nW = nBlkWidth + 2*TH_EDGE;
             int nH = nBlkHeight + 2*TH_EDGE;
             // copy border if ROI exceeds image border
-            cv::Rect roi = cv::Rect(nBlkTLX, nBlkTLY, nW, nH);
-            Mat imgROI = imgFull(roi).clone();
+            cv::Rect roi(nBlkTLX, nBlkTLY, nW, nH);
+            Mat imgROI = imgFull(roi);//.clone();
             
-            // feature extraction (multi passes)
+            // keypoint extraction (multi passes)
             vector<cv::KeyPoint> vKpts;
-            Mat descs;
-            //mpFeatExtractor->detectAndCompute(
-            //    imgROI, cv::noArray(), vKpts, descs);
-            // re-extract features using half FAST threhold
-            // if there are not enough features
             std::shared_ptr<cv::ORB> pORB =
                 std::dynamic_pointer_cast<cv::ORB>(mpFeatExtractor);
             int thFAST = pORB->getFastThreshold();
             int thFASTtmp = thFAST;
-            while (vKpts.empty() && thFASTtmp > 10) {
-                pORB->detectAndCompute(
-                    imgROI, cv::noArray(), vKpts, descs);
+            // re-extract features using half FAST threhold
+            // if there are not enough features
+            while (vKpts.size() < nMinKpts && thFASTtmp > 10) {
+                pORB->detect(imgROI, vKpts, cv::noArray());
+                //pORB->detectAndCompute(
+                //    imgROI, cv::noArray(), vKpts, descs);
                 thFASTtmp -= 5;
                 pORB->setFastThreshold(thFASTtmp);
             }
             pORB->setFastThreshold(thFAST); // restore FAST threhold value
+            // feature computation
+            Mat descs;
+            pORB->compute(imgROI, vKpts, descs);
             
             // map local keypoint coords to global image coords
             for (cv::KeyPoint& kpt : vKpts) {

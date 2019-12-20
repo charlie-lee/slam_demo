@@ -53,6 +53,10 @@ public: // public member functions
      * @param[in] eMode SLAM system mode (see System::Mode for details).
      */
     System(Mode eMode);
+    /// Do not allow copying.
+    System(const System& rhs) = delete;
+    /// Do not allow copy-assignment.
+    System& operator=(const System& rhs) = delete;
     /**
      * @brief Track input images.
      * @param[in] vImgs     A vector of input images captured with the same

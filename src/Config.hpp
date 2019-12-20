@@ -49,6 +49,10 @@ struct FeatExtParameters {
 class Config {
 public: // public member functions
     friend std::ostream& operator<<(std::ostream& os, const Config& cfg);
+    /// No copy is allowed.
+    Config(const Config&) = delete; 
+    /// No copy-assignment is allowed.
+    Config& operator=(const Config&) = delete;
     /// Get the only instance of the class.
     static Config& getInstance()
     {
@@ -113,10 +117,6 @@ private: // private members
 private: // private member functions
     /// Constructor that configures all the parsed system parameters.
     Config() = default;
-    /// No copy is allowed.
-    Config(const Config&) = delete; 
-    /// No copy-assignment is allowed.
-    Config& operator=(const Config&) = delete;
     /// Set camera parameters based on loaded cfg file and system mode.
     void setCamParams(const cv::FileStorage& fs, System::Mode eMode);
     /// Set feature extraction parameters based on loaded cfg file.

@@ -121,7 +121,7 @@ std::vector<int> FrameBase::featuresInRange(const cv::Mat& xIn,
     vKptIndices.reserve(mvKpts.size());
     float x = xIn.at<float>(0);
     float y = xIn.at<float>(1);
-    bool bUseKDTree = true;
+    bool bUseKDTree = radiusDist > 0.0f;
     if (bUseKDTree) { // use K-D tree for keypoint searching if available
         float arrxIn[2] = {x, y};
         vector<std::pair<long int, float>> vIdxnDist;
@@ -134,10 +134,10 @@ std::vector<int> FrameBase::featuresInRange(const cv::Mat& xIn,
         for (int idx = 0; idx < nFound; ++idx) {
             int i = vIdxnDist[idx].first; // keypoint index
             // check orientation of target keypoint
-            const auto& kpt = mvKpts[i];
-            if (!isAngleInRange(kpt.angle, angleIn, angleDiff)) {
-                continue;
-            }
+            //const auto& kpt = mvKpts[i];
+            //if (!isAngleInRange(kpt.angle, angleIn, angleDiff)) {
+            //    continue;
+            //}
             // add valid keypoints to the result vector
             vKptIndices.push_back(i);
         }

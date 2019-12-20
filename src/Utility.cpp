@@ -123,9 +123,11 @@ bool Utility::checkTriangulatedPt(const cv::Mat& Xw,
     int o2 = kpt2.octave;
     float th1Reproj = std::pow(s, o1);
     float th2Reproj = std::pow(s, o2);
-    float err1Reproj = cv::norm(x1 - x1Reproj, cv::NORM_L2);
-    float err2Reproj = cv::norm(x2 - x2Reproj, cv::NORM_L2);
-    if (err1Reproj > th1Reproj || err2Reproj > th2Reproj) {
+    float th1ReprojSq = th1Reproj * th1Reproj;
+    float th2ReprojSq = th2Reproj * th2Reproj;
+    float err1Reproj = cv::norm(x1 - x1Reproj, cv::NORM_L2SQR);
+    float err2Reproj = cv::norm(x2 - x2Reproj, cv::NORM_L2SQR);
+    if (err1Reproj > th1ReprojSq || err2Reproj > th2ReprojSq) {
         return false;
     }
     // condition 5: the keypoint pair should meet epipolar constraint
@@ -135,7 +137,7 @@ bool Utility::checkTriangulatedPt(const cv::Mat& Xw,
     Mat x1h = (cv::Mat_<float>(3, 1) << kpt1.pt.x, kpt1.pt.y, 1.f);
     Mat x2h = (cv::Mat_<float>(3, 1) << kpt2.pt.x, kpt2.pt.y, 1.f);
     float errorF2 = computeReprojErr(F21, F12, x1h, x2h, ReprojErrScheme::F);
-    if (errorF2*2.0f > (th1Reproj*th1Reproj + th2Reproj*th2Reproj)) {
+    if (errorF2*2.0f > (th1ReprojSq + th2ReprojSq)) {
         return false;
     }
     return true; // triangulated result is good if all conditions are met    

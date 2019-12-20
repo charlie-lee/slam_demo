@@ -5,8 +5,17 @@
   - Add trajectory visualization mode (TODO)
   - Check why mask info not utilized by knnMatch() for feature matching (TODO)
 - Review orientation check procedure used in feature matching schemes
+- Improve depth estimation of triangulated map points (ATE error high on z-axis)
+- Try to solve tracking loss problem in KITTI's 00 sequence (no matched features 
+  in (flat) dark region: trees)
+- Remove depth scaling code?
 
 ## Latest Version
+- Update some class interfaces on copy behavior
+- Balancing map point removal and keyframe removal rate
+- Simplify map point fusion computation (involve less KFs)
+- Feature extraction: split feature detection and computation, and compute once
+  for the latter one
 
 ## v0.6.2
 - Add nearest neighbor search for candidate keypoints using K-D tree 

@@ -234,19 +234,19 @@ void Tracker::displayFeatMatchResult(int viewPrev, int viewCur) const
     }
     // draw markers on keypoints
     //for (const auto& kpt : vKpts1) {
-    //    if (is2DPtInBorder(Mat(kpt.pt))) {
+    //    if (Utility::is2DPtInBorder(Mat(kpt.pt))) {
     //        cv::drawMarker(imgOut, kpt.pt,
     //                       cv::Scalar(127, 127, 0), // marker color
     //                       cv::MARKER_DIAMOND, // marker shape
     //                       5); // marker size
     //    }
     //}
-    //for (const auto& kpt : vKpts2) {
-    //    if (is2DPtInBorder(Mat(kpt.pt))) {
-    //        cv::drawMarker(imgOut, kpt.pt, cv::Scalar(255, 0, 0),
-    //                       cv::MARKER_SQUARE, 5);
-    //    }
-    //}
+    for (const auto& kpt : vKpts2) {
+        if (Utility::is2DPtInBorder(Mat(kpt.pt))) {
+            cv::drawMarker(imgOut, kpt.pt, cv::Scalar(0, 255, 0),
+                           cv::MARKER_SQUARE, 5);
+        }
+    }
     // draw arrowed lines from keypoints in view 1 to view 2 on matches
     for (unsigned i = 0; i < pvMatches->size(); ++i) {
         const cv::KeyPoint& kpt1 = vKpts1[(*pvMatches)[i].trainIdx];
@@ -600,7 +600,7 @@ Tracker::State Tracker::track()
     // match features between previous (1) and current (2) frame
     shared_ptr<FeatureMatcher> pFMatcher = make_shared<FeatureMatcher>(
         64.0f, false); //true, 0.75f);
-    //64.0f, true, 0.8f, 45, 30);
+    //64.0f, true, 1.0f, 45, 64);
     mvMatches2Dto3D = pFMatcher->match2Dto3D(mpView2, mpView1);
     //mvMatches2Dto3D = pFMatcher->match2Dto3DCustom(mpView2, mpView1);
 
@@ -621,11 +621,11 @@ Tracker::State Tracker::track()
 
     // get all related map points
     mvpMPts = trackLocalMap();
-    pFMatcher = make_shared<FeatureMatcher>(4.0f, true, 1.0f, 15, 64);
+    pFMatcher = make_shared<FeatureMatcher>(4.0f, true, 1.0f, 15, 100);
     mvMatches2Dto3D = pFMatcher->match2Dto3DCustom(mpView2, mvpMPts);
     if (mvMatches2Dto3D.size() < TH_MIN_MATCHES_2D_TO_3D) {
         mvpMPts = mpMap->getAllMPts();
-        pFMatcher = make_shared<FeatureMatcher>(8.0f, true, 0.9f, 45, 64);
+        pFMatcher = make_shared<FeatureMatcher>(8.0f, true, 0.9f, 45, 100);
         //mvMatches2Dto3D = pFMatcher->match2Dto3D(mpView2, mvpMPts);
         mvMatches2Dto3D = pFMatcher->match2Dto3DCustom(mpView2, mvpMPts);
         // Try to find a better initial pose by PnP
@@ -817,7 +817,7 @@ bool Tracker::qualifiedAsKeyFrame(int nInliers) const
     //CamPose poseKFLatestInv = poseKFLatest.getCamPoseInv();
     //CamPose poseRelative = poseCur * poseKFLatestInv;
     // check large motion between current frame and last keyframe
-    if (nInliers < 200) {
+    if (nInliers < 150) {
         bQualified = true;
     }
     return bQualified;

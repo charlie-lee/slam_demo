@@ -34,6 +34,10 @@ public: // public member functions
      * @param[in] pFrame Pointer to the frame.
      */
     KeyFrame(const std::shared_ptr<Frame>& pFrame);
+    /// Do not allow copying.
+    KeyFrame(const KeyFrame& rhs) = delete;
+    /// Do not allow copy-assignment.
+    KeyFrame& operator=(const KeyFrame& rhs) = delete;
     /// Get frame index of current frame.
     unsigned index() const { return mnIdx; }
     /// Get keyframe index.
@@ -66,11 +70,6 @@ public: // public member functions
     std::vector<std::shared_ptr<KeyFrame>> getRelatedKFs() const;
     /// Clear connection data of this KF and update that of all related KFs.
     void clearConnectionData();
-private: // private member functions
-    /// Do not allow copying.
-    KeyFrame(const KeyFrame& rhs) = delete;
-    /// Do not allow copy-assignment.
-    KeyFrame& operator=(const KeyFrame& rhs) = delete;
 private: // private members
     /// Minimum weight (common map points) between 2 keyframes.
     static const int TH_MIN_WEIGHT;

@@ -79,6 +79,10 @@ public: // public member functions
     Tracker(System::Mode eMode, const std::shared_ptr<Map>& pMap,
             const std::shared_ptr<Optimizer>& pOptimizer,
             const std::shared_ptr<LocalMapper>& pLocalMapper);
+    /// Do not allow copying.
+    Tracker(const Tracker& rhs) = delete;
+    /// Do not allow copy-assignment.
+    Tracker& operator=(const Tracker& rhs) = delete;
     /** 
      * @brief Track an input image in System::Mode::MONOCULAR mode.
      * @param[in] img       Input image.

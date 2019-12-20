@@ -78,15 +78,15 @@ void LocalMapper::createNewMapPoints() const
     vector<shared_ptr<KeyFrame>> vpBestConnectedKFs =
         mpKFCur->getBestConnectedKFs(NUM_BEST_KF);
     spKFs.insert(vpBestConnectedKFs.cbegin(), vpBestConnectedKFs.cend());
-    for (const auto& pKF : vpBestConnectedKFs) {
-        vector<shared_ptr<KeyFrame>> vpExtraKFs =
-            pKF->getBestConnectedKFs(NUM_BEST_KF);
-        spKFs.insert(vpExtraKFs.cbegin(), vpExtraKFs.cend());
-    }
+    //for (const auto& pKF : vpBestConnectedKFs) {
+    //    vector<shared_ptr<KeyFrame>> vpExtraKFs =
+    //        pKF->getBestConnectedKFs(NUM_BEST_KF);
+    //    spKFs.insert(vpExtraKFs.cbegin(), vpExtraKFs.cend());
+    //}
     // set 2D-to-2D feature matcher
     shared_ptr<FeatureMatcher> pFMatcher = make_shared<FeatureMatcher>(
-        //10000.0f, false); //true, 0.75f);
-        128.0f, true, 0.8f, 90, 64);
+        128.0f, false); //true, 0.75f);
+    //128.0f, true, 0.8f, 90, 64);
     // check number of newly created map points
     int n2DMatches = 0;
     int nMPts = 0;
@@ -94,8 +94,8 @@ void LocalMapper::createNewMapPoints() const
     for (const auto& pKF : spKFs) {
         // get 2D-to-2D matches
         vector<cv::DMatch> vMatches2Dto2D =
-            //pFMatcher->match2Dto2D(mpKFCur, pKF);
-            pFMatcher->match2Dto2DCustom(mpKFCur, pKF);
+            pFMatcher->match2Dto2D(mpKFCur, pKF);
+        //pFMatcher->match2Dto2DCustom(mpKFCur, pKF);
         // triangulate new map points
         vector<Mat> vXws = Utility::triangulate3DPts(mpKFCur, pKF,
                                                      vMatches2Dto2D);
@@ -114,8 +114,8 @@ void LocalMapper::fuseNewMapPoints() const
     // all connected keyframes
     vector<shared_ptr<KeyFrame>> vpConnectedKFs = mpKFCur->getConnectedKFs();
     spRelatedKFs.insert(vpConnectedKFs.cbegin(), vpConnectedKFs.cend());
-    vector<shared_ptr<KeyFrame>> vpWeakKFs = mpKFCur->getWeakKFs();
-    spRelatedKFs.insert(vpWeakKFs.cbegin(), vpWeakKFs.cend());
+    //vector<shared_ptr<KeyFrame>> vpWeakKFs = mpKFCur->getWeakKFs();
+    //spRelatedKFs.insert(vpWeakKFs.cbegin(), vpWeakKFs.cend());
     // best neighbours of each connected keyframes
     for (const auto& pKF : vpConnectedKFs) {
         vector<shared_ptr<KeyFrame>> vpBestKFs =
@@ -158,7 +158,7 @@ void LocalMapper::removeKeyFrames() const
             }
         }
         float ratioRedundant = static_cast<float>(nRedundant) / spMPts.size();
-        if (ratioRedundant > 0.8f) { // remove data of qualified keyframe
+        if (ratioRedundant > 0.5f) { // remove data of qualified keyframe
             for (const auto& pMPt : spMPts) {
                 pMPt->removeObservation(pKF);
                 pMPt->updateDescriptor();

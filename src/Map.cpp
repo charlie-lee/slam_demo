@@ -26,7 +26,7 @@ using std::vector;
 
 // example:
 // - 0.75: map point should be tracked at least 3 times consecutively (>= 3/4)
-const float Map::TH_MIN_RATIO_TRACKED_TO_VISIBLE = 0.6f;
+const float Map::TH_MIN_RATIO_TRACKED_TO_VISIBLE = 0.2f;
 const unsigned Map::TH_MAX_NUM_FRMS_LAST_SEEN = 10000;
 
 void Map::addMPt(const std::shared_ptr<MapPoint>& pMPt)

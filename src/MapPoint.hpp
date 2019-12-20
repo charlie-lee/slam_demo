@@ -33,6 +33,10 @@ public: // public member functions
      * @param[in] X3D  3D world coordinate as a \f$3 \times 1\f$ matrix.
      */
     MapPoint(const std::shared_ptr<Map>& pMap, const cv::Mat& X3D);
+    /// Do not allow copying.
+    MapPoint(const MapPoint& rhs) = delete;
+    /// Do not allow copy-assignment.
+    MapPoint& operator=(const MapPoint& rhs) = delete;
     /// Get 3D world coordinate.
     cv::Mat X3D() const { return mX3D; }
     /// Get most distinctive descriptor of the point.
@@ -96,11 +100,6 @@ private: // private members
     int mnCntTracked;
     /// Whether the map point is an outlier.
     bool mbOutlier;
-private: // private member functions
-    /// Do not allow copying.
-    MapPoint(const MapPoint& rhs) = delete;
-    /// Do not allow copy-assignment.
-    MapPoint& operator=(const MapPoint& rhs) = delete;
 };
 
 } // namespace SLAM_demo

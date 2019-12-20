@@ -41,6 +41,10 @@ public: // public member functions
      * @param[in] timestamp Timestamp info of current frame.
      */
     Frame(const cv::Mat& img, double timestamp);
+    /// Do not allow copying.
+    Frame(const Frame& rhs) = delete;
+    /// Do not allow copy-assignment.
+    Frame& operator=(const Frame& rhs) = delete;
     /// Get frame index of current frame.
     unsigned index() const { return mnIdx; }
 private: // private members
@@ -54,10 +58,6 @@ private: // private members
     static unsigned nNextIdx; ///< Frame index for next frame.
     std::shared_ptr<cv::Feature2D> mpFeatExtractor; ///< Feature extractor.
 private: // private member functions
-    /// Do not allow copying.
-    Frame(const Frame& rhs) = delete;
-    /// Do not allow copy-assignment.
-    Frame& operator=(const Frame& rhs) = delete;
     /// Extract features from the current frame.
     void extractFeatures(const cv::Mat& img);
     /**

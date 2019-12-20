@@ -28,6 +28,10 @@ class Optimizer {
 public: // public member functions
     /// Constructor.
     Optimizer(const std::shared_ptr<Map>& pMap);
+    /// Do not allow copying.
+    Optimizer(const Optimizer& rhs) = delete;
+    /// Do not allow copy-assignment.
+    Optimizer& operator=(const Optimizer& rhs) = delete;
     /**
      * @brief Global bundle adjustment for pose & map data optimization.
      * @param[in] nKFs    Number of recent keyframes as input to global BA 
